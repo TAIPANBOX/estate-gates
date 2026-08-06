@@ -433,10 +433,12 @@ def run(estate: E.Estate) -> E.Check:
         return c
 
     observed: dict[str, dict] = {}
+    unreachable = 0
     for name in DEPLOYMENTS:
         try:
             estate.dir_of(name)
         except E.Unavailable as u:
+            unreachable += 1
             c.unavailable(
                 f"c5.deployment-unavailable:{name}",
                 f"{name} could not be read in this run ({u.reason}), so it was "
@@ -452,11 +454,23 @@ def run(estate: E.Estate) -> E.Check:
                 f"not the same as it agreeing.",
             )
     if len(observed) < 2:
-        c.missing(
-            "c5.too-few-deployments",
-            f"only {len(observed)} deployment(s) could be read, and parity between "
-            f"fewer than two is not a thing that exists.",
-        )
+        if len(observed) + unreachable < 2:
+            # The shortfall is real: deployments this run COULD open and could
+            # not read. That is a finding about the estate.
+            c.missing(
+                "c5.too-few-deployments",
+                f"only {len(observed)} deployment(s) could be read, and parity "
+                f"between fewer than two is not a thing that exists.",
+            )
+        else:
+            # The shortfall is this run's reach, not the estate's state. Red
+            # here would say the estate is broken when the truth is that
+            # nothing looked, and the two send a reader to different places.
+            c.unavailable(
+                "c5.too-few-reachable",
+                f"only {len(observed)} of the three deployments were reachable in "
+                f"this run, so no parity comparison was made at all.",
+            )
         return c
 
     c.note(

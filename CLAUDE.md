@@ -96,8 +96,16 @@ an absent invariant.
    downgrades its check to PARTIAL, names itself in the summary, and gives the
    run its own exit code. Only repositories `estate.json` records as having no
    public remote may end a run at exit 3.
+
+   The distinction has teeth in both directions. C5 used to report
+   `too-few-deployments` as red when all three deployment repos were merely
+   unreachable, which said the estate was broken when the truth was that
+   nothing had looked.
    *(gate: `selftest.py` removes taipan and requires PARTIAL plus a
-   NOT MEASURED line)*
+   NOT MEASURED line, and separately produces all four of the runner's exit
+   codes from real runs. Exit 3 had never been returned by anything until that
+   test was written, because every real run so far had also found drift, and
+   CI reads the exit code and nothing else.)*
 
 4. **Every failure names BOTH SIDES, with a path a reader can open.** A
    finding that says two things disagree without saying where they live is a

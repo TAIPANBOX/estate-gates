@@ -21,7 +21,8 @@ real git repositories in a temporary directory, proves the six pass, then
 applies one mutation at a time to a fresh copy and requires the matching
 finding to fire.
 
-Three separate properties are proved, and they are not the same property:
+Three properties of the checks are proved, and they are not the same
+property:
 
   1. THE BASELINE IS GREEN. A check that is always red is as useless as one
      that is always green, and rather more annoying.
@@ -36,6 +37,10 @@ And one more that belongs to rule 2 rather than rule 1:
   4. AN UNREADABLE REPOSITORY IS NOT A PASS. A repo estate.json records as
      having no public remote is removed, and the run must come back PARTIAL
      with the repo named, never clean.
+  5. THE EXIT CODES ARE REAL. All four of run-gates.py's exit codes are
+     produced by an actual run. Until this was written, exit 3 had never once
+     been returned by anything, because every real run so far also found
+     drift, and CI reads the exit code and nothing else.
 
 WHAT THIS DOES NOT PROVE
 
@@ -152,6 +157,29 @@ def run_checks(
         verdicts.append(f"{check.key}={check.verdict()}")
         check.render(buffer)
     return seen, verdicts, buffer.getvalue()
+
+
+def run_runner(
+    root: pathlib.Path,
+    registry: pathlib.Path,
+    expectations: pathlib.Path,
+    only: str | None = None,
+) -> int:
+    """`run-gates.py` as a subprocess, for its exit code and nothing else."""
+    import os
+
+    args = [
+        sys.executable,
+        str(HERE / "run-gates.py"),
+        "--root",
+        str(root),
+        "--registry",
+        str(registry),
+    ]
+    if only:
+        args += ["--only", only]
+    env = dict(os.environ, ESTATE_GATES_EXPECTATIONS=str(expectations))
+    return subprocess.run(args, capture_output=True, text=True, env=env).returncode
 
 
 def fired(seen: dict[str, str], ident: str) -> bool:
@@ -678,8 +706,9 @@ def main() -> int:
                         )
 
         # -- 4. an unreadable repository is not a pass ----------------------
+        unavailable_case = work / "unavailable"
         if not problems:
-            case = work / "unavailable"
+            case = unavailable_case
             shutil.copytree(base, case)
             shutil.rmtree(case / "taipan")
             got, verdicts, out = run_checks(case, registry, expectations)
@@ -694,6 +723,36 @@ def main() -> int:
                     "with taipan removed, no check said out loud that something "
                     "went unmeasured."
                 )
+
+        # -- 5. the runner's four exit codes each happen --------------------
+        #
+        # The exit code is what CI reads, and until this was written it was the
+        # one claim in the repository with nothing behind it: exit 3 in
+        # particular had never once been produced by a real run, because every
+        # real run so far also found drift. A documented exit code no run has
+        # ever returned is a comment.
+        if not problems:
+            for label, expect, root, only in [
+                ("a clean, complete estate", 0, base, None),
+                ("an estate that drifted", 1, None, None),
+                ("a repository that should have been reachable", 2, work / "nowhere", None),
+                ("only a repo with no public remote unread", 3, unavailable_case, "c4"),
+            ]:
+                if root is None:  # the drift case needs a broken estate
+                    root = fresh_copy(base, work, 900)
+                    edit(
+                        root,
+                        "genaryx/crates/core/src/schemas/agent-event.v0.2.schema.json",
+                        '"prev_hash"',
+                        '"previous_hash"',
+                    )
+                got = run_runner(root, registry, expectations, only)
+                if got != expect:
+                    problems.append(
+                        f"run-gates.py returned {got} for {label}, and README and "
+                        f"the workflow both say {expect}. CI reads the exit code "
+                        f"and nothing else."
+                    )
     finally:
         shutil.rmtree(work, ignore_errors=True)
 
@@ -716,6 +775,7 @@ def main() -> int:
         f"nobody could"
     )
     print("    read comes back partial rather than clean.")
+    print("    All four of run-gates.py's exit codes were produced by a real run.")
     return 0
 
 
