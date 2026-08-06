@@ -1,0 +1,114 @@
+{
+  "comment": [
+    "The estate, as this repository knows it. Every gate resolves a repository",
+    "through this file and nowhere else, so 'which repos exist' is one edit in",
+    "one place rather than a constant repeated in six scripts.",
+    "",
+    "'github' is the slug --mode clone fetches. null means there is no public",
+    "remote, and 'why_no_remote' says why. A check that needs such a repo does",
+    "not pass: it reports NOT MEASURED, names the repo, and the run ends",
+    "PARTIAL. That is the honest degrade, and it is deliberately visible.",
+    "",
+    "'local' is the directory name beside this one, which is not always the",
+    "GitHub name: Engram, Idryx and Qryx are checked out capitalised."
+  ],
+  "repos": {
+    "agent-passport": {
+      "github": "TAIPANBOX/agent-passport",
+      "local": "agent-passport",
+      "role": "the spec. Canonical schemas and the SPEC.md 6.2 event-type registry."
+    },
+    "agent-stack-go": {
+      "github": "TAIPANBOX/agent-stack-go",
+      "local": "agent-stack-go",
+      "role": "the shared Go module. Wire types, the chain, the pinned cross-language vectors."
+    },
+    "tokenfuse": {
+      "github": "TAIPANBOX/tokenfuse",
+      "local": "tokenfuse",
+      "role": "the money plane. Owns the Breaker wire strings, the price book and the trace Parquet schema."
+    },
+    "verdryx": {
+      "github": "TAIPANBOX/verdryx",
+      "local": "verdryx",
+      "role": "the quality plane. Holds hand-copied mirrors of three tokenfuse constants."
+    },
+    "engram": {
+      "github": "TAIPANBOX/engram",
+      "local": "Engram",
+      "role": "the memory plane. Vendors the event schema as a test fixture and pins the chain vectors."
+    },
+    "idryx": {
+      "github": "TAIPANBOX/idryx",
+      "local": "Idryx",
+      "role": "the identity plane. Consumes the envelope; the registry says it emits nothing into it."
+    },
+    "qryx": {
+      "github": "TAIPANBOX/qryx",
+      "local": "Qryx",
+      "role": "the crypto plane. Emits four event types."
+    },
+    "wardryx": {
+      "github": "TAIPANBOX/wardryx",
+      "local": "wardryx",
+      "role": "the policy plane. Emits seven event types."
+    },
+    "mockryx": {
+      "github": "TAIPANBOX/mockryx",
+      "local": "mockryx",
+      "role": "the simulation plane. Emits three event types."
+    },
+    "heraldyx": {
+      "github": "TAIPANBOX/heraldyx",
+      "local": "heraldyx",
+      "role": "the notifier. Reads the shared log and writes its own dispatch journal in the same envelope."
+    },
+    "genaryx": {
+      "github": "TAIPANBOX/genaryx",
+      "local": "genaryx",
+      "role": "the console. Vendors both event schemas and appends console_command lines to the bus."
+    },
+    "terraform-provider-taipan": {
+      "github": "TAIPANBOX/terraform-provider-taipan",
+      "local": "terraform-provider-taipan",
+      "role": "the Terraform provider. Consumes the shared Go module."
+    },
+    "trailryx": {
+      "github": "TAIPANBOX/trailryx",
+      "local": "trailryx",
+      "role": "the record plane. No check reads it today; see README, uncovered surfaces."
+    },
+    "catalog": {
+      "github": "TAIPANBOX/catalog",
+      "local": "catalog",
+      "role": "the estate's own documentation. No check reads it today."
+    },
+    "stack-up": {
+      "github": "TAIPANBOX/stack-up",
+      "local": "stack-up",
+      "role": "deployment one: compose plus a governance routines timer."
+    },
+    "stack-single": {
+      "github": "TAIPANBOX/stack-single",
+      "local": "stack-single",
+      "role": "deployment two: one box, one compose file."
+    },
+    "stack-k8s": {
+      "github": "TAIPANBOX/stack-k8s",
+      "local": "stack-k8s",
+      "role": "deployment three: Kubernetes manifests."
+    },
+    "taipan": {
+      "github": null,
+      "why_no_remote": "PRIVATE repository with no public remote. CI cannot clone it, so anything it contributes is measured only in a local run.",
+      "local": "taipan",
+      "role": "the CLI. `taipan demo` writes synthetic envelopes attributed to other planes."
+    },
+    "bank-in-a-box": {
+      "github": null,
+      "why_no_remote": "Deliberately has no remote at all (its CLAUDE.md forbids adding one). Local only, by decision.",
+      "local": "bank-in-a-box",
+      "role": "the four-plane integration stand. No check reads it today; its selftest is the model this repo's own selftest follows."
+    }
+  }
+}
