@@ -27,11 +27,17 @@ permissions:
   contents: read
 
 jobs:
-  selftest:
-    # Runs first and on its own: if the checks cannot be shown to fail, their
-    # verdict about the estate is worth nothing, and a green estate report
-    # sitting under a broken self-test is the worst artifact this repository
-    # could produce.
+  gates:
+    # ONE job, deliberately. The self-test runs first as a step, and the gates
+    # step only runs if it passed, which is the ordering that matters: if the
+    # checks cannot be shown to fail, their verdict about the estate is worth
+    # nothing, and a green estate report sitting under a broken self-test is
+    # the worst artifact this repository could produce.
+    #
+    # Two jobs would show that ordering more prettily in the UI and would need
+    # two runner slots. On a free-tier account shared with sixteen other
+    # repositories that is a real cost in queue time, paid for a label. The
+    # whole run is a few seconds of python and a shallow clone of each repo.
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -41,12 +47,6 @@ jobs:
 
       - name: Every check can go red
         run: ./selftest.py
-
-  gates:
-    needs: selftest
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
 
       - name: Run the six cross-repo gates against fresh clones
         id: gates
