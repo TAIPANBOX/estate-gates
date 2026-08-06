@@ -1,0 +1,154 @@
+{
+  "comment": [
+    "Every difference between stack-up, stack-single and stack-k8s that somebody",
+    "has looked at and decided to keep. C5 fails on any divergence NOT recorded",
+    "here, and also on any entry here that is no longer a divergence.",
+    "",
+    "'agreed' per family is the value the three are measured against. It is not",
+    "a majority vote and not an average: it is what the estate says the stack",
+    "is. Changing an 'agreed' value is a decision about the product, not a way",
+    "to make a check pass.",
+    "",
+    "Provenance markers follow the estate convention: @claude is a reading of",
+    "the code and should be re-checked, @yurii is a decision, @measured names",
+    "the run that established it. Everything in this file was written by",
+    "reading the three repositories on 2026-08-06 and is therefore @claude.",
+    "The reasons are the honest state of the estate on that date, which in",
+    "several cases is 'this is a gap, not a decision'. That is deliberate: a",
+    "gap recorded as a gap is still better than a gap nobody wrote down, and",
+    "the entry is what makes it visible enough to close."
+  ],
+  "families": {
+    "routines": {
+      "what": "Governance routines each deployment installs, by canonical kind.",
+      "agreed": [
+        "focus-export",
+        "qryx-trend",
+        "verdryx-drift",
+        "idryx-detect",
+        "mockryx-drill"
+      ],
+      "divergences": {
+        "routines:stack-up:disabled:mockryx-drill": {
+          "recorded": "2026-08-06",
+          "provenance": "@claude",
+          "why": "Deliberate and documented in stack-up/routines.sh: mockryx-drill is opt-in behind --with-drill and never in DEFAULT_ROUTINES, because a fire drill spends real gateway budget against a live box. The other four are safe to run unattended."
+        },
+        "routines:stack-k8s:disabled:mockryx-drill": {
+          "recorded": "2026-08-06",
+          "provenance": "@claude",
+          "why": "Same decision as stack-up, expressed as `suspend: true` on the `drills` CronJob. The operator unsuspends it when they want a drill."
+        },
+        "routines:stack-k8s:absent:focus-export": {
+          "recorded": "2026-08-06",
+          "provenance": "@claude",
+          "why": "A GAP, not a decision. Four of the five governance routines have a CronJob and focus-export does not, so a Kubernetes install produces no focus export at all. stack-k8s's own manifest comment calls it a finding rather than an oversight, which records it without closing it. Recorded here so the day somebody closes it, this entry goes red as stale and gets removed."
+        },
+        "routines:stack-k8s:absent:verdryx-drift": {
+          "recorded": "2026-08-06",
+          "provenance": "@claude",
+          "why": "A GAP being closed right now. stack-k8s main has three CronJobs and no quality-drift, so a Kubernetes install runs no drift detection. A change adding it was sitting uncommitted in the stack-k8s working tree on the day this file was written, which means this entry is expected to go red as STALE shortly. That is the mechanism working: when the CronJob lands on main, delete this entry rather than editing it."
+        },
+        "routines:stack-single:absent:focus-export": {
+          "recorded": "2026-08-06",
+          "provenance": "@claude",
+          "why": "stack-single installs NO governance routine of any kind: no cron, no timer, no supervisor, no periodic compose service. Searched across compose.yaml, install.sh and the whole repo on 2026-08-06. It is the single-box deployment and it brings up the planes without the scheduled work that keeps them producing. This is the largest unrecorded difference of the three and it is a gap, not a decision."
+        },
+        "routines:stack-single:absent:qryx-trend": {
+          "recorded": "2026-08-06",
+          "provenance": "@claude",
+          "why": "See routines:stack-single:absent:focus-export. stack-single schedules nothing."
+        },
+        "routines:stack-single:absent:verdryx-drift": {
+          "recorded": "2026-08-06",
+          "provenance": "@claude",
+          "why": "See routines:stack-single:absent:focus-export. stack-single schedules nothing."
+        },
+        "routines:stack-single:absent:idryx-detect": {
+          "recorded": "2026-08-06",
+          "provenance": "@claude",
+          "why": "See routines:stack-single:absent:focus-export. stack-single schedules nothing."
+        },
+        "routines:stack-single:absent:mockryx-drill": {
+          "recorded": "2026-08-06",
+          "provenance": "@claude",
+          "why": "See routines:stack-single:absent:focus-export. stack-single schedules nothing. Unlike the other four this one is opt-in everywhere, so its absence here matters least."
+        }
+      }
+    },
+    "min_severity": {
+      "what": "The HERALDYX_MIN_SEVERITY default: the floor below which the notifier stays quiet.",
+      "agreed": "high",
+      "divergences": {
+        "min_severity:stack-up:medium": {
+          "recorded": "2026-08-06",
+          "provenance": "@claude",
+          "why": "stack-up is the local developer sandbox on one machine with one operator, where a medium-severity signal is worth reading and there is no mailbox to flood. The two real deployments sit at high. stack-k8s's manifest carries the same reasoning in a comment beside its own value. Read as a decision rather than a gap, but read by me from the code, not stated by anyone: if it is wrong, it is wrong here first."
+        }
+      }
+    },
+    "ports": {
+      "what": "The fixed local port each component listens on. Two deployments putting the same component on different ports is what makes a runbook wrong.",
+      "agreed": {
+        "tokenfuse-gateway": 4100,
+        "tokenfuse-cloud": 8080,
+        "wardryx": 8090,
+        "idryx": 8081,
+        "console": 7420,
+        "policy-db": 5432,
+        "dashboard": 3000
+      },
+      "divergences": {
+        "ports:stack-k8s:unagreed:genaryx-console-lb=443": {
+          "recorded": "2026-08-06",
+          "provenance": "@claude",
+          "why": "Not a component port: `genaryx-console-lb` is a LoadBalancer Service in front of the console, so 443 is an ingress port and the console itself is still on the agreed 7420 in the same repo. It is deliberately EXCLUDED from stack-k8s's default kustomization because a cloud load balancer is metered, so a default install never creates it. stack-single reaches the same place with caddy. Recorded rather than filtered out in code, because 'Services of this type do not count' is a decision and decisions belong in this file where somebody can disagree with them."
+        }
+      }
+    },
+    "services": {
+      "what": "Which components each deployment brings up.",
+      "agreed": [
+        "tokenfuse-gateway",
+        "tokenfuse-cloud",
+        "wardryx",
+        "idryx",
+        "heraldyx",
+        "console",
+        "policy-db"
+      ],
+      "divergences": {
+        "services:stack-up:absent:console": {
+          "recorded": "2026-08-06",
+          "provenance": "@claude",
+          "why": "stack-up serves a static dashboard out of python3 -m http.server instead of running the genaryx console. Deliberate: the console is a built web application and stack-up's whole argument is that it needs nothing but the binaries it installs into ~/.taipan/bin."
+        },
+        "services:stack-up:extra:dashboard": {
+          "recorded": "2026-08-06",
+          "provenance": "@claude",
+          "why": "The other half of services:stack-up:absent:console. The static dashboard on port 3000 exists only in stack-up."
+        },
+        "services:stack-up:absent:policy-db": {
+          "recorded": "2026-08-06",
+          "provenance": "@claude",
+          "why": "wardryx keeps its store on local disk under stack-up rather than in postgres. Deliberate: a sandbox that needs a database server is not a sandbox."
+        },
+        "services:stack-single:extra:wg": {
+          "recorded": "2026-08-06",
+          "provenance": "@claude",
+          "why": "stack-single is the one deployment meant to be reached from outside the box, so it ships a WireGuard endpoint. stack-k8s does the same job in a separate tunnel overlay outside manifests/, and stack-up is loopback-only by invariant."
+        },
+        "services:stack-single:extra:caddy": {
+          "recorded": "2026-08-06",
+          "provenance": "@claude",
+          "why": "TLS termination in front of the console, for the same reason as wg. In stack-k8s the equivalent is the LoadBalancer manifest, which is excluded from the default apply because it is metered."
+        },
+        "services:stack-single:extra:init-volumes": {
+          "recorded": "2026-08-06",
+          "provenance": "@claude",
+          "why": "A one-shot busybox container that creates the shared volume layout, not a running component. Kubernetes gets the same effect from PersistentVolumeClaims in 00-base.yaml and stack-up from mkdir in up.sh."
+        }
+      }
+    }
+  }
+}
