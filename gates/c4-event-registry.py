@@ -463,7 +463,15 @@ def run(estate: E.Estate) -> E.Check:
                     f"RESERVED claim about it was not checked.",
                 )
                 continue
-            writers = writer_sites(estate, repo)
+            try:
+                writers = writer_sites(estate, repo)
+            except E.Missing as m:
+                c.missing(
+                    "c4.reserved-unverifiable",
+                    f"6.2 records `{source}` as RESERVED, not emitted today, and "
+                    f"nothing here could check that claim: {m}.",
+                )
+                continue
             if writers:
                 c.drift(
                     "c4.reserved-source-emits",
@@ -573,18 +581,40 @@ def run(estate: E.Estate) -> E.Check:
 
 
 def writer_sites(estate: E.Estate, repo: str) -> list[str]:
-    """Every file in the repo that opens an envelope writer. Tests excluded:
-    a test may write whatever it needs, and a producer is a production path."""
+    """Every file in the repo that opens an envelope writer.
+
+    Go only, and it says so rather than returning an empty list: the calls it
+    looks for are the ones agent-stack-go's `event` package exposes, so this
+    can only ever answer the question for a Go repository. The one RESERVED
+    row today (idryx) is Go. A reserved row for a Rust or Python producer
+    would get "no writer found" from a scan that never knew how to look, which
+    is the exact shape of silent success this repository exists to prevent.
+
+    Tests are excluded: a test may write whatever it needs, and a producer is
+    a production path.
+    """
+    files = [f for f in estate.list_files(repo) if f.endswith(".go")]
+    if not files:
+        raise E.Missing(
+            f"{repo} has no Go files, and looking for an event writer is the "
+            f"only thing this check knows how to do. Whether it emits is "
+            f"unknown here, which is not the same as it emitting nothing"
+        )
     found = []
-    try:
-        files = [f for f in estate.list_files(repo) if f.endswith(".go") and not f.endswith("_test.go")]
-    except E.Missing:
-        return []
     for f in files:
+        if f.endswith("_test.go"):
+            continue
         try:
             text = estate.read_text(repo, f)
-        except E.Missing:
-            continue
+        except E.Missing as m:
+            # A file the repository lists and this run cannot read leaves the
+            # scan incomplete, and an incomplete scan that reports "no writer
+            # anywhere" is the loudest possible version of the mistake this
+            # whole check is about. It used to `continue` here.
+            raise E.Missing(
+                f"{repo} lists {f} and it could not be read ({m}), so the scan "
+                f"for an event writer did not cover the whole repository"
+            ) from None
         if any(call in text for call in WRITER_CALLS):
             found.append(f)
     return found

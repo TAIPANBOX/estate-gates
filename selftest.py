@@ -444,6 +444,22 @@ MUTATIONS: dict[str, list[tuple[str, callable]]] = {
             r, "wardryx/internal/api/api.go", "s.emit(", "s.dispatch(", every=True
         ),
     )],
+    "c4.reserved-unverifiable": [
+        # The RESERVED claim is checked by looking for a Go writer call, so any
+        # scan that could not cover the repository must be a red rather than
+        # the row holding. Two ways to not cover it, and they are different
+        # code paths.
+        (
+            "a Go file the repo lists cannot be read, so the scan is partial",
+            lambda r: drop(r, "idryx/internal/ingest/tokenfuse/tokenfuse.go"),
+        ),
+        (
+            "the RESERVED source's repo has no Go files to look in at all",
+            lambda r: git(
+                r / "idryx", "rm", "-q", "internal/ingest/tokenfuse/tokenfuse.go"
+            ),
+        ),
+    ],
     "c4.reserved-source-emits": [(
         "the RESERVED source grows an event writer",
         lambda r: edit(
