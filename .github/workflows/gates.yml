@@ -1,0 +1,79 @@
+# The cross-repo gates, run against fresh clones of the public estate.
+#
+# COST: NOTHING. This repository is PUBLIC, and GitHub Actions minutes on
+# standard runners are free for public repositories, including scheduled runs.
+# There is no matrix, no larger runner, no self-hosted runner and no paid
+# service here, deliberately: a nightly job that quietly starts metering is
+# exactly the class of surprise the estate has already paid for once. If
+# somebody adds a matrix or a bigger runner to this file, that is a spending
+# decision and needs saying out loud first.
+#
+# WHAT A RED RUN MEANS. That the ESTATE drifted, not that this repository is
+# broken. The job below deliberately does not soften a failure: the whole
+# point of this repository is that a check nobody lets fail is a check that
+# reports green forever.
+
+name: estate gates
+
+on:
+  schedule:
+    # 05:40 UTC, before the working day and after the nightly release jobs in
+    # the other repositories have finished moving things.
+    - cron: "40 5 * * *"
+  workflow_dispatch:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  selftest:
+    # Runs first and on its own: if the checks cannot be shown to fail, their
+    # verdict about the estate is worth nothing, and a green estate report
+    # sitting under a broken self-test is the worst artifact this repository
+    # could produce.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: No long dashes anywhere
+        run: ./scripts/no-long-dashes.sh --prove
+
+      - name: Every check can go red
+        run: ./selftest.py
+
+  gates:
+    needs: selftest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run the six cross-repo gates against fresh clones
+        id: gates
+        run: |
+          set +e
+          ./run-gates.py --mode clone --cache "$RUNNER_TEMP/clones"
+          code=$?
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          # 3 means: nothing disagreed, and the only repositories that went
+          # unread are the ones estate.json records as having no public
+          # remote. taipan is private and bank-in-a-box has no remote at all,
+          # so CI can never see them. That is reported, never hidden, and the
+          # run above names what went unmeasured.
+          if [ "$code" -eq 3 ]; then
+            echo "::notice title=Partial run::Some repositories have no public remote and were not measured. See the output above for which."
+            exit 0
+          fi
+          exit $code
+
+      - name: What a failure here means
+        if: failure() && steps.gates.outputs.code == '1'
+        run: |
+          echo "::error title=The estate drifted::At least one cross-repo comparison disagrees. The findings above name both sides and the file to open. This repository is working; the estate is not."
+          exit 1
+
+      - name: What an incomplete run means
+        if: failure() && steps.gates.outputs.code == '2'
+        run: |
+          echo "::error title=Incomplete run::A repository that should have been reachable was not, so some comparisons were never made. An unread repository is not a clean one."
+          exit 1
