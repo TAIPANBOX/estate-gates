@@ -44,11 +44,6 @@
           "provenance": "@claude",
           "why": "A GAP, not a decision. Four of the five governance routines have a CronJob and focus-export does not, so a Kubernetes install produces no focus export at all. stack-k8s's own manifest comment calls it a finding rather than an oversight, which records it without closing it. Recorded here so the day somebody closes it, this entry goes red as stale and gets removed."
         },
-        "routines:stack-k8s:absent:verdryx-drift": {
-          "recorded": "2026-08-06",
-          "provenance": "@claude",
-          "why": "A GAP being closed right now. stack-k8s main has three CronJobs and no quality-drift, so a Kubernetes install runs no drift detection. A change adding it was sitting uncommitted in the stack-k8s working tree on the day this file was written, which means this entry is expected to go red as STALE shortly. That is the mechanism working: when the CronJob lands on main, delete this entry rather than editing it."
-        },
         "routines:stack-single:absent:focus-export": {
           "recorded": "2026-08-06",
           "provenance": "@claude",
