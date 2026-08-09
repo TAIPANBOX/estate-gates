@@ -75,113 +75,86 @@ by a few bytes, and the paragraph below says which bytes and why they matter.
 If this section and a fresh run disagree, the run is right and this section is
 overdue a refresh.
 
-@measured `./run-gates.py --mode ref --ref origin/main`, 2026-08-09:
-**3 of 6 gates found drift (C1, C2, C5). C3, C4 and C6 are clean.**
+@measured `./run-gates.py --mode ref --ref origin/main`, 2026-08-09, second run
+of the day: **all 6 gates clean, and every subject was measured.**
+
+The first run of the day found three gates drifted. All four findings across
+C1, C2 and C5 were closed the same day and are in section 8 with the evidence.
+This section keeps only what is still open.
 
 **The mode is part of that claim.** CI runs `--mode clone`, where `taipan` is
 private and `bank-in-a-box` has no remote, so C4 reports **partial, something
 went unmeasured** rather than clean. Both readings are true of their own mode.
-Anybody comparing this section against the red badge should expect that one
+Anybody comparing this section against a badge should expect that one
 difference and no other.
 
-### G1.1 Four consumers are a minor behind, and the delta contains no contract at all
+**A clean suite is not a clean estate, and this is the sentence most likely to
+be quoted wrongly.** The README's own list of what C1 to C6 deliberately do not
+cover is longer than what they do, and sections 2 to 6 below are almost entirely
+things no gate here can see. Six green ticks mean the six comparisons agree.
 
-`agent-stack-go` is at **v0.5.1**. Pinned at **v0.4.0**: `heraldyx`, `mockryx`,
-`qryx`, `wardryx`. Current: `idryx`, `terraform-provider-taipan`.
+### G1.3 Two deployments do not run the governance routines, and C5 is green about it
 
-C1 reports this as "a different contract", and its wording is right in general
-and wrong about this particular delta. @measured 2026-08-09:
-
-- `git diff --stat v0.4.0 v0.5.1 -- chain event passport` is **empty**. The
-  three packages consumers import are byte-identical across the two tags.
-- `git diff --name-only v0.4.0 v0.5.1 -- '*.go'` returns exactly one file,
-  `cmd/agent-conform/main.go`, which is the checker CLI and not a library
-  package.
-- Everything else in the delta is CI, docs, gate scripts, and the item in
-  G1.4.
-
-So bumping the four pins changes no compiled behaviour anywhere. The finding is
-real, the risk it implies is not, and the entry that used to sit here repeated
-the gate's wording without checking the delta.
-
-**This does not make C1 wrong or worth relaxing.** It is right that a pre-1.0
-minor is where breakage lives, and it cannot read a diff to find the one time
-it is not. A gate that only fires when it can also prove harm is a gate that
-misses the case it exists for.
-
-**Closes when:** four `go.mod` bumps. **Do them against a tag that does not
-carry G1.4**, which today means cutting one from `main` first.
-**Escalation:** `mockryx` and `wardryx` both name "bumping the `agent-stack-go`
-tag" in their CLAUDE.md escalate lists. Neither may be bumped without asking.
-**Re-check:** the C1 section of the gate run.
-**Note:** this is the same class that cost a real defect once, when idryx sat on
-v0.3.0 and the delta was the chain verifier idryx most needed. That time the
-delta mattered. Reading the delta is what tells the two apart.
-
-### G1.4 The v0.5.1 tag ships a 4.8 MB build artifact the repository gitignores
-
-@measured 2026-08-09: `git ls-tree v0.5.1` lists `agent-conform` at the module
-root, 4,830,738 bytes. It is **absent from v0.4.0**, **absent from `main`**, and
-`.gitignore:17` carries `/agent-conform` under the comment "the local build of
-the checker".
-
-So a local build of the checker was committed into a release tag, against the
-repository's own stated intent, and `main` has since corrected it. Go modules
-ship every tracked file, so every consumer that moves to v0.5.1 pulls those
-bytes into its module cache, and an auditor reading the module gets an opaque
-binary the source tree says should not be there.
-
-The consequence for G1.1 is the useful part: **moving the four consumers to
-v0.5.1 today would import a mistake `main` has already fixed.** Cut a tag from
-`main` and move them to that instead.
-
-**Closes when:** a tag exists whose tree has no `agent-conform` at the root, and
-the consumers point at it. Deleting the v0.5.1 tag is not the fix and is not
-proposed: the estate's rule is to ship a new patch rather than delete what was
-published.
-**Re-check:** `git ls-tree <tag> --name-only | grep '^agent-conform$'`.
-**Gated by:** nothing. No check in this repository looks at what a tag's tree
-contains, and none of the six would have found this.
-
-### G1.2 Three vendored schema copies disagree with the canonical one, and one is gone
-
-- `genaryx:crates/core/src/schemas/agent-event.v0.1.schema.json` and
-  `...v0.2.schema.json` both **omit `maxItems: 32`** on `on_behalf_of`.
-- `verdryx:tests/fixtures/agent-event.v0.2.schema.json` omits the same.
-- `Engram:tests/fixtures/agent-event.schema.json` is **absent**, while the
-  gate's record says engram vendors it there.
-
-**Why this is a security item and not housekeeping.** `maxItems: 32` is SPEC
-§5.1's delegation-chain depth cap. genaryx compiles its copy into
-`genaryx-core` with `include_str!` and validates against it, so the console
-accepts a delegation chain of any depth while believing it validates one. The
-same for verdryx's test fixture, which means its suite cannot catch a chain
-that violates the spec it claims to conform to. And engram's missing file is
-the worse shape: something that used to be validated is not, and nothing said
-so.
-
-**Closes when:** the three copies are byte-identical to canonical, and engram's
-copy either returns or the gate's record is corrected to the new path.
-**Re-check:** the C2 section of the gate run, which prints the diff.
-
-### G1.3 Deployment parity: stack-single schedules nothing at all
+This is the shape most worth understanding in this file, because C5 is clean and
+the gap is open at the same time, and both are correct.
 
 `stack-single` installs **no governance routine of any kind**: no cron, no
 timer, no supervisor, no periodic compose service. Not `focus-export`, not
-`idryx-detect`, not `qryx-trend`, not `verdryx-drift`. @measured by C5,
-recorded 2026-08-06 and still true 2026-08-09.
+`idryx-detect`, not `qryx-trend`, not `verdryx-drift`. `stack-k8s` runs four and
+lacks `focus-export`, so a Kubernetes install produces no FOCUS export at all.
 
-`stack-k8s` is missing one: `focus-export` has no CronJob, so a Kubernetes
-install produces no FOCUS export at all.
+Both are **recorded** in `expectations/deployment-parity.json`, both explicitly
+as gaps rather than decisions, and invariant 7 makes a recorded divergence green.
+C5's job is that a divergence is either explained or red, not that it is absent.
+A green C5 therefore means nobody has silently changed what the three
+deployments do; it does not mean they agree.
 
-The single-box deployment brings the planes up without the scheduled work that
-keeps them producing. A box that looks installed and is not governing itself is
-the exact failure mode the estate's own "silent zero" rule is about.
+**Two corrections to the first version of this entry, both measured 2026-08-09.**
 
-**Closes when:** the routines exist in both, or the absence becomes a recorded
-decision rather than a recorded gap in
-`estate-gates/expectations/deployment-parity.json`.
-**Re-check:** the C5 section of the gate run.
+It said the single-box case is "the exact failure mode the silent-zero rule is
+about". It is not silent. `stack-single/install.sh` says so twice, once in its
+header comment under "What this box does NOT run, so you can compare before
+installing rather than after", and again in the banner the operator reads when
+the install finishes. A disclosed gap is still a gap and is a different thing
+from a box that lies about itself.
+
+And `stack-k8s`'s missing `focus-export` is not an oversight anybody forgot.
+`GOTCHAS.md` and the manifest comment record why it is harder than the other
+four: `focus-export` needs the trace directory, and the claim that backs the
+other CronJobs cannot back it the same way. That is a design problem with a
+recorded reason, not a line somebody failed to write.
+
+**Closes when:** the routines run in both, or somebody decides the absence is
+correct and the expectation entries say `decision` instead of `gap`. The second
+is a claim about what the product is and needs the user, per this repository's
+own escalate list.
+**Re-check:** the C5 section of the gate run, which prints every recorded
+divergence with its reason.
+
+### G1.5 The pin table in agent-stack-go's CLAUDE.md is a fourth copy, and all six rows are wrong
+
+@measured 2026-08-09, after the six consumers moved to `v0.6.0`:
+`agent-stack-go/CLAUDE.md` carries a "Repo | Pins" table under **Blast radius**
+listing `idryx v0.5.1`, `wardryx v0.4.0`, `mockryx v0.4.0`, `qryx v0.4.0`,
+`heraldyx v0.4.0` and `terraform-provider-taipan v0.1.0`. Every one of the six
+is now `v0.6.0`.
+
+Five rows went stale today. The sixth was already wrong before anything moved:
+C1 measured `terraform-provider-taipan` at `v0.5.1` while that table said
+`v0.1.0`, so it had drifted at least one bump earlier and nothing noticed.
+
+The table is a **fourth copy of what C1 measures**, sitting in a file whose own
+first paragraph says it holds process and invariants only and no status. Its
+own caption asks the reader to keep it beside two other lists, which is the
+estate's most-repeated defect written down as an instruction.
+
+**Closes when:** the table is deleted and its sentence points at C1, or a gate
+compares it against the `go.mod` files it describes. Deleting is the better
+answer: the reason C1 exists is that hand-maintained copies of a measurable fact
+do not survive.
+**Re-check:** compare that table against `grep TAIPANBOX/agent-stack-go */go.mod`.
+**Gated by:** nothing. C1 reads `go.mod` files and has no opinion about prose in
+a sibling's instruction file.
 
 ---
 
@@ -458,6 +431,52 @@ the session that would have implemented it.
 ## 8. Closed, with the evidence that closed them
 
 Kept rather than deleted, so the next audit knows what was checked.
+
+### Closed 2026-08-09, the day this file was opened
+
+- ~~**G1.1: four consumers a minor behind on `agent-stack-go`.**~~ **Closed.**
+  All six now pin `v0.6.0`: heraldyx#35, mockryx#27, wardryx#19,
+  terraform-provider-taipan#16, and qryx and idryx direct to `main` under their
+  own push-to-main loops. C1 clean.
+
+  **What reading the delta changed.** The four were not moved to `v0.5.1`, the
+  tag C1 was pointing at. `chain`, `event` and `passport` were byte-identical
+  across `v0.4.0` and `v0.5.1`, so the "different contract" the gate reported
+  was, for that delta, no contract at all. What the delta did carry was G1.4.
+
+- ~~**G1.4: the `v0.5.1` tag ships a 4.8 MB build artifact.**~~ **Closed** by
+  cutting `v0.6.0` from `main`, which has no `agent-conform` at the module root.
+  @measured `git ls-tree v0.6.0 --name-only`, 2026-08-09: absent. The release
+  workflow published six assets and the module zip no longer carries the
+  artifact.
+
+  `v0.5.1` still has it and always will. Deleting a published tag is not the fix
+  and was not proposed.
+
+- ~~**G1.2: three vendored schema copies disagree and one is gone.**~~
+  **Closed**, and the four findings were three different things:
+
+  - genaryx's two copies were a real defect. They are compiled in with
+    `include_str!` and are what `Conformer` validates against, so the console
+    accepted a delegation chain of any depth while reporting it had validated
+    one. genaryx#17 restores the bytes **and** adds a test asserting both
+    directions, verified red against the unfixed schemas first.
+  - verdryx's fixture was the same missing bound one layer down. verdryx#19,
+    same treatment, same red-first check.
+  - engram's "missing copy" was not drift at all. engram migrated to v0.2 on
+    2026-08-06 and deleted the v0.1 fixture as part of it. The record here was
+    stale, and the entry **moved** to the v0.2 list rather than being deleted,
+    because engram still vendors a copy that was in no list at all. estate-gates#2.
+
+- ~~**C5's only finding: a stale expectation for `verdryx-drift`.**~~
+  **Closed**, estate-gates#3. The entry had written its own end date into its
+  reason, the CronJob landed on `stack-k8s` `main`, and the entry was deleted
+  rather than edited, exactly as it asked.
+
+  This is the one closure that was not a defect anywhere: invariant 7's second
+  half working as designed.
+
+### Closed before this file existed
 
 - ~~**verdryx mirrored seven of tokenfuse's nine blocked-decision strings**,
   counting avoided estimates as real money.~~ **Closed.** @measured
