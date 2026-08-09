@@ -59,6 +59,7 @@ import ast
 import io
 import json
 import pathlib
+import re
 import shutil
 import subprocess
 import sys
@@ -278,8 +279,11 @@ MUTATIONS: dict[str, list[tuple[str, callable]]] = {
         "no repository requires the module at all",
         lambda r: [
             edit(r, f"{repo}/go.mod", "require github.com/TAIPANBOX/agent-stack-go v0.5.1", "")
+            # Every consumer, and the list must grow with the fixture: scopyx
+            # joined it in G4.4, and until it was added here the mutation left
+            # one consumer standing and c1.no-consumers could not fire.
             for repo in ("idryx", "qryx", "wardryx", "mockryx", "heraldyx",
-                         "terraform-provider-taipan")
+                         "scopyx", "terraform-provider-taipan")
         ],
     )],
     "c1.unparseable-pin": [(
@@ -547,12 +551,35 @@ MUTATIONS: dict[str, list[tuple[str, callable]]] = {
             "event.NewChainedWriter(path)", "event.OpenWriter(path)"
         ),
     )],
-    "c4.producer-unreadable": [(
-        "a producer's emit sites stop parsing",
-        lambda r: edit(
-            r, "wardryx/internal/api/api.go", "s.emit(", "s.dispatch(", every=True
+    "c4.producer-unreadable": [
+        (
+            "a producer's emit sites stop parsing",
+            lambda r: edit(
+                r, "wardryx/internal/api/api.go", "s.emit(", "s.dispatch(", every=True
+            ),
         ),
-    )],
+        # G4.4. Both of these were CLEAN before the fix: the identifier was
+        # dropped, the anchor still matched the file, and the run said "every
+        # subject was measured" about a producer whose types it never read.
+        (
+            "a producer computes its event type instead of naming a constant",
+            lambda r: edit(
+                r,
+                "scopyx/internal/record/record.go",
+                "return j.emit(TypeFetch, agentID)",
+                "return j.emit(chooseType(), agentID)",
+            ),
+        ),
+        (
+            "a producer's type constant is renamed out from under the emit site",
+            lambda r: edit(
+                r,
+                "scopyx/internal/record/record.go",
+                '\tTypeBlocked = "web_blocked"',
+                '\tTypeRefused = "web_blocked"',
+            ),
+        ),
+    ],
     "c4.reserved-unverifiable": [
         # The RESERVED claim is checked by looking for a Go writer call, so any
         # scan that could not cover the repository must be a red rather than
@@ -781,6 +808,21 @@ def main() -> int:
                 f"finding any more. Remove it: a mutation nothing exercises is "
                 f"the same decoration one level down."
             )
+
+    # A duplicate key in MUTATIONS is silently lost: Python keeps the last one
+    # and the dict never says so. That happened while writing the G4.4 cases,
+    # which were added under a key that already existed forty lines further
+    # down, ran nothing, and left the count unchanged at a number nobody was
+    # watching. Read from the source rather than the dict, because by the time
+    # it IS a dict the evidence is gone.
+    _keys = re.findall(r'^    "([a-z0-9]+\.[a-z-]+)":', pathlib.Path(__file__).read_text(), re.M)
+    _dupes = sorted({k for k in _keys if _keys.count(k) > 1})
+    if _dupes:
+        problems.append(
+            f"MUTATIONS declares {_dupes} more than once. Python keeps the last "
+            f"one and discards the rest silently, so those cases run nothing "
+            f"while reading as added. Merge them into one entry."
+        )
 
     work = pathlib.Path(tempfile.mkdtemp(prefix="estate-gates-selftest-"))
     try:

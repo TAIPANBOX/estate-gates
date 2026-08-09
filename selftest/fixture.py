@@ -96,6 +96,7 @@ SPEC = """# The agent passport specification
 | `mockryx` | `sim_run` |
 | `console` | `console_command` |
 | `heraldyx` | `alert_sent` |
+| `scopyx` | `web_fetch` . `web_blocked` |
 
 A row here is a CLAIM that the source writes those types into this envelope
 today.
@@ -462,6 +463,39 @@ def reflect(events, agent_id):
 '''
 
 # ---------------------------------------------------------------- Go planes
+
+
+SCOPYX_RECORD_GO = """package record
+
+// The egress plane names its types and passes the VARIABLE at the emit site,
+// which is what C4's Go parser could not resolve until G4.4. Kept in that shape
+// on purpose: a fixture that wrote the literal at the call would exercise the
+// easy path and prove nothing about the one that was broken.
+const (
+	Source = "scopyx"
+
+	TypeFetch   = "web_fetch"
+	TypeBlocked = "web_blocked"
+)
+
+func (j *Journal) Fetch(agentID string) Outcome {
+	return j.emit(TypeFetch, agentID)
+}
+
+func (j *Journal) Blocked(agentID string) Outcome {
+	return j.emit(TypeBlocked, agentID)
+}
+
+func (j *Journal) emit(kind, agentID string) Outcome {
+	e := event.Event{Source: Source, Type: kind, AgentID: agentID}
+	return j.w.Write(e)
+}
+
+func Open(path string) (*Journal, error) {
+	w, err := event.NewChainedWriter(path)
+	return &Journal{w: w}, err
+}
+"""
 
 QRYX_EXPORTER_GO = """package exporter
 
@@ -939,6 +973,10 @@ ESTATE: dict[str, dict] = {
     "qryx": {
         "go.mod": gomod("qryx", "v0.5.1"),
         "internal/exporter/exporter.go": QRYX_EXPORTER_GO,
+    },
+    "scopyx": {
+        "go.mod": gomod("scopyx", "v0.5.1"),
+        "internal/record/record.go": SCOPYX_RECORD_GO,
     },
     "wardryx": {
         "go.mod": gomod("wardryx", "v0.5.1"),

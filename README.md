@@ -156,10 +156,14 @@ covered one.
 - **`go.sum`, `replace` targets and vendored Go code.** C1 reads the version
   in `go.mod`. It reports the presence of a `replace` as a failure but does
   not follow it.
-- **Event types built at runtime.** C4 anchors on literal strings at emit
-  sites. A type assembled from a variable or a format string would be missed,
-  and the anchor would still match, so nothing would complain. None exists in
-  the estate today.
+- ~~**Event types built at runtime.**~~ **Closed 2026-08-09.** This said a
+  type assembled from a variable would be missed with nothing complaining, and
+  that no such producer existed. Both halves were wrong within the day: scopyx
+  names its types as constants and passes the variable at the emit site, so C4
+  read it as a producer with no types and reported the run clean. The Go parsers
+  now return what they could not resolve and the extractor refuses on it, so
+  that shape is a loud hole. A type built from a format string is still beyond
+  the parser, but it is now a REFUSAL rather than a silence.
 - **The severity column of SPEC 6.2.** The registry gives a typical severity
   per type in parentheses and tokenfuse fixes severity per type in code. Those
   are a fourth mirror and nothing compares them.

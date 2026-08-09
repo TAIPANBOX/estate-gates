@@ -336,6 +336,15 @@ canonical form.
 
 ### G4.4 scopyx emits two types the registry does not carry, and C4 says clean
 
+**The gate half is CLOSED as of 2026-08-09; the registry half is open and is
+Yurii's.** C4 now carries a scopyx producer entry and, more importantly, its Go
+parsers no longer DROP an identifier they cannot resolve: an event type written
+as a variable is reported as a hole rather than as silence. C4 is now red about
+scopyx, with both sides named, and that red is correct. It clears when SPEC 6.2
+gains the row, which is an edit to agent-passport and routes through him.
+
+The original finding, kept because the shape is the point:
+
 **Found by registering scopyx** in `estate.json` on 2026-08-09. The run went to
 seven gates clean, every subject measured, and that answer is wrong about this.
 

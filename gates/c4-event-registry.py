@@ -120,27 +120,54 @@ def go_consts(*texts: str) -> dict[str, str]:
     return out
 
 
-def go_types(text: str, consts: dict[str, str]) -> set[str]:
-    """Every `Type:` field value in a composite literal, idents resolved."""
+def _resolve(raw: str, consts: dict[str, str], unresolved: set[str]) -> str | None:
+    """A literal, or a constant, or NOTHING RECORDED AS SUCH.
+
+    The third case is why this function exists. Both parsers used to drop an
+    identifier they could not resolve, which is the silent-zero failure this
+    estate keeps finding, sitting inside the check written to catch it: a
+    producer whose type is computed rather than written at the call site
+    contributed nothing to the emitted set, the anchor still matched the file,
+    and the run reported clean with the words "every subject was measured".
+
+    scopyx is a real instance. It names its types as constants and passes the
+    variable at the emit site, so `Type: kind` resolved to nothing and C4 had no
+    opinion about two live event types the registry does not carry.
+    """
+    if raw.startswith('"'):
+        return raw.strip('"')
+    if raw in consts:
+        return consts[raw]
+    unresolved.add(raw)
+    return None
+
+
+def go_types(text: str, consts: dict[str, str]) -> tuple[set[str], set[str]]:
+    """Every `Type:` field value in a composite literal.
+
+    Returns (resolved, unresolved). The second is never discarded by a caller:
+    see `_resolve`.
+    """
     found: set[str] = set()
+    unresolved: set[str] = set()
     for raw in _GO_TYPE_FIELD.findall(text):
-        if raw.startswith('"'):
-            found.add(raw.strip('"'))
-        elif raw in consts:
-            found.add(consts[raw])
-    return found
+        v = _resolve(raw, consts, unresolved)
+        if v is not None:
+            found.add(v)
+    return found, unresolved
 
 
-def go_call_first_args(text: str, call: str, consts: dict[str, str]) -> set[str]:
-    """First argument of every `call(` in the text, idents resolved."""
+def go_call_first_args(
+    text: str, call: str, consts: dict[str, str]
+) -> tuple[set[str], set[str]]:
+    """First argument of every `call(` in the text. Returns (resolved, unresolved)."""
     found: set[str] = set()
+    unresolved: set[str] = set()
     for m in re.finditer(re.escape(call) + r"\(\s*(\"[a-z0-9_]+\"|\w+)", text):
-        raw = m.group(1)
-        if raw.startswith('"'):
-            found.add(raw.strip('"'))
-        elif raw in consts:
-            found.add(consts[raw])
-    return found
+        v = _resolve(m.group(1), consts, unresolved)
+        if v is not None:
+            found.add(v)
+    return found, unresolved
 
 
 def rust_match_arms(text: str, fn: str, after: str | None = None) -> set[str]:
@@ -235,9 +262,46 @@ def _verdryx(estate: E.Estate) -> dict[str, set[str]]:
     return {"verdryx": types}
 
 
+def _refuse_unresolved(repo: str, path: str, unresolved: set[str]) -> None:
+    """A type this parser could not read is a HOLE, never a silence.
+
+    The alternative, which is what this check did until G4.4, is to drop the
+    identifier and carry on. The anchor still matches, the file is still read,
+    and the run says "every subject was measured" about a producer whose types
+    it never saw. That sentence being false is worse than the missing coverage,
+    because it is the sentence a reader trusts.
+    """
+    if unresolved:
+        raise E.Missing(
+            f"{repo} {path}: an event type is written as {sorted(unresolved)}, "
+            f"which this check cannot resolve to a string. It is a variable or a "
+            f"constant declared elsewhere. Nothing here compared those types "
+            f"against the registry, and reporting that as agreement would be a "
+            f"clean run over a producer nobody read."
+        )
+
+
+def _scopyx(estate: E.Estate) -> dict[str, set[str]]:
+    """The egress plane names its types as constants and passes the variable.
+
+    So `Type:` resolves to nothing here and `j.emit(` resolves to both, which is
+    the same shape wardryx already has. This entry exists because the repository
+    was in `estate.json` and in no producer table, so C4 had no opinion about it
+    at all: not a wrong opinion, an absent one, reported as clean.
+    """
+    text = estate.read_text("scopyx", "internal/record/record.go")
+    consts = go_consts(text)
+    types, unresolved = go_call_first_args(text, "j.emit", consts)
+    _refuse_unresolved("scopyx", "internal/record/record.go", unresolved)
+    if not types:
+        raise E.Missing("scopyx internal/record/record.go: no `j.emit(` call resolved to a type")
+    return {"scopyx": types}
+
+
 def _qryx(estate: E.Estate) -> dict[str, set[str]]:
     text = estate.read_text("qryx", "internal/exporter/exporter.go")
-    types = go_types(text, go_consts(text))
+    types, unresolved = go_types(text, go_consts(text))
+    _refuse_unresolved("qryx", "internal/exporter/exporter.go", unresolved)
     if not types:
         raise E.Missing("qryx internal/exporter/exporter.go: no `Type:` field resolved")
     return {"qryx": types}
@@ -246,7 +310,8 @@ def _qryx(estate: E.Estate) -> dict[str, set[str]]:
 def _wardryx(estate: E.Estate) -> dict[str, set[str]]:
     text = estate.read_text("wardryx", "internal/api/api.go")
     consts = go_consts(text)
-    types = go_call_first_args(text, "s.emit", consts)
+    types, unresolved = go_call_first_args(text, "s.emit", consts)
+    _refuse_unresolved("wardryx", "internal/api/api.go", unresolved)
     if not types:
         raise E.Missing("wardryx internal/api/api.go: no `s.emit(` call resolved to a type")
     return {"wardryx": types}
@@ -254,7 +319,8 @@ def _wardryx(estate: E.Estate) -> dict[str, set[str]]:
 
 def _mockryx(estate: E.Estate) -> dict[str, set[str]]:
     text = estate.read_text("mockryx", "internal/events/events.go")
-    types = go_types(text, go_consts(text))
+    types, unresolved = go_types(text, go_consts(text))
+    _refuse_unresolved("mockryx", "internal/events/events.go", unresolved)
     if not types:
         raise E.Missing("mockryx internal/events/events.go: no `Type:` field resolved")
     return {"mockryx": types}
@@ -265,7 +331,8 @@ def _heraldyx(estate: E.Estate) -> dict[str, set[str]]:
     m = re.search(r"const\s+Source\s*=\s*\"([a-z0-9-]+)\"", text)
     if not m:
         raise E.Missing("heraldyx internal/record/record.go: no `const Source = \"...\"`")
-    types = go_types(text, go_consts(text))
+    types, unresolved = go_types(text, go_consts(text))
+    _refuse_unresolved("heraldyx", "internal/record/record.go", unresolved)
     if not types:
         raise E.Missing("heraldyx internal/record/record.go: no `Type:` field resolved")
     return {m.group(1): types}
@@ -328,6 +395,11 @@ PRODUCERS: dict[str, dict] = {
         "writer": ("verdryx/events.py", "class EventLog"),
         "extract": _verdryx,
         "owns": ["verdryx"],
+    },
+    "scopyx": {
+        "writer": ("internal/record/record.go", "event.NewChainedWriter"),
+        "extract": _scopyx,
+        "owns": ["scopyx"],
     },
     "qryx": {
         "writer": ("internal/exporter/exporter.go", "event.NewChainedWriter"),
