@@ -46,7 +46,7 @@ how the estate got here. The one exception is a repository `estate.json`
 records as having no public remote, and even then the run reports PARTIAL and
 names it, never clean.
 
-## The six checks
+## The checks
 
 **C1, pin currency** (`gates/c1-pin-currency.py`). For every repository whose
 `go.mod` requires `github.com/TAIPANBOX/agent-stack-go`, compares the pin with
@@ -102,6 +102,17 @@ canonicalization and the SPEC 6.5 chain hashes. Three implementations retype
 those values as literals in their own suites: Rust in tokenfuse, Python in
 engram and in verdryx. A change to the Go canonicalization would not fail any
 of them today. This compares every copy with the file.
+
+**C7, the agent_id rule copied into code** (`gates/c7-rule-in-code.py`). C2
+holds vendored schema FILES byte-identical and cannot see a rule that was read
+out of a schema once and retyped as a constant. The estate has three of those
+for one rule, SPEC 3.1's `agent://<trust-domain>/<name>` grammar and its
+255-byte cap: `agent-stack-go/passport/passport.go`, which six repositories
+import by tag, plus the Python copies in engram and verdryx. A drifted file
+shows up in a diff; a drifted constant compiles, passes its own suite, and is
+visible only to somebody holding both repositories open. Each extractor anchors
+on the constant's NAME and captures whatever pattern sits beside it, so a
+rename breaks loudly rather than quietly finding nothing.
 
 ## Running it
 

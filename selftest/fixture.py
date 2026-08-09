@@ -55,6 +55,7 @@ EVENT_V02 = """{
   "required": ["schema", "ts", "source", "type", "agent_id"],
   "properties": {
     "schema": { "const": "taipanbox.dev/agent-event/v0.2" },
+    "agent_id": { "type": "string", "pattern": "^agent://[a-z0-9.-]+/[a-z0-9._/-]+$", "maxLength": 255 },
     "prev_hash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
   }
 }
@@ -368,10 +369,26 @@ class PriceBook:
         )
 '''
 
+PASSPORT_GO = """package passport
+
+import "regexp"
+
+const maxURIBytes = 255
+
+var (
+	agentURIPattern = regexp.MustCompile(`^agent://[a-z0-9.-]+/[a-z0-9._/-]+$`)
+)
+"""
+
 VERDRYX_EVENTS_PY = '''"""The verdryx event log."""
+
+import re
 
 SCHEMA = "taipanbox.dev/agent-event/v0.2"
 SOURCE = "verdryx"
+
+AGENT_ID_PATTERN = re.compile(r"^agent://[a-z0-9.-]+/[a-z0-9._/-]+$")
+AGENT_ID_MAX_LENGTH = 255
 
 EVENT_SEVERITY: dict[str, str] = {
     "eval_run": "info",
@@ -395,6 +412,11 @@ def run(log: EventLog, agent_id):
 # ------------------------------------------------------------------- engram
 
 ENGRAM_EVENTS_PY = '''"""The engram event log."""
+
+import re
+
+AGENT_ID_PATTERN = re.compile(r"^agent://[a-z0-9.-]+/[a-z0-9._/-]+$")
+AGENT_ID_MAX_LENGTH = 255
 
 SCHEMA = "taipanbox.dev/agent-event/v0.1"
 SOURCE = "engram"
@@ -862,6 +884,7 @@ ESTATE: dict[str, dict] = {
     },
     "agent-stack-go": {
         "go.mod": gomod("agent-stack-go"),
+        "passport/passport.go": PASSPORT_GO,
         "cmd/agent-conform/schemas/agent-event.schema.json": EVENT_V01,
         "cmd/agent-conform/schemas/agent-event.v0.2.schema.json": EVENT_V02,
         "cmd/agent-conform/schemas/agent-passport.schema.json": PASSPORT,

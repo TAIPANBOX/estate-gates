@@ -7,9 +7,10 @@ the checks found, run them.
 
 ## What this repo is
 
-The cross-repo gate suite. Six checks that each compare two or more OTHER
+The cross-repo gate suite. Checks that each compare two or more OTHER
 repositories in the estate, plus a self-test that proves each of them can
-fail.
+fail. How many there are is not written here: it is a number that moves, and
+this file holds no status. `GATES` in `run-gates.py` is the list.
 
 **It is the only repository allowed to know about more than one repository at
 once**, and that is its whole reason to exist. Every other repo in the estate
