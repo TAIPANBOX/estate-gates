@@ -23,15 +23,21 @@ WHERE THE COPIES ARE
                    disagreement propagates from.
   engram           engram/events.py
   verdryx          verdryx/events.py
+  tokenfuse        crates/core/src/agent_event.rs, added when
+                   TAIPANBOX/tokenfuse#190 merged 2026-08-09.
 
-NOT YET COVERED, AND SAID OUT LOUD RATHER THAN LEFT TO BE NOTICED
+THE RUST COPY ANCHORS ON A FUNCTION, NOT A CONSTANT
 
-tokenfuse grows a fourth copy in `crates/core/src/agent_event.rs` with
-TAIPANBOX/tokenfuse#190, which is open at the time this check was written. It
-is deliberately NOT listed below: naming a copy that is not there yet would
-fire `anchor-gone`, which says a copy DISAPPEARED, and that is a different
-sentence from one that has not arrived. Add the row when #190 merges; the
-constant's own doc comment in that pull request points here.
+The other three name their grammar: `AGENT_ID_PATTERN`, `agentURIPattern`.
+tokenfuse compiles its regex inside `is_canonical_agent_id` behind a `OnceLock`,
+so there is no constant to anchor on and the function name is the strongest
+name available. The extractor runs from that name to the first `Regex::new` and
+refuses to cross another `fn`, so a regex that moved OUT of the function breaks
+the anchor loudly instead of silently comparing some other pattern in the file.
+
+Anchoring on the bare `Regex::new` would have been shorter and wrong for the
+reason below: it answers "is a pattern somewhere in this file", which reads as
+agreement and is not.
 
 ANCHORED ON NAMES, NOT ON THE LITERAL
 
@@ -71,6 +77,18 @@ COPIES: dict[str, tuple[str, str, re.Pattern[str], re.Pattern[str]]] = {
         "what is_canonical_agent_id checks before the memory plane emits",
         re.compile(r"AGENT_ID_PATTERN\s*=\s*re\.compile\(r\"([^\"]*)\"\)"),
         re.compile(r"AGENT_ID_MAX_LENGTH\s*=\s*(\d+)"),
+    ),
+    "tokenfuse": (
+        "crates/core/src/agent_event.rs",
+        "what is_canonical_agent_id checks before the spend plane emits",
+        # From the function name to the first Regex::new, without crossing
+        # another `fn`. See the docstring: this copy has no named constant for
+        # its grammar, so the function it lives in is the anchor.
+        re.compile(
+            r'fn is_canonical_agent_id\b(?:(?!\bfn\b)[\s\S])*?'
+            r'regex::Regex::new\(r"([^"]*)"\)'
+        ),
+        re.compile(r"AGENT_ID_MAX_LENGTH\s*:\s*usize\s*=\s*(\d+)"),
     ),
     "verdryx": (
         "verdryx/events.py",

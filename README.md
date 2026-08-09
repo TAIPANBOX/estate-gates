@@ -105,14 +105,16 @@ of them today. This compares every copy with the file.
 
 **C7, the agent_id rule copied into code** (`gates/c7-rule-in-code.py`). C2
 holds vendored schema FILES byte-identical and cannot see a rule that was read
-out of a schema once and retyped as a constant. The estate has three of those
+out of a schema once and retyped as a constant. The estate has four of those
 for one rule, SPEC 3.1's `agent://<trust-domain>/<name>` grammar and its
 255-byte cap: `agent-stack-go/passport/passport.go`, which six repositories
-import by tag, plus the Python copies in engram and verdryx. A drifted file
-shows up in a diff; a drifted constant compiles, passes its own suite, and is
-visible only to somebody holding both repositories open. Each extractor anchors
-on the constant's NAME and captures whatever pattern sits beside it, so a
-rename breaks loudly rather than quietly finding nothing.
+import by tag, the Python copies in engram and verdryx, and the Rust one in
+tokenfuse. A drifted file shows up in a diff; a drifted constant compiles,
+passes its own suite, and is visible only to somebody holding both repositories
+open. Each extractor anchors on a NAME and captures whatever pattern sits
+beside it, so a rename breaks loudly rather than quietly finding nothing. Three
+anchor on a constant; tokenfuse compiles its regex inside a function, so that
+one anchors on the function and refuses to cross another `fn`.
 
 ## Running it
 
