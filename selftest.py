@@ -16,8 +16,8 @@ gate modules is read to guarantee no such path exists without one.
 HOW IT WORKS
 
 `selftest/fixture.py` describes a miniature estate, small enough to read in
-one sitting and wired so all six checks agree. This script materialises it as
-real git repositories in a temporary directory, proves the six pass, then
+one sitting and wired so every check agrees. This script materialises it as
+real git repositories in a temporary directory, proves they all pass, then
 applies one mutation at a time to a fresh copy and requires the matching
 finding to fire.
 
@@ -78,6 +78,7 @@ GATE_FILES = [
     "c4-event-registry.py",
     "c5-deployment-parity.py",
     "c6-chain-vectors.py",
+    "c7-rule-in-code.py",
 ]
 
 
@@ -127,7 +128,7 @@ def fresh_copy(source: pathlib.Path, work: pathlib.Path, n: int) -> pathlib.Path
 def run_checks(
     root: pathlib.Path, registry: pathlib.Path, expectations: pathlib.Path
 ) -> tuple[dict[str, str], list[str], str]:
-    """Run all six gates against `root`.
+    """Run every gate against `root`.
 
     Returns (finding id -> worst verdict seen, per-check verdicts, full text).
     """
@@ -297,6 +298,85 @@ MUTATIONS: dict[str, list[tuple[str, callable]]] = {
         "a consumer is a patch behind",
         lambda r: gomod_pin(r, "qryx", "v0.5.0"),
     )],
+    # ---- C7
+    "c7.canonical-gone": [(
+        "agent-passport's v0.2 schema is deleted",
+        lambda r: drop(r, "agent-passport/schemas/agent-event.v0.2.schema.json"),
+    )],
+    "c7.canonical-unusable": [
+        (
+            "the canonical schema stops stating an agent_id pattern",
+            lambda r: edit(
+                r,
+                "agent-passport/schemas/agent-event.v0.2.schema.json",
+                '"pattern": "^agent://[a-z0-9.-]+/[a-z0-9._/-]+$", ',
+                "",
+            ),
+        ),
+        (
+            "the canonical schema stops stating the cap, which is half the rule",
+            lambda r: edit(
+                r,
+                "agent-passport/schemas/agent-event.v0.2.schema.json",
+                ', "maxLength": 255',
+                "",
+            ),
+        ),
+    ],
+    "c7.copy-gone": [(
+        "a repository that carried the rule loses the file it lived in",
+        lambda r: drop(r, "engram/engram/events.py"),
+    )],
+    "c7.anchor-gone": [
+        (
+            "the python copy's constant is renamed",
+            lambda r: edit(r, "verdryx/verdryx/events.py", "AGENT_ID_PATTERN =", "AGENT_URI_RE ="),
+        ),
+        (
+            "the go copy's variable is renamed",
+            lambda r: edit(
+                r, "agent-stack-go/passport/passport.go", "agentURIPattern =", "uriRe ="
+            ),
+        ),
+    ],
+    "c7.pattern-differs": [
+        (
+            "a copy loosens the grammar",
+            lambda r: edit(
+                r,
+                "engram/engram/events.py",
+                r"^agent://[a-z0-9.-]+/[a-z0-9._/-]+$",
+                r"^agent://.+$",
+            ),
+        ),
+        (
+            "the go copy in the module six repos import drifts",
+            lambda r: edit(
+                r,
+                "agent-stack-go/passport/passport.go",
+                r"^agent://[a-z0-9.-]+/[a-z0-9._/-]+$",
+                r"^agent://[A-Za-z0-9.-]+/[a-z0-9._/-]+$",
+            ),
+        ),
+    ],
+    "c7.cap-anchor-gone": [(
+        "a copy stops naming a cap at all",
+        lambda r: edit(r, "engram/engram/events.py", "AGENT_ID_MAX_LENGTH = 255", ""),
+    )],
+    "c7.cap-differs": [
+        (
+            "a python copy caps lower than the envelope",
+            lambda r: edit(
+                r, "verdryx/verdryx/events.py", "AGENT_ID_MAX_LENGTH = 255", "AGENT_ID_MAX_LENGTH = 128"
+            ),
+        ),
+        (
+            "the go copy caps higher than the envelope",
+            lambda r: edit(
+                r, "agent-stack-go/passport/passport.go", "maxURIBytes = 255", "maxURIBytes = 1024"
+            ),
+        ),
+    ],
     # ---- C2
     "c2.canonical-gone": [(
         "the canonical schema is deleted",
@@ -695,7 +775,10 @@ def main() -> int:
             )
             print(text)
         else:
-            print(f"OK: the fixture estate passes all six checks ({', '.join(verdicts)}).")
+            print(
+                f"OK: the fixture estate passes every check "
+                f"({', '.join(verdicts)})."
+            )
 
         # -- 2. each red path fires ----------------------------------------
         if not problems:
@@ -787,7 +870,7 @@ def main() -> int:
         f"covering"
     )
     print(
-        f"    all {len(declared)} FAIL paths across the six gates, and a repository "
+        f"    all {len(declared)} FAIL paths across {len(GATE_FILES)} gates, and a repository "
         f"nobody could"
     )
     print("    read comes back partial rather than clean.")

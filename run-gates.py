@@ -3,7 +3,7 @@
 
 Each gate is also runnable on its own (`./gates/c4-event-registry.py`). This
 runner exists for two reasons beyond convenience: it shares one Estate across
-the six, so `--mode clone` clones each repository once rather than six times,
+them all, so `--mode clone` clones each repository once rather than once per check,
 and it is the only place that decides what an INCOMPLETE run means.
 
 EXIT CODES, and why there are four of them
@@ -42,6 +42,7 @@ GATES = [
     "c4-event-registry.py",
     "c5-deployment-parity.py",
     "c6-chain-vectors.py",
+    "c7-rule-in-code.py",
 ]
 
 EXIT_PARTIAL_EXPECTED = 3
