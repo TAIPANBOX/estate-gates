@@ -164,6 +164,20 @@ covered one.
   check reads". A repository could join the estate and be covered by nothing,
   and only a person reading this section would notice.
 
+## The gaps a check cannot hold
+
+Everything above is what a script decides. [`GAPS.md`](GAPS.md) is the standing
+register of what it cannot: the estate's open security findings, the seams no
+gate reaches yet, what agent monitoring can and cannot see, and the invariants
+every repository holds by prose alone.
+
+It is a record rather than a source of truth. Nothing in it is authoritative
+about anything a command can decide, and its section 1 is a dated reading of a
+`run-gates.py` run rather than a second copy of one. Every item carries how to
+re-check it, because in this estate a `file:line` citation goes stale in days:
+on the day the register was opened, all three citations it tried to follow from
+a four-day-old audit had moved, and all three findings had been fixed.
+
 ## Known uncovered mirrors
 
 Copies that exist and are not compared, because they could not be anchored
