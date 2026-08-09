@@ -22,6 +22,10 @@ section 0.2, and specifically that nothing here is the authority on anything a
 command can decide. Section 1 is a reading of `run-gates.py` output, not a
 second copy of it.
 
+**Section 10 is the exception to the whole shape of this file.** Everything
+else records a gap; that section records estate-wide decisions about what gets
+built, so that a decision does not survive only in the session that made it.
+
 ---
 
 ## 0. How to use this file
@@ -579,3 +583,105 @@ as section 3.
   invariant counts; their code was not read.
 - **Whether the four v0.4.0 pins in G1.1 actually break anything** is unknown.
   The gate proves they differ, not that the difference bites.
+
+---
+
+## 10. Estate-wide standing decisions
+
+Different in kind from everything above. Sections 1 to 9 are findings about
+what exists; this one is decisions about what gets built next. They live here
+because they are cross-repository by nature and this is the only repository
+allowed to be.
+
+### D1. Go is the default for new services. Rust stays where it earns it.
+
+`@yurii 2026-08-09`, in his words: "я так розумію, що на наступні якісь
+сервіси, які ми будемо робити, ми будемо використовувати скоріше мову Go...
+Тобто я дивлюсь, що треба використовувати все-таки Go, там якийсь TypeScript,
+якщо треба щось намалювати." Confirmed the same day: "запиши цей дефолт в
+estate-gates".
+
+**The decision.** A new service in this estate is written in Go unless there is
+a stated reason it cannot be. TypeScript for anything with a user interface.
+
+**What it does not mean.** Nothing is rewritten. tokenfuse, trailryx, genaryx
+and taipan stay in Rust, and a change that touched them only to change language
+would trade working, gated code for an unmeasured rewrite.
+
+#### The reasons he gave, separated by what actually holds them
+
+He named slow compilation and a machine pushed to full load. Both are real and
+they have three different causes, which is worth keeping apart because only one
+of them is the language.
+
+1. **Build cost, which is mostly the dependency graph.** trailryx pulls
+   DataFusion and every fresh worktree rebuilds it from nothing, which is why
+   this Mac needs sccache and `jobs = 4` in `~/.cargo/config.toml` to be usable
+   at all. trailryx CI was 56 minutes before optimisation and 13 after
+   (`@measured` 2026-08-04). By comparison scopyx runs `go vet`, `staticcheck`,
+   `go build` and `go test -race` over 17 files and an 11-module graph in
+   **3.76 seconds** with the test cache cleared (`@measured` 2026-08-09,
+   `cd ~/Development/scopyx && go clean -testcache && time sh -c 'go vet ./... && staticcheck ./... && go build ./... && go test -race ./...'`).
+2. **Ecosystem tooling, and this one is not the compiler at all.** On
+   2026-08-09 the RustSec advisory database broke twice in one day and
+   `cargo audit` refuses to load the whole database when a single advisory
+   directory is malformed. It is still broken as this is written: the database
+   sits at `565436d8` with `RUSTSEC-2026-0244.md` present in both
+   `crates/gettext-rs/` and `crates/gettext-sys/`. tokenfuse #190 is blocked on
+   it and nothing in tokenfuse can fix it (`@measured` 2026-08-09,
+   `cd ~/.cargo/advisory-db && git fetch -q origin && git log --oneline -1 && ls crates/gettext-rs crates/gettext-sys`).
+   Go's `govulncheck` queries a hosted database and has no equivalent
+   whole-database failure mode. `@claude`
+3. **Our own configuration**, since fixed. Not a property of anything.
+
+#### What Go costs, stated rather than left for later
+
+`@claude`. Go has no sum types, so scopyx's `Verdict` is an `int` with
+constants instead of an enum the compiler forces every reader to exhaust, and
+adding a verdict will not break a `switch` that ignores it. It has no way to
+make "this struct may never carry a caller-supplied header" a type, which is
+exactly why scopyx holds that invariant in `scripts/no-caller-headers.sh`, an
+anchor over the source tree rather than a compiler error. We are trading
+compiler guarantees for cycle time. For a small network process that decides,
+records and forwards, that is the right trade. For a query engine, a byte-exact
+format or an embedding index it is not, and those are the cases where Rust
+stays correct.
+
+#### The census this rests on
+
+`@measured` 2026-08-09, by looking for `go.mod`, `Cargo.toml`, `package.json`
+and `pyproject.toml` at the top level and one directory down in each of the 19
+repositories `estate.json` records.
+
+| language | repositories |
+|---|---|
+| Go | agent-stack-go, heraldyx, idryx, mockryx, qryx, terraform-provider-taipan, wardryx |
+| Rust | genaryx, taipan, tokenfuse, trailryx |
+| Python | engram, verdryx |
+| none of the four | agent-passport (a spec), bank-in-a-box, catalog, stack-k8s, stack-single, stack-up |
+
+TypeScript is present inside `genaryx/apps/web`, `tokenfuse/cloud/dashboard`
+and `tokenfuse/sdk/js` rather than as any repository of its own. Go was already
+the plurality before this decision was taken; the decision makes an existing
+practice explicit rather than changing direction.
+
+**One correction the measurement produced.** Engram is Python, not Rust. It was
+recalled as Rust here, and recall is what this file's provenance rules exist to
+stop from becoming a permanent claim.
+
+**scopyx is not in `estate.json`** (`@measured` 2026-08-09,
+`grep -c scopyx estate.json` returns `0`), so the census covers 19 repositories
+and there is a twentieth that no cross-repo check reads. Open, and separate
+from this decision.
+
+#### How this is held
+
+*(not enforced: nobody can check a choice before the repository exists)*
+
+The part that IS structural is drift after the fact. `estate.json` records a
+role per repository and no language, so nothing notices a Go service that grows
+a crate or a Rust repository that quietly becomes the fifth. Giving each entry a
+`language` field and comparing it with the manifest files present would catch
+that, and would make the census above self-refreshing rather than a snapshot
+with a date on it. Not built. It is the smallest useful gate on this section
+and it would subsume the census by hand.
