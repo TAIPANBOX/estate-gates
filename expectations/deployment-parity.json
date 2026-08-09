@@ -91,7 +91,8 @@
         "idryx": 8081,
         "console": 7420,
         "policy-db": 5432,
-        "dashboard": 3000
+        "dashboard": 3000,
+        "scopyx": 4300
       },
       "divergences": {
         "ports:stack-k8s:unagreed:genaryx-console-lb=443": {
@@ -104,13 +105,14 @@
     "services": {
       "what": "Which components each deployment brings up.",
       "agreed": [
-        "tokenfuse-gateway",
-        "tokenfuse-cloud",
-        "wardryx",
-        "idryx",
-        "heraldyx",
         "console",
-        "policy-db"
+        "heraldyx",
+        "idryx",
+        "policy-db",
+        "scopyx",
+        "tokenfuse-cloud",
+        "tokenfuse-gateway",
+        "wardryx"
       ],
       "divergences": {
         "services:stack-up:absent:console": {

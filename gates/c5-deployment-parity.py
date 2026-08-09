@@ -108,6 +108,11 @@ SERVICE_KIND = {
     "init-volumes": "init-volumes",
     # stack-k8s (Deployment / StatefulSet metadata.name)
     "genaryx-console": "console",
+    # All three call it `scopyx`, so this maps to itself. Listed anyway,
+    # because membership of this dict is what tells the check a name is one it
+    # knows: a component absent from here is refused rather than defaulted, so
+    # a new plane cannot be silently compared against nothing.
+    "scopyx": "scopyx",
 }
 
 

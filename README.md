@@ -174,6 +174,15 @@ covered one.
   and no script can tell.
 - **Anything an operator supplies at install time.** C5 reads the defaults in
   the source. What a given box is running is not a property of a repository.
+- **Whether a component starts BY DEFAULT.** C5's `services` family answers
+  "does this deployment bring this component up", and both heraldyx and scopyx
+  are present in all three while being opt-in in two of them: excluded from
+  stack-k8s's `apply -k` set, behind a compose profile in stack-single, and on
+  by default only in the stack-up sandbox. C5 reports them as agreeing, which is
+  true of the question it asks and not of the question a reader may think it
+  asked. Noticed 2026-08-09 while adding scopyx; not modelled, because a family
+  for it would have to distinguish "opt-in for a security reason" from "not
+  wired up yet", and those look identical from the outside.
 - **The estate's OWN gates.** Nothing here checks that the per-repo gates
   still run or still mean what they say. That belongs to each repository.
 - **A coverage statement.** `estate.json` lists the estate, and there is no
