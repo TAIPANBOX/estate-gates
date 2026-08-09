@@ -890,7 +890,7 @@ ESTATE: dict[str, dict] = {
         "engram/events.py": ENGRAM_EVENTS_PY,
         "engram/core.py": ENGRAM_CORE_PY,
         "engram/reflection.py": ENGRAM_REFLECTION_PY,
-        "tests/fixtures/agent-event.schema.json": EVENT_V01,
+        "tests/fixtures/agent-event.v0.2.schema.json": EVENT_V02,
         "tests/test_events.py": CHAIN_TEST_PY,
     },
     "genaryx": {

@@ -304,7 +304,7 @@ MUTATIONS: dict[str, list[tuple[str, callable]]] = {
     )],
     "c2.copy-gone": [(
         "a vendored copy is deleted",
-        lambda r: drop(r, "engram/tests/fixtures/agent-event.schema.json"),
+        lambda r: drop(r, "engram/tests/fixtures/agent-event.v0.2.schema.json"),
     )],
     "c2.bytes-differ": [
         (

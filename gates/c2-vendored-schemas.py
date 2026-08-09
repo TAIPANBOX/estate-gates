@@ -26,6 +26,16 @@ The copies are declared below with the canonical each belongs to. A copy that
 disappears is a red, not a skip: a vendored schema that vanished is either a
 file somebody deleted by mistake or a check that stopped knowing where to look,
 and both need a person.
+
+That red fired once and was the second case. engram was recorded here as
+vendoring the v0.1 schema at `tests/fixtures/agent-event.schema.json`, and on
+2026-08-09 the file was not there. It had not been lost: engram was the last
+plane still emitting v0.1, migrated to v0.2 on 2026-08-06 (its PR #31), and
+deleted the v0.1 fixture as part of that, which `engram/events.py` says in its
+own module docstring. So the record moved to the v0.2 list rather than being
+deleted, because engram still vendors a copy and dropping the entry would have
+left it watched by nothing. Removing a copy from this file is only ever correct
+when the repository stopped vendoring one at all, and that has not happened yet.
 """
 
 from __future__ import annotations
@@ -53,11 +63,6 @@ COPIES: dict[str, list[tuple[str, str, str]]] = {
             "crates/core/src/schemas/agent-event.v0.1.schema.json",
             "compiled into genaryx-core with include_str!, crates/core/src/conform.rs",
         ),
-        (
-            "engram",
-            "tests/fixtures/agent-event.schema.json",
-            "the fixture engram's own test suite validates its emitted events against",
-        ),
     ],
     "schemas/agent-event.v0.2.schema.json": [
         (
@@ -79,6 +84,11 @@ COPIES: dict[str, list[tuple[str, str, str]]] = {
             "verdryx",
             "tests/fixtures/agent-event.v0.2.schema.json",
             "the fixture verdryx's own test suite validates its emitted events against",
+        ),
+        (
+            "engram",
+            "tests/fixtures/agent-event.v0.2.schema.json",
+            "the fixture engram's own test suite validates its emitted events against",
         ),
     ],
     "schemas/agent-passport.schema.json": [
