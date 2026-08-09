@@ -334,6 +334,43 @@ section 8 for the evidence. Every emitter now checks, counts and warns; the
 README example that produced a rejectable value has been rewritten to the
 canonical form.
 
+### G4.4 scopyx emits two types the registry does not carry, and C4 says clean
+
+**Found by registering scopyx** in `estate.json` on 2026-08-09. The run went to
+seven gates clean, every subject measured, and that answer is wrong about this.
+
+scopyx emits `web_fetch` and `web_blocked` (`internal/record/record.go`).
+`agent-passport` SPEC 6.2 carries neither, and carries no `scopyx` source row
+at all (`@measured` 2026-08-09, `grep -n 'scopyx\|web_fetch\|web_blocked'
+agent-passport/SPEC.md` returns nothing). C4's reverse direction exists exactly
+to catch that and did not fire.
+
+**Why it did not fire, which is the part worth keeping.** C4 anchors on literal
+strings at emit sites. scopyx names its types as constants and its emit site
+passes the variable `kind`, so there is no literal at the call for C4 to read.
+The anchor still matched the file, so nothing reported a hole either. This is
+the limitation the README already states under "Event types built at runtime",
+written there as hypothetical: it now has a real instance, and the instance
+arrived the same day the repository joined.
+
+**The shape.** A check that reports clean about a repository it structurally
+cannot read is worse than one that skips it loudly, because the summary line
+"every subject was measured" is then false and nobody has a reason to look.
+
+**Re-check:**
+
+```bash
+grep -rn 'Type[A-Za-z]* *= *"' ~/Development/scopyx/internal/record/record.go
+grep -c 'web_fetch' ~/Development/agent-passport/SPEC.md   # 0 means still open
+```
+
+**Closes when** SPEC 6.2 gains the scopyx row (scopyx's plan calls this WP9 and
+routes it through the user, since the registry belongs to agent-passport), AND
+C4 can see a type named as a constant rather than only one written at the call.
+The second is the larger of the two: fixing only the registry would leave the
+gate as blind as it is now, and the next producer to use a constant would be
+missed in the same silence.
+
 ### G4.3 Three sources of truth about what each product emits, and only one is gated
 The registry (SPEC 6.2) is gated against artifacts by C4, which is clean. What
 is **not** gated is the registry against the producers' actual code. C4 checks

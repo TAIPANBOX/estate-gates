@@ -63,6 +63,11 @@
       "local": "heraldyx",
       "role": "the notifier. Reads the shared log and writes its own dispatch journal in the same envelope."
     },
+    "scopyx": {
+      "github": "TAIPANBOX/scopyx",
+      "local": "scopyx",
+      "role": "the web-egress enforcement point. Decides each destination against the policy plane before a backend fetches it, and writes its own journal in the same envelope."
+    },
     "genaryx": {
       "github": "TAIPANBOX/genaryx",
       "local": "genaryx",
