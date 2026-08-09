@@ -256,76 +256,60 @@ Listed so they are never sold as closable:
 
 ## 3. Security
 
-Items below carry their verification date. **Only two were re-verified on
-2026-08-09** (both closed, see section 8). The rest are carried from the
-2026-08-05 audit and are marked as such: they are real findings that have not
-been re-checked, not current claims.
-
-### G3.1 tokenfuse: `/v1/ingest` authorises through `org_for`, not `authorize_mutation`
-`@claude 2026-08-05, not re-verified.` A viewer-level key can inject records
-carrying `decision: "budget_exceeded"`, raising a High incident that is
-exported to the shared NDJSON and **mailed by heraldyx**; the same path feeds
-`decision_counts`, from which `/v1/compliance` derives evidence for a regulator.
-The neighbouring `/v1/findings` is admin-gated with a comment reasoning about
-exactly this difference.
-**Re-check:** compare the authorisation call at `/v1/ingest` with `/v1/findings`.
-
-### G3.2 tokenfuse MCP broker: the policy gate is skipped when the identity header is absent
-`@claude 2026-08-05, not re-verified.` No header, no Wardryx gate, and secret
-injection proceeds anyway. The LLM path in the same repository returns 400 for
-the same absence. Two enforcement points, one missing header, opposite refusal
-postures.
-**Re-check:** the `x-fuse-agent-id` branch in `mcpbroker.rs` against the one in
-`proxy.rs`.
-
-### G3.3 tokenfuse: rug-pull detection rests on `DefaultHasher`
-`@claude 2026-08-05, not re-verified.` SipHash with a zero key, truncated to
-u64, in a lockfile with no algorithm or version field. The key is public, so
-there is no MAC property. Worse operationally: `rust-toolchain.toml` is
-`stable` and the action builds the scanner from source on every run, so a
-change to Rust's default hasher flips **the entire consumer fleet at once**
-into Critical "RUG PULL", and the recovery action (re-pin the lockfile) is
-exactly the action that masks a real rug pull.
-**Re-check:** the hasher and the lockfile's fields in the MCP scan path.
+**Every item here was re-verified against the code on 2026-08-09.** Seven were
+carried from the 2026-08-05 audit unchecked; all seven have now been opened.
+**Six are closed** and are in section 8 with the evidence. What remains is one
+constraint that is not a defect, and one correction to a finding that was
+wrong.
 
 ### G3.4 trailryx: the SQL read surface never filters a row
-`@yurii-adjacent, recorded as a deliberate constraint.` This is **not a defect**
-and is listed so it is not mistaken for one: trailryx invariant 27 states the
-surface admits or refuses a connection and never filters a row, with the
-deployment model being one server per scope. The risk is documentation drift:
-its own unit tests, read without that line, look like tenant isolation and
-teach the opposite conclusion.
-**Closes when:** nothing. It stays true or it is replaced, never quietly.
-**Watch for:** the day row filtering is added, this line must be replaced
-rather than deleted.
 
-### G3.5 trailryx: federation `PeerService::query` ignores the predicate
-`@claude 2026-08-05, not re-verified.` Possession of a certificate that chains
-to the CA equals full read of whatever the peer was configured with.
-**Re-check:** whether `query` applies its predicate before answering.
+**Not a defect, and listed so it is not mistaken for one.** trailryx invariant
+27 states the surface admits or refuses a connection and never filters a row,
+with the deployment model being one server per scope: two tenants means two
+servers.
 
-### G3.6 qryx: `verify-evidence` checks a signature against a key inside the same document
-`@claude 2026-08-05, not re-verified.` No flag pins an expected signer. As a CI
-step it is a check that cannot fail against a forgery, which is trailryx
-invariant 19's shape in another repository.
-**Re-check:** whether an expected-signer flag exists.
+The risk is documentation drift rather than code. Its own unit tests, showing
+two scopes refusing each other's principals, read as tenant isolation to
+anybody who has not seen invariant 27, and teach the opposite conclusion.
 
-### G3.7 genaryx: no way to delete or revoke a passkey, and registration is protected by the session it protects against
-`@claude 2026-08-05, not re-verified.` `PasskeyStore` had `add` and
-`update_sign_count` and nothing else, so a user who lost their only
-authenticator gets 428 forever on all five sensitive commands, curable only by
-editing `passkeys.json` on the box that is reached through that console. Beside
-it: a stolen admin session on a box where nobody has registered yet can
-register its own key and pass the ceremony honestly.
-**Re-check:** grep `PasskeyStore` for a removal method, and read `webauthn_gate`.
+**Closes when:** nothing. It stays true or it is replaced, never quietly. The
+day row filtering is added, that line must be replaced rather than deleted,
+because the line a deployment was built on must not stop being true in silence.
 
-### G3.8 genaryx: the WebAuthn ceremony has no configuration that makes it mandatory
-`@claude 2026-08-05, not re-verified.` `webauthn_gate` returns `Ok(None)` as
-soon as a user has no key, so all five sensitive commands fall back to the
-session cookie.
-**Re-check:** read `webauthn_gate` for the no-keys branch.
+### G3.5 was wrong about what ships, and the corrected finding is smaller and different
 
----
+**The original claim, from 2026-08-05:** trailryx's federation
+`PeerService::query` ignores the predicate and returns everything it holds to
+anybody whose certificate chains to the CA, so possession of a certificate
+equals full read.
+
+**What is actually there**, @measured 2026-08-09. `transport::serve` is called
+from the integration tests and from `bin/fed-probe`, which says of itself in
+its own module documentation that it is "deliberately small and deliberately
+not a service". It takes a fixed `Vec<Record>` and a `ServedProof` and answers
+with them. **There is no production federation server in the workspace at
+all**, so there is nothing shipped for a certificate holder to over-read: a
+peer serves what its operator handed it, over mutual TLS, to a client whose
+certificate carries a name the registry knows.
+
+**The real gap, which is worth more than the one it replaces.** The proto says
+the predicate is "sent as written; the far side decides what it can prove and
+says so in the trailer". The only implementation of that far side ignores it,
+no test asserts a predicate ever made an answer smaller, and the type calls
+itself the answering half of a federation peer. So the reference implementation
+teaches "return everything" to whoever writes the real one.
+
+**Closed** by making the absence visible rather than by inventing filtering in
+a harness: the doc comment says the predicate is not applied and why, the
+binding is named so it reads as a decision, `VALIDATION.md`'s "Not yet
+measured" carries it, and a test pins the current behaviour so it goes red the
+day filtering arrives. See section 8.
+
+**The lesson worth keeping** is about the first version of this entry rather
+than about trailryx. It described a leak, and the severity came from reading
+one function without asking who calls it. A finding that names a consequence
+should name the caller that produces it.
 
 ## 4. The seams between services
 
@@ -476,6 +460,71 @@ Kept rather than deleted, so the next audit knows what was checked.
   This is the one closure that was not a defect anywhere: invariant 7's second
   half working as designed.
 
+### Security items, all seven re-verified against the code 2026-08-09
+
+- ~~**G3.1 tokenfuse: `/v1/ingest` authorised through `org_for`.**~~ **Closed.**
+  `crates/cloud/src/http.rs:668` calls `st.authorize_mutation("POST",
+  uri.path(), &body, &headers)`. A viewer key can no longer inject records that
+  raise a High incident, get mailed, and feed the compliance counts.
+
+- ~~**G3.2 the MCP broker skipped its policy gate with no identity header.**~~
+  **Closed.** `needs_identity` in `mcpbroker.rs` refuses a `tools/call` that
+  names no agent while Wardryx is enforcing. HTTP answers with the same 400 the
+  LLM path returns, byte for byte, and stdio with its own JSON-RPC code
+  `-32007`, deliberately distinct from the deny code: a refusal because the gate
+  could not RUN is a different fact from one the gate decided.
+
+- ~~**G3.3 rug-pull detection rested on `DefaultHasher`.**~~ **Closed.**
+  `crates/core/src/mcp.rs:118` is SHA-256 over a domain separator with each part
+  length-framed, because tool names, descriptions and schemas are
+  attacker-controlled strings that may contain any delimiter. `Lock` gained the
+  `algorithm` and `version` fields whose absence the finding named.
+
+- ~~**G3.6 qryx verified a signature against a key inside the same
+  document.**~~ **Closed** today, qryx `375cbb7`. `--signer` pins the
+  fingerprint and a mismatch names both keys. Unpinned still works, and what
+  changed for those callers is the sentence: the tool said `VERIFIED`, which
+  reads as authentic, and now says the document is consistent and self-signed
+  and that this establishes nothing about who signed it.
+
+  The test asserts the defect as well as the fix. It signs one report with two
+  keys and requires the unpinned form to ACCEPT the forgery and report the
+  forger's key, so the day that path starts refusing, somebody decides it here
+  rather than discovering it in a customer's pipeline.
+
+- ~~**G3.7 genaryx could not delete or revoke a passkey.**~~ **Closed, and it
+  had been since 2026-08-05**, four days before this register claimed
+  otherwise. `webauthn.rs:250` has `remove`, `main.rs:292` routes it,
+  `REMOVE_PASSKEY_CEREMONY` exists, a separate factor is required to remove the
+  LAST enrolled key, and
+  `a_passkey_is_removed_by_a_caller_who_confirms_with_an_enrolled_one` covers
+  it. genaryx's own CLAUDE.md records both halves being fixed together.
+
+  **Why this register said otherwise is the part worth keeping.** The re-check
+  was `grep 'fn add\|fn remove\|...' | grep -i passkey`, which requires the
+  word `passkey` on the same line as the signature. `pub fn remove(` does not
+  carry it. A two-stage grep that ANDs across one line is a check that reports
+  absence it never looked for, which is invariant 19's shape in the tooling
+  used to audit rather than in the code audited.
+
+- ~~**G3.8 genaryx had no way to make the ceremony mandatory.**~~ **Closed.**
+  `GENARYX_WEB_REQUIRE_PASSKEY` exists; with it on and nothing enrolled, a
+  sensitive command is refused with an error saying how to enrol, rather than
+  running on the session cookie. Still opt-in, so the guarantee is
+  configuration-dependent until a box sets it, which genaryx's own invariant
+  marker says.
+
+- ~~**G3.5 trailryx federation returned everything to any valid
+  certificate.**~~ **Closed as a correction rather than as a fix**, trailryx
+  `47eb0d9`. The claim was wrong about what ships: `serve` is reached only from
+  the tests and from `fed-probe`, which calls itself deliberately not a service,
+  and no production federation server exists. What was real is that the only
+  implementation of the answering half ignores the predicate and said nothing
+  about it. Now the doc comment says so, the binding is named
+  `_predicate_is_not_applied_here`, `VALIDATION.md`'s "Not yet measured" carries
+  it, and `a_predicate_does_not_narrow_what_this_harness_answers` pins the
+  behaviour so it goes red the day filtering arrives.
+
 ### Closed before this file existed
 
 - ~~**verdryx mirrored seven of tokenfuse's nine blocked-decision strings**,
@@ -508,11 +557,18 @@ Kept rather than deleted, so the next audit knows what was checked.
 Named so the shape of the unexamined is visible. This section is as important
 as section 3.
 
-- **Six of the eight items in section 3 have not been re-verified since
-  2026-08-05.** Given that three of three re-checked items turned out to be
-  closed, the prior for the remaining six is that some are already fixed.
-  Re-verifying them is perhaps two hours and it is the highest-value work in
-  this file.
+- ~~Six of the eight items in section 3 have not been re-verified.~~ **Done
+  2026-08-09.** All seven open ones were opened against the code; six closed,
+  one was a wrong finding and is corrected in place. The prior held: the audit
+  that recorded them was recording work that was already being done.
+
+  **What the pass got wrong about itself is the more useful result.** One item
+  was reported still open on the strength of a grep that ANDed two conditions
+  onto one line and therefore could not see the function it was looking for.
+  A re-check is a check, and a check that cannot fail correctly reports
+  whatever the auditor already believed. Where a finding says a thing does not
+  exist, the evidence should be the file read, not a pattern that did not
+  match.
 - **No CI status was read.** No claim here about whether any repository's
   pipeline is green.
 - **No connector was checked against a real cloud account.**
