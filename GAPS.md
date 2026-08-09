@@ -78,6 +78,12 @@ overdue a refresh.
 @measured `./run-gates.py --mode ref --ref origin/main`, 2026-08-09:
 **3 of 6 gates found drift (C1, C2, C5). C3, C4 and C6 are clean.**
 
+**The mode is part of that claim.** CI runs `--mode clone`, where `taipan` is
+private and `bank-in-a-box` has no remote, so C4 reports **partial, something
+went unmeasured** rather than clean. Both readings are true of their own mode.
+Anybody comparing this section against the red badge should expect that one
+difference and no other.
+
 ### G1.1 Four consumers are a minor behind on the shared contract module
 
 `agent-stack-go` is at **v0.5.1**. Pinned at **v0.4.0**: `heraldyx`, `mockryx`,
