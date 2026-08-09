@@ -338,6 +338,17 @@ MUTATIONS: dict[str, list[tuple[str, callable]]] = {
                 r, "agent-stack-go/passport/passport.go", "agentURIPattern =", "uriRe ="
             ),
         ),
+    (
+            # The rust copy anchors on a FUNCTION rather than a constant, which
+            # is a shape none of the other three have. It gets its own case.
+            "the rust copy's function is renamed",
+            lambda r: edit(
+                r,
+                "tokenfuse/crates/core/src/agent_event.rs",
+                "fn is_canonical_agent_id",
+                "fn agent_id_is_canonical",
+            ),
+        ),
     ],
     "c7.pattern-differs": [
         (
@@ -358,6 +369,15 @@ MUTATIONS: dict[str, list[tuple[str, callable]]] = {
                 r"^agent://[A-Za-z0-9.-]+/[a-z0-9._/-]+$",
             ),
         ),
+    (
+            "the rust copy loosens the grammar",
+            lambda r: edit(
+                r,
+                "tokenfuse/crates/core/src/agent_event.rs",
+                r"^agent://[a-z0-9.-]+/[a-z0-9._/-]+$",
+                r"^agent://.+$",
+            ),
+        ),
     ],
     "c7.cap-anchor-gone": [(
         "a copy stops naming a cap at all",
@@ -374,6 +394,15 @@ MUTATIONS: dict[str, list[tuple[str, callable]]] = {
             "the go copy caps higher than the envelope",
             lambda r: edit(
                 r, "agent-stack-go/passport/passport.go", "maxURIBytes = 255", "maxURIBytes = 1024"
+            ),
+        ),
+    (
+            "the rust copy caps lower than the envelope",
+            lambda r: edit(
+                r,
+                "tokenfuse/crates/core/src/agent_event.rs",
+                "AGENT_ID_MAX_LENGTH: usize = 255",
+                "AGENT_ID_MAX_LENGTH: usize = 64",
             ),
         ),
     ],

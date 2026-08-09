@@ -328,11 +328,11 @@ neither heraldyx nor trailryx, because it never enters the bus they read.
 **Closes when:** idryx has an event writer and SPEC 6.2's row stops saying
 reserved.
 
-### G4.2 `agent_id` is not validated against the `agent://` pattern by any emitter
-`@claude 2026-08-05, not re-verified.` Not engram, not verdryx, not tokenfuse.
-Meanwhile engram's own README shows `agent_id="planner"`, so the canonical
-example in the docs produces a value a strict consumer must reject.
-**Re-check:** grep the emitters for a pattern check before write.
+### ~~G4.2 `agent_id` is not validated against the `agent://` pattern by any emitter~~
+**Closed 2026-08-09**, and it was the last of the three claims in it to go. See
+section 8 for the evidence. Every emitter now checks, counts and warns; the
+README example that produced a rejectable value has been rewritten to the
+canonical form.
 
 ### G4.3 Three sources of truth about what each product emits, and only one is gated
 The registry (SPEC 6.2) is gated against artifacts by C4, which is clean. What
@@ -421,6 +421,34 @@ the session that would have implemented it.
 Kept rather than deleted, so the next audit knows what was checked.
 
 ### Closed 2026-08-09, the day this file was opened
+
+- ~~**G4.2: no emitter validates `agent_id` against the `agent://` pattern.**~~
+  **Closed.** All three now call the same predicate before writing, each at a
+  line this register names rather than describes (`@measured` 2026-08-09,
+  `grep -rn is_canonical_agent_id` across the three repositories):
+
+  | repo | call site |
+  |---|---|
+  | tokenfuse | `crates/core/src/agent_event.rs:501`, added by tokenfuse#190, merged this day |
+  | engram | `engram/engram/events.py:333` |
+  | verdryx | `verdryx/verdryx/events.py:367` |
+
+  **What they do is worth stating exactly, because "validated" would overstate
+  it.** None REJECTS. Each writes the event, increments a nonconforming count,
+  and warns once per distinct id behind a bounded set so a misconfigured agent
+  cannot flood a log. That is the right choice for a trail nobody may silently
+  drop from, and it is a different guarantee from refusal: a consumer reading
+  these events still meets ids the envelope's own schema would reject. What
+  changed is that the number is now true and visible instead of absent.
+
+  **The README half closed too.** engram's example is now
+  `agent_id="agent://acme.example/planner"`. The bare `"planner"` that the
+  finding quoted is gone, so the docs no longer teach a value a strict consumer
+  must reject.
+
+  **The rule is now gated in four places rather than three.** C7 gained the
+  tokenfuse row the same day, so the constant behind all of this is compared
+  against agent-passport's schema in every repository that retypes it.
 
 - ~~**G1.1: four consumers a minor behind on `agent-stack-go`.**~~ **Closed.**
   All six now pin `v0.6.0`: heraldyx#35, mockryx#27, wardryx#19,

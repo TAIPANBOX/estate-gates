@@ -229,6 +229,17 @@ impl ParquetSink {
 
 AGENT_EVENT_RS = """//! The agent-event exporter.
 
+pub const AGENT_ID_MAX_LENGTH: usize = 255;
+
+pub fn is_canonical_agent_id(agent_id: &str) -> bool {
+    static PATTERN: std::sync::OnceLock<regex::Regex> = std::sync::OnceLock::new();
+    let re = PATTERN.get_or_init(|| {
+        regex::Regex::new(r"^agent://[a-z0-9.-]+/[a-z0-9._/-]+$")
+            .expect("the agent_id pattern is a literal and compiles")
+    });
+    agent_id.len() <= AGENT_ID_MAX_LENGTH && re.is_match(agent_id)
+}
+
 pub enum EventType {
     BudgetExhausted,
     RunKilled,
