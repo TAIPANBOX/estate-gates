@@ -84,18 +84,64 @@ went unmeasured** rather than clean. Both readings are true of their own mode.
 Anybody comparing this section against the red badge should expect that one
 difference and no other.
 
-### G1.1 Four consumers are a minor behind on the shared contract module
+### G1.1 Four consumers are a minor behind, and the delta contains no contract at all
 
 `agent-stack-go` is at **v0.5.1**. Pinned at **v0.4.0**: `heraldyx`, `mockryx`,
 `qryx`, `wardryx`. Current: `idryx`, `terraform-provider-taipan`.
 
-The module is pre-1.0, so a minor bump is where behaviour and breakage live.
-Four services are on a different contract from the two that are current.
+C1 reports this as "a different contract", and its wording is right in general
+and wrong about this particular delta. @measured 2026-08-09:
 
-**Closes when:** four `go.mod` bumps, each with its own PR and green CI.
+- `git diff --stat v0.4.0 v0.5.1 -- chain event passport` is **empty**. The
+  three packages consumers import are byte-identical across the two tags.
+- `git diff --name-only v0.4.0 v0.5.1 -- '*.go'` returns exactly one file,
+  `cmd/agent-conform/main.go`, which is the checker CLI and not a library
+  package.
+- Everything else in the delta is CI, docs, gate scripts, and the item in
+  G1.4.
+
+So bumping the four pins changes no compiled behaviour anywhere. The finding is
+real, the risk it implies is not, and the entry that used to sit here repeated
+the gate's wording without checking the delta.
+
+**This does not make C1 wrong or worth relaxing.** It is right that a pre-1.0
+minor is where breakage lives, and it cannot read a diff to find the one time
+it is not. A gate that only fires when it can also prove harm is a gate that
+misses the case it exists for.
+
+**Closes when:** four `go.mod` bumps. **Do them against a tag that does not
+carry G1.4**, which today means cutting one from `main` first.
+**Escalation:** `mockryx` and `wardryx` both name "bumping the `agent-stack-go`
+tag" in their CLAUDE.md escalate lists. Neither may be bumped without asking.
 **Re-check:** the C1 section of the gate run.
-**Note:** this is the same class that cost a real defect before, when idryx sat
-on v0.3.0 and the delta was the chain verifier idryx most needed.
+**Note:** this is the same class that cost a real defect once, when idryx sat on
+v0.3.0 and the delta was the chain verifier idryx most needed. That time the
+delta mattered. Reading the delta is what tells the two apart.
+
+### G1.4 The v0.5.1 tag ships a 4.8 MB build artifact the repository gitignores
+
+@measured 2026-08-09: `git ls-tree v0.5.1` lists `agent-conform` at the module
+root, 4,830,738 bytes. It is **absent from v0.4.0**, **absent from `main`**, and
+`.gitignore:17` carries `/agent-conform` under the comment "the local build of
+the checker".
+
+So a local build of the checker was committed into a release tag, against the
+repository's own stated intent, and `main` has since corrected it. Go modules
+ship every tracked file, so every consumer that moves to v0.5.1 pulls those
+bytes into its module cache, and an auditor reading the module gets an opaque
+binary the source tree says should not be there.
+
+The consequence for G1.1 is the useful part: **moving the four consumers to
+v0.5.1 today would import a mistake `main` has already fixed.** Cut a tag from
+`main` and move them to that instead.
+
+**Closes when:** a tag exists whose tree has no `agent-conform` at the root, and
+the consumers point at it. Deleting the v0.5.1 tag is not the fix and is not
+proposed: the estate's rule is to ship a new patch rather than delete what was
+published.
+**Re-check:** `git ls-tree <tag> --name-only | grep '^agent-conform$'`.
+**Gated by:** nothing. No check in this repository looks at what a tag's tree
+contains, and none of the six would have found this.
 
 ### G1.2 Three vendored schema copies disagree with the canonical one, and one is gone
 
