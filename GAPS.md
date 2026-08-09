@@ -586,6 +586,70 @@ as section 3.
 
 ---
 
+## 11. G3.8, the blocker that was ours
+
+Numbered as a section rather than folded into 3, because it was found after
+this file's own section 10 had already stated it wrongly, and the shape of the
+mistake matters more than the outage.
+
+### G3.8 A stale local advisory database blocks every Rust audit in the estate, and looks exactly like an upstream outage
+
+**What was claimed here on 2026-08-09**, in section 10 and in the commit that
+opened it: that the RustSec advisory database carried `RUSTSEC-2026-0244` in
+both `crates/gettext-rs/` and `crates/gettext-sys/`, that upstream had been
+broken for hours, and that nothing on our side could fix it.
+
+**What is actually true**, measured the same day. Upstream fixed it properly
+and hours earlier, in `e12b689b`, as a clean git rename of the file from one
+directory to the other. `git grep -l RUSTSEC-2026-0244 HEAD -- crates/` returns
+exactly one path. The second copy existed only in the local checkout, as an
+untracked directory `git status` reports as `?? crates/gettext-sys/`, beside
+eight other untracked `RUSTSEC-0000-0000.md` placeholder files left over from
+earlier assignment rounds.
+
+**Why it was permanent.** `cargo audit` fetches by pulling into
+`~/.cargo/advisory-db`, and `git pull` never removes an untracked file. It then
+reads the DIRECTORY rather than git `HEAD`, so any stale file that ever landed
+there is loaded as an advisory forever, and every subsequent fetch reports
+success while the audit stays broken. `git clean -fd` fixed it in one command,
+after which the database loaded 1198 advisories and `tokenfuse/scripts/audit.sh`
+exited 0 (`@measured` 2026-08-09).
+
+**How to re-check it.** Never `ls` the directory, which is what produced the
+wrong finding:
+
+```bash
+git -C ~/.cargo/advisory-db status --short          # untracked leftovers
+git -C ~/.cargo/advisory-db grep -c RUSTSEC-0000-0000 HEAD -- crates/ | wc -l
+```
+
+The first is the whole diagnosis. Anything in it is a file no upstream fix will
+ever remove.
+
+**What generalises.** `ls` reads what a tool reads; `git` reads what upstream
+published. When the question is "is upstream broken", only the second answers
+it, and the first will confidently say yes about a mess of your own. This is
+the same defect class as the G3.7 miss recorded in section 9, one layer out: a
+re-check that cannot distinguish "they broke it" from "we did" reports whatever
+the auditor already believed.
+
+**Not fixed anywhere but this machine.** The clean was local. Nothing prevents
+the same accumulation on any other machine, in any Rust repository in the
+estate, and the symptom will again be a red `security` job that looks like
+somebody else's problem. The cheap guard is for `scripts/audit.sh` to refuse
+when its database checkout is dirty, and say which files, rather than letting
+cargo-audit fail with a parse error several layers from the cause. **Not
+built**, and it belongs in tokenfuse and trailryx rather than here.
+
+**CI was never affected.** `Swatinem/rust-cache` does not cache
+`~/.cargo/advisory-db`, so every CI run clones it fresh. The red on tokenfuse
+#190 was the FIRST breakage of the day, a `RUSTSEC-0000-0000.md` placeholder
+that upstream really did publish under `crates/gettext-rs/` (`e11d6b33`
+through `e0bc1e80`) and really did fix. Those are two different outages and
+this file previously ran them together.
+
+---
+
 ## 10. Estate-wide standing decisions
 
 Different in kind from everything above. Sections 1 to 9 are findings about
@@ -622,16 +686,18 @@ of them is the language.
    `go build` and `go test -race` over 17 files and an 11-module graph in
    **3.76 seconds** with the test cache cleared (`@measured` 2026-08-09,
    `cd ~/Development/scopyx && go clean -testcache && time sh -c 'go vet ./... && staticcheck ./... && go build ./... && go test -race ./...'`).
-2. **Ecosystem tooling, and this one is not the compiler at all.** On
-   2026-08-09 the RustSec advisory database broke twice in one day and
-   `cargo audit` refuses to load the whole database when a single advisory
-   directory is malformed. It is still broken as this is written: the database
-   sits at `565436d8` with `RUSTSEC-2026-0244.md` present in both
-   `crates/gettext-rs/` and `crates/gettext-sys/`. tokenfuse #190 is blocked on
-   it and nothing in tokenfuse can fix it (`@measured` 2026-08-09,
-   `cd ~/.cargo/advisory-db && git fetch -q origin && git log --oneline -1 && ls crates/gettext-rs crates/gettext-sys`).
-   Go's `govulncheck` queries a hosted database and has no equivalent
-   whole-database failure mode. `@claude`
+2. **Ecosystem tooling, and this one is not the compiler at all.** `cargo
+   audit` refuses to load the ENTIRE advisory database when one advisory in it
+   is malformed, so a single bad file upstream stops every audit in the estate
+   rather than affecting the crate it concerns. `--ignore` does not help: the
+   failure is at database load, before any ignore is evaluated (`@measured`
+   2026-08-09, `cargo audit --ignore RUSTSEC-2026-0244` in tokenfuse still
+   exits on `error loading advisory database`). Go's `govulncheck` queries a
+   hosted database and has no equivalent whole-database failure mode.
+   `@claude`
+
+   **The example first written here was wrong, and the correction is D1's most
+   useful part.** See G3.8, opened the same day this section was.
 3. **Our own configuration**, since fixed. Not a property of anything.
 
 #### What Go costs, stated rather than left for later
