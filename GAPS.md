@@ -79,9 +79,23 @@ by a few bytes, and the paragraph below says which bytes and why they matter.
 If this section and a fresh run disagree, the run is right and this section is
 overdue a refresh.
 
-@measured `./run-gates.py --mode ref --ref origin/main`, 2026-08-10, after
-estate-gates#14: **all 7 gates clean, and every subject was measured.** The
-suite has grown a gate since the reading below was written.
+@measured `./run-gates.py --mode ref --ref origin/main`, 2026-08-10, after the
+v0.3 work and after all seven consumers moved: **all 7 gates clean, and every
+subject was measured.** The suite has grown a gate since the reading below was
+written.
+
+**C1 was red for about an hour in between, and what it did in that hour is the
+argument for it.** agent-stack-go cut `v0.7.0`, and C1 refuses any lag by
+design: "the day after a release is exactly when the estate is most drifted", in
+its own words. It named all seven consumers, one FAIL line each, and went clean
+as each moved. Two of them needed the release; five needed one line.
+
+It also found something nobody was looking for. Its list said SEVEN and
+agent-stack-go's own blast-radius paragraph said six: `scopyx` had been
+importing the module since it joined the estate on 2026-08-09 and three places
+in that repository still omitted it. Corrected in agent-stack-go#27, which also
+adds a sentence telling a reader to run C1 rather than trust the list, because
+this is the second time a hand-kept list there has rotted.
 
 **Earlier the same day C5 was red, and what it found is worth keeping**, because
 it is the difference between a gate that cannot see and an estate that
@@ -312,8 +326,18 @@ obliges a consumer to ignore keys it does not know. See G4.5.
 four findings reached the bus with correct subjects, and idryx reported
 `3 were about a self-declared (claimed:) identity the envelope cannot carry`.
 
-**Closes when:** G4.5 does. Nothing else is outstanding on this item.
-**Re-check:** the command above. A nonzero claimed count is this gap.
+~~**Closes when:** G4.5 does.~~ **CLOSED 2026-08-10**, the same day it was
+opened as half closed. G4.5 closed, so this did.
+
+`@measured` on the same command, after idryx#44: the journal carries three
+`v0.3` events whose subject is `claimed:agent://...`, including both
+`unrouted_egress` findings, and idryx reports `3 were written about a
+self-declared (claimed:) identity under schema v0.3` where it had reported the
+same three as unwritable. Established findings still stamp `v0.2` with a bare
+`agent://` subject, which is the half a reader would not notice if it broke.
+
+**Re-check:** the command above. A nonzero SKIPPED-claimed count would be this
+gap returning; a nonzero WRITTEN-claimed count is it working.
 
 ### G2.5 Four limits on agent monitoring that no amount of work removes
 
@@ -548,10 +572,98 @@ is recorded, which his standing rule of 2026-08-09 governs. Recorded here rather
 than proposed, because a vocabulary decision is the one thing that cannot be
 changed quietly afterwards.
 
-**Closes when:** the envelope can say a subject was asserted rather than
-established, and idryx writes claimed findings under it.
+~~**Closes when:** the envelope can say a subject was asserted rather than
+established, and idryx writes claimed findings under it.~~ **CLOSED 2026-08-10**,
+`@yurii 2026-08-10`, "зроби basis суб'єкта в конверті".
+
+**The shape it closed in is not the one this entry proposed, and the difference
+is the whole result.** This entry asked for "a subject-basis field on the
+envelope (or a registered `data` key)". Both were built and rejected on paper
+first, because §6.1 obliges a consumer to ignore fields it does not know: a
+consumer that ignores `subject_basis: claimed` reads `agent_id`, finds a bare
+id, and presents a self-declaration as established. That is SPEC 3.3's own MUST
+NOT, reached by a consumer doing exactly what the spec told it to do.
+
+Three measured consequences, in deployed code rather than in principle:
+
+- **heraldyx would have mailed a kill link for the wrong agent.** Its mail
+  carries `this agent <link> (freeze, kill)` where the link is
+  `<console>/a/<agent_id>`. A process that wrote a victim's id into its own
+  environment would have routed a woken operator to the innocent agent's card.
+- **idryx would have laundered its own observation.** Its bus ingest treats a
+  canonical `agent://` arriving from the bus as established, so the claim would
+  have come back into its graph as an attested-grade identity.
+- **Any new top-level field breaks the §6.5 chain.** `Canonicalize` marshals the
+  typed struct, so a verifier older than the field drops it before hashing and
+  reports a BREAK on an honest stream. Released `agent-conform` binaries would
+  have called untampered files tampered.
+
+**What was built instead** is the marker INSIDE the subject,
+`claimed:agent://<domain>/<path>`, under a new schema version v0.3. No consumer,
+updated or not, can present the claim as established without deliberately
+stripping a prefix nothing told it to strip. A sibling field inverts that: every
+consumer must consult it at every use site, forever.
+
+And it did NOT need the lockstep 6.1 warned about. Accepting v0.3 is
+deliberately not a MUST, so a consumer that has not decided what a claim means
+to it refuses the event, which trailryx and `agent-conform` already do. 6.1's
+sentence saying a subject kind would need every consumer to move together is
+corrected in the spec rather than left standing.
+
+Landed as agent-passport#36, agent-stack-go#26 plus tag v0.7.0, heraldyx#40 and
+idryx#44, in that order: consumers before the producer, so no claimed event
+existed until every reader either refused it loudly or showed the claim
+inseparably.
+
+**What is still true after it**, so nobody reads this as solved attribution:
+a claim is still a self-declaration and satisfies no control requiring an
+attested identity; an agent that unsets `AGENT_PASSPORT_ID` leaves the layer
+entirely and its flows degrade to `proc:`, where `unmanaged_egress` still fires;
+`proc:` findings still have no subject and never travel; and **trailryx still
+records no `identity_finding` at all**, claimed or established, because its
+mapper has no row for that type. That last one is separate from this gap and is
+below.
+
 **Re-check:** run any capture carrying a `claimed:` identity through
-`idryx detect` with `IDRYX_EVENTS` set and read the claimed count on stderr.
+`idryx detect` with `IDRYX_EVENTS` set, and read the schema stamp on the
+resulting events rather than only the counts.
+
+### G4.6 trailryx records no identity finding at all, claimed or established
+
+Opened 2026-08-10, found while closing G4.5 and worth its own entry because
+closing that one is easy to misread as having delivered this.
+
+`@measured` `grep -n 'identity_finding\|alert_sent'
+trailryx/crates/trailryx-agentevent/src/lib.rs`: the mapper has a row for
+`alert_sent` and none for `identity_finding`. So every finding idryx has written
+since 2026-08-10, established and claimed alike, is refused at that door as
+`UnknownType` and produces zero records.
+
+**This is not the envelope's fault and G4.5 did not touch it.** The envelope
+carries these events correctly; trailryx has simply never been told what an
+identity finding IS in its own record vocabulary. Adding a row is a decision
+about that vocabulary rather than a mapping chore: trailryx's records are the
+part designed to be believed and kept, and its own invariant 7 governs what may
+be appended to the type set.
+
+Two questions inside it, and both are the user's:
+
+- does an identity finding become a record at all, and under which record type;
+- and what does invariant 35's tenant check do with a CLAIMED subject whose
+  trust domain is not the receiver's? With an established subject a foreign
+  domain is a misconfiguration. With a claimed one it can be a process naming
+  another organisation's agent, in a store whose whole claim is that it is
+  believed. Refusal should be its own counted rejection rather than folded into
+  an existing one, so the count says what was turned away.
+
+Until then trailryx refuses claimed events one layer earlier anyway, at
+`UnknownSchema`, because it accepts only v0.1 and v0.2. That refusal is correct
+and counted, and it means nothing is being lost silently.
+
+**Closes when:** the mapper has a row for `identity_finding` and the tenant rule
+says what it does with a claim.
+**Re-check:** the grep above, and `trailryx-node events --file` against an idryx
+journal, reading the refused count rather than the accepted one.
 
 ### G4.3 Three sources of truth about what each product emits, and only one is gated
 The registry (SPEC 6.2) is gated against artifacts by C4, which is clean. What
@@ -634,6 +746,9 @@ the session that would have implemented it.
   the inversion of it. See G2.4.
 - **A C7 cross-repo check**: the event registry against producers' code, G4.3.
 - **The silent-zero rule** as an estate-wide convention, class 2 above.
+- ~~**A subject kind for the envelope**, so a claimed identity can travel.~~
+  **Built 2026-08-10**, and not as a subject KIND: the distinction lives inside
+  the subject and the version stamp carries it. See G4.5.
 
 ---
 
