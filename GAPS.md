@@ -339,7 +339,7 @@ same three as unwritable. Established findings still stamp `v0.2` with a bare
 **Re-check:** the command above. A nonzero SKIPPED-claimed count would be this
 gap returning; a nonzero WRITTEN-claimed count is it working.
 
-### G2.5 Four limits on agent monitoring that no amount of work removes
+### G2.5 Six limits on agent monitoring that no amount of work removes
 
 Listed so they are never sold as closable:
 
@@ -355,6 +355,20 @@ Listed so they are never sold as closable:
 4. **An agent with code execution can always open a socket.** Enforcement
    points constrain routed traffic. Only the network layer constrains a
    process, and only where we own the deployment.
+5. **A Passport's OWNER can be checked for presence and never against
+   behaviour.** Added 2026-08-10, when the rest of the Passport was decided. No
+   packet, event or syscall carries ownership, so the only comparison available
+   is one declaration against another, and idryx's `AddIdentity` merges
+   last-non-empty-wins, which erases even that before a detector runs. Absence
+   is already `orphaned_nhi`'s and needs nothing further.
+6. **A Passport's PARENT and the runtime delegation chain are two different
+   relations the spec allows to differ**, so their inequality is not evidence.
+   SPEC 4.2 is an org chart, SPEC 5 is a per-request chain, and idryx's own
+   model documentation says they are "usually, but not necessarily, the same
+   identity". A detector on the disagreement would cry wolf by construction.
+   The sensor records no process ancestry either, so nothing observes spawning.
+   Only referential absence is checkable, a parent no record has heard of, and
+   that is inventory hygiene rather than corroboration.
 
 ---
 
@@ -801,10 +815,14 @@ the session that would have implemented it.
 - ~~**A subject kind for the envelope**, so a claimed identity can travel.~~
   **Built 2026-08-10**, and not as a subject KIND: the distinction lives inside
   the subject and the version stamp carries it. See G4.5.
-- **The rest of the Passport, decided 2026-08-10 and not yet built.** `@yurii
-  2026-08-10`, "тепер решту паспорта: власник, атестація, батько". The design is
-  recorded here rather than in a session that ended, because two thirds of it is
-  a decision NOT to build.
+- ~~**The rest of the Passport, decided 2026-08-10 and not yet built.**~~
+  **BUILT the same day**, idryx#47: `claimed_agent_unattested` for the one field
+  that had an observed counterpart, and G2.5 items 5 and 6 for the two that did
+  not. The design below is kept because the decision NOT to build is the larger
+  half of it, and a register that recorded only what shipped would leave the
+  next session re-asking why owner and parent have no detector.
+
+  `@yurii 2026-08-10`, "тепер решту паспорта: власник, атестація, батько".
 
   **Attestation gets one detector, `claimed_agent_unattested`.** The binding
   itself is never observable: idryx has no connector to any attestation plane,
@@ -830,8 +848,9 @@ the session that would have implemented it.
   is referential: a parent no record in the graph has heard of, which is
   inventory hygiene rather than corroboration, and is optional.
 
-  Both permanent limits belong in G2.5 when the work lands, and this register
-  does not carry them today.
+  ~~Both permanent limits belong in G2.5 when the work lands.~~ **Done
+  2026-08-10**: G2.5 items 5 and 6, and its heading says six rather than four.
+  The detector is idryx#47.
 
   **One correction to how this gap was described.** It was recorded as living
   here. It does not: the line lives in three idryx files, `SECURITY.md`,
