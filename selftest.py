@@ -580,29 +580,57 @@ MUTATIONS: dict[str, list[tuple[str, callable]]] = {
             ),
         ),
     ],
+    # THE RESERVED BRANCH NO LONGER HAS A STANDING SUBJECT, SO EACH CASE PLANTS
+    # ONE.
+    #
+    # idryx was the estate's only RESERVED row and stopped being one on
+    # 2026-08-10, when it gained a writer and 6.2 was corrected in the same
+    # wave. The branch stays, because the next reserved row must not ship with
+    # nothing checking it, and the state it guards is the expensive one: a row
+    # telling consumers "do not expect these events" while a writer quietly
+    # exists.
+    #
+    # Planting is stronger than the old shape, which relied on the fixture
+    # happening to hold a reserved source. These cases now CREATE the exact
+    # contradiction and require the gate to name it.
     "c4.reserved-unverifiable": [
-        # The RESERVED claim is checked by looking for a Go writer call, so any
-        # scan that could not cover the repository must be a red rather than
-        # the row holding. Two ways to not cover it, and they are different
-        # code paths.
+        # RESERVED plus a scan that could not cover the repository. Two ways to
+        # not cover it, and they are different code paths.
         (
-            "a Go file the repo lists cannot be read, so the scan is partial",
-            lambda r: drop(r, "idryx/internal/ingest/tokenfuse/tokenfuse.go"),
+            "a RESERVED row whose repo has a Go file that cannot be read",
+            lambda r: [
+                edit(
+                    r,
+                    "agent-passport/SPEC.md",
+                    "| `idryx` | `identity_finding` |",
+                    "| `idryx` | RESERVED, not emitted today: `identity_finding` |",
+                ),
+                drop(r, "idryx/internal/ingest/tokenfuse/tokenfuse.go"),
+                drop(r, "idryx/internal/events/events.go"),
+            ],
         ),
         (
-            "the RESERVED source's repo has no Go files to look in at all",
-            lambda r: git(
-                r / "idryx", "rm", "-q", "internal/ingest/tokenfuse/tokenfuse.go"
-            ),
+            "a RESERVED row whose repo has no Go files to look in at all",
+            lambda r: [
+                edit(
+                    r,
+                    "agent-passport/SPEC.md",
+                    "| `idryx` | `identity_finding` |",
+                    "| `idryx` | RESERVED, not emitted today: `identity_finding` |",
+                ),
+                git(r / "idryx", "rm", "-q", "internal/ingest/tokenfuse/tokenfuse.go"),
+                git(r / "idryx", "rm", "-q", "internal/events/events.go"),
+            ],
         ),
     ],
     "c4.reserved-source-emits": [(
-        "the RESERVED source grows an event writer",
+        "a row says RESERVED while the repo has a writer, which is the state "
+        "this branch exists for",
         lambda r: edit(
             r,
-            "idryx/internal/ingest/tokenfuse/tokenfuse.go",
-            "return event.ReadFile(path)",
-            "event.NewChainedWriter(path)\n\treturn event.ReadFile(path)",
+            "agent-passport/SPEC.md",
+            "| `idryx` | `identity_finding` |",
+            "| `idryx` | RESERVED, not emitted today: `identity_finding` |",
         ),
     )],
     "c4.registered-source-silent": [(
