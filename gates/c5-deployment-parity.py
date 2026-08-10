@@ -113,6 +113,23 @@ SERVICE_KIND = {
     # knows: a component absent from here is refused rather than defaulted, so
     # a new plane cannot be silently compared against nothing.
     "scopyx": "scopyx",
+    # stack-single ships the same plane twice, under two compose profiles that
+    # its own file says are mutually exclusive: `egress` runs the 15 MB image
+    # and `egress-browser` runs the one with Chromium in it, and both bind the
+    # network alias `scopyx`, because the rest of the box reaches it by that
+    # name whichever profile the operator chose.
+    #
+    # So this is one component with two backends, not two components, and the
+    # kind is `scopyx`. The services comparison folds a deployment's names into
+    # a SET, so collapsing both onto one kind cannot double-count: a box running
+    # either profile brings up scopyx, which is exactly what the other two
+    # deployments do.
+    #
+    # What this deliberately does NOT do is compare the two backends. Whether a
+    # box renders JavaScript is a property of the profile an operator picks at
+    # install time, and this check reads source rather than a running box (see
+    # the module docstring's last paragraph).
+    "scopyx-browser": "scopyx",
 }
 
 
