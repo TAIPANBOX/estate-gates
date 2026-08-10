@@ -693,10 +693,29 @@ claim means, and as a consumer of its own bus it has not. trailryx answered the
 same question for itself by refusing claimed subjects at the door and counting
 them (G4.6).
 
-**Closes when:** idryx decides what a claimed subject means on the way IN, and
-either refuses it, or marks it so the posture detectors skip it.
+~~**Closes when:** idryx decides what a claimed subject means on the way IN.~~
+**CLOSED 2026-08-10**, idryx#46, the same day it was opened.
+
+It was decided the second way rather than the first: the claim is still
+INGESTED, and it stops arriving dressed as an identity the organisation
+established. Refusing it loses real information, because a claim on the bus is
+an observation somebody made, and the id is byte-identical to the sensor's, so
+the two merge into one node and the claim-family detectors reason over it.
+Verified with both sources in one graph: `shadow_ai` still fires on the claimed
+subject when the bus journal and the sensor capture are loaded together.
+
+The whole difference was the TYPE. `bom_incomplete` and `orphaned_nhi` select on
+it; the claim family selects on the prefix. The connector now looks at the
+subject before typing it, using the predicate from `agent-stack-go/passport`,
+which owns the wire grammar, rather than from the sensor's package: a connector
+reading a wire value should ask the wire's owner.
+
+`@measured` on the same command, after the fix: eight alerts became four, and
+the four that remain are about the two ESTABLISHED subjects in that fixture,
+whose Agent-BOM really is incomplete.
+
 **Re-check:** the command above. Any finding whose subject starts with
-`claimed:` and whose detector is not a claim detector is this gap.
+`claimed:` and whose detector is not a claim detector is this gap returning.
 
 ### G4.3 Three sources of truth about what each product emits, and only one is gated
 The registry (SPEC 6.2) is gated against artifacts by C4, which is clean. What
