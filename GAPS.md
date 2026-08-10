@@ -80,20 +80,22 @@ If this section and a fresh run disagree, the run is right and this section is
 overdue a refresh.
 
 @measured `./run-gates.py --mode ref --ref origin/main`, 2026-08-10, after the
-v0.3 work: **six of seven clean, C1 drifted, and every subject was measured.**
-The suite has grown a gate since the reading below was written.
+v0.3 work and after all seven consumers moved: **all 7 gates clean, and every
+subject was measured.** The suite has grown a gate since the reading below was
+written.
 
-**C1's red is a release in progress rather than a defect, and it is exactly what
-that check is for.** agent-stack-go cut `v0.7.0` today, and C1 refuses any lag
-by design: "the day after a release is exactly when the estate is most drifted",
-in its own words. heraldyx and idryx are on it because they needed it;
-`mockryx`, `qryx`, `scopyx`, `wardryx` and `terraform-provider-taipan` have a
-one-line PR open each and are behind until those merge.
+**C1 was red for about an hour in between, and what it did in that hour is the
+argument for it.** agent-stack-go cut `v0.7.0`, and C1 refuses any lag by
+design: "the day after a release is exactly when the estate is most drifted", in
+its own words. It named all seven consumers, one FAIL line each, and went clean
+as each moved. Two of them needed the release; five needed one line.
 
-Read that red as a countdown rather than a finding. If it is still red once
-those five merge, it is a finding again.
-
-Earlier the same day, after estate-gates#14 and before the tag: all 7 clean.
+It also found something nobody was looking for. Its list said SEVEN and
+agent-stack-go's own blast-radius paragraph said six: `scopyx` had been
+importing the module since it joined the estate on 2026-08-09 and three places
+in that repository still omitted it. Corrected in agent-stack-go#27, which also
+adds a sentence telling a reader to run C1 rather than trust the list, because
+this is the second time a hand-kept list there has rotted.
 
 **Earlier the same day C5 was red, and what it found is worth keeping**, because
 it is the difference between a gate that cannot see and an estate that
