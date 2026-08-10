@@ -298,6 +298,23 @@ def _scopyx(estate: E.Estate) -> dict[str, set[str]]:
     return {"scopyx": types}
 
 
+def _idryx(estate: E.Estate) -> dict[str, set[str]]:
+    """One type, named as a constant, with the variable never used at the call.
+
+    idryx writes a single `identity_finding` and puts the detector name in
+    `data`, which is why 25 detectors produce one registry row. The constant is
+    written straight into the composite literal here, so `Type:` resolves
+    without the indirection scopyx needed.
+    """
+    text = estate.read_text("idryx", "internal/events/events.go")
+    consts = go_consts(text)
+    types, unresolved = go_types(text, consts)
+    _refuse_unresolved("idryx", "internal/events/events.go", unresolved)
+    if not types:
+        raise E.Missing("idryx internal/events/events.go: no `Type:` field resolved")
+    return {"idryx": types}
+
+
 def _qryx(estate: E.Estate) -> dict[str, set[str]]:
     text = estate.read_text("qryx", "internal/exporter/exporter.go")
     types, unresolved = go_types(text, go_consts(text))
@@ -431,10 +448,21 @@ PRODUCERS: dict[str, dict] = {
         "extract": _taipan,
         "owns": [],
     },
-    # idryx has no writer entry on purpose: 6.2 records it as RESERVED, and the
-    # check below looks for a writer in it precisely because a writer appearing
-    # would make the registry wrong in the other direction.
-    "idryx": {"writer": None, "extract": None, "owns": ["idryx"]},
+    # idryx had no writer entry until 2026-08-10, on purpose: 6.2 recorded it as
+    # RESERVED and the reserved branch looked for a writer precisely because one
+    # appearing would make the registry wrong in the other direction. It
+    # appeared, the registry was corrected in the same wave, and this is now an
+    # ordinary producer row.
+    #
+    # The RESERVED machinery below stays. No row uses it today, and that is the
+    # point: deleting it would mean the next reserved row ships with nothing
+    # checking it, and the case it guards (a row that says "do not expect these"
+    # while a writer quietly exists) is the one that cost the most to find.
+    "idryx": {
+        "writer": ("internal/events/events.go", "event.NewWriter"),
+        "extract": _idryx,
+        "owns": ["idryx"],
+    },
 }
 
 # Which repo owns which registry `source`, derived from the table above so the

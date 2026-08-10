@@ -317,7 +317,8 @@ should name the caller that produces it.
 
 ## 4. The seams between services
 
-### G4.1 idryx emits nothing into the shared event envelope
+### ~~G4.1 idryx emits nothing into the shared event envelope~~
+**Closed 2026-08-10.** See section 8.
 @measured `agent-passport/SPEC.md` §6.2, 2026-08-09: idryx's seven event types
 are listed **RESERVED, not emitted**. Its detections leave by OTLP and by Slack.
 
@@ -346,8 +347,9 @@ directions**, which changes what this item is asking for. `@measured`
   would be right to object, and a consumer would have two producers for one
   name with no way to tell which meant what.
 
-So "stop saying reserved" is not an edit to a row, it is a decision about the
-shape of the vocabulary, and it is the user's:
+So "stop saying reserved" was not an edit to a row, it was a decision about the
+shape of the vocabulary. `@yurii 2026-08-10`, asked with both shapes measured
+and costed: **"перший, один тип"**. The two shapes were:
 
 - **one type**, `identity_finding`, with the detector name inside `data`. One
   row, one handler downstream, and the 25 names stay idryx's own vocabulary
@@ -357,7 +359,12 @@ shape of the vocabulary, and it is the user's:
   entries in heraldyx's render catalogue, and a nine-repository edit each time
   idryx adds a detector.
 
-`@claude`: the first. The registry's own stated purpose is to tell a consumer
+His answer was the first, and it is built: idryx emits `identity_finding` with
+the detector in `data.detector` (idryx#40), 6.2 registers it and the diagram
+carries the arrow (agent-passport#33), and C4 reads idryx as an ordinary
+producer rather than a reserved row.
+
+`@claude`, the reasoning offered at the time: the first. The registry's own stated purpose is to tell a consumer
 which events exist so it can act on them, and a consumer that must learn 25
 names to handle identity findings will handle none of them. The second shape
 also makes every new detector a spec change, which is the tax that stops
@@ -505,6 +512,25 @@ the session that would have implemented it.
 ## 8. Closed, with the evidence that closed them
 
 Kept rather than deleted, so the next audit knows what was checked.
+
+### Closed 2026-08-10
+
+- ~~**G4.1: idryx emits nothing into the shared event envelope.**~~ **Closed.**
+  idryx#40 gives it an `agent-event` sink alongside Slack and OTLP;
+  agent-passport#33 takes its row out of RESERVED and registers
+  `identity_finding`; C4 reads it as an ordinary producer.
+
+  **What the build found that this register had not.** The first version
+  validated idryx's own identity id against the envelope grammar, compiled,
+  passed its tests and wrote NOTHING on a real run: idryx inventories
+  `agent:ops-helper` and the envelope wants `agent://<trust-domain>/<name>`,
+  which are different namespaces. The name comes from the inventory and the
+  domain only from the operator, so `IDRYX_TRUST_DOMAIN` is required alongside
+  `IDRYX_EVENTS`, and half-configuring refuses at startup rather than producing
+  a journal that is forever empty. `@measured` 2026-08-10: six events with the
+  right subjects from `testdata/demo_agents.json`, and zero events with a
+  zero-byte journal and the count reported from `testdata/events.json`, whose
+  findings are about people.
 
 ### Closed 2026-08-09, the day this file was opened
 

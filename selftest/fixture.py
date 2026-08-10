@@ -89,7 +89,7 @@ SPEC = """# The agent passport specification
 |---|---|
 | `tokenfuse` | `budget_exhausted` . `run_killed` |
 | `engram` | `memory_written` . `memory_forgotten` |
-| `idryx` | RESERVED, not emitted today: `behavior_anomaly` |
+| `idryx` | `identity_finding` |
 | `qryx` | `crypto_finding` |
 | `wardryx` | `policy_allow` . `policy_deny` |
 | `verdryx` | `eval_run` |
@@ -584,6 +584,34 @@ func (j *Journal) Write() error {
 }
 """
 
+IDRYX_EVENTS_GO = """package events
+
+import "github.com/TAIPANBOX/agent-stack-go/event"
+
+// One type for 25 detectors: the detector name travels in `data`, so adding a
+// detector is not a registry change.
+const (
+	Source = "idryx"
+
+	TypeIdentityFinding = "identity_finding"
+)
+
+func Open(path string) (*Sink, error) {
+	w, err := event.NewWriter(path)
+	return &Sink{w: w}, err
+}
+
+func (s *Sink) write(detector, agentID string) error {
+	e := event.Event{
+		Source:  Source,
+		Type:    TypeIdentityFinding,
+		AgentID: agentID,
+		Data:    map[string]any{"detector": detector},
+	}
+	return s.w.Write(e)
+}
+"""
+
 IDRYX_INGEST_GO = """package tokenfuse
 
 import "github.com/TAIPANBOX/agent-stack-go/event"
@@ -969,6 +997,7 @@ ESTATE: dict[str, dict] = {
     "idryx": {
         "go.mod": gomod("idryx", "v0.5.1"),
         "internal/ingest/tokenfuse/tokenfuse.go": IDRYX_INGEST_GO,
+        "internal/events/events.go": IDRYX_EVENTS_GO,
     },
     "qryx": {
         "go.mod": gomod("qryx", "v0.5.1"),
