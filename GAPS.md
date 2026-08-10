@@ -665,6 +665,39 @@ says what it does with a claim.
 **Re-check:** the grep above, and `trailryx-node events --file` against an idryx
 journal, reading the refused count rather than the accepted one.
 
+### G4.7 idryx reading its own journal back turns a claim into a governed agent
+
+Opened 2026-08-10, hours after G4.5 closed, and it is a consequence of that
+closure that nobody decided.
+
+The bus connector stamps every envelope subject `Type: IdentityAgent` without
+looking at it, and `event.Unmarshal` validates the schema string only for
+non-emptiness. So a v0.3 event whose subject is `claimed:agent://X` comes back
+into the graph as an agent identity like any other.
+
+`@measured` 2026-08-10, `idryx detect --load tokenfuse:<idryx's own journal>`:
+
+```
+medium  bom_incomplete  claimed:agent://acme.example/planner  missing owner, runtime, attestation
+low     orphaned_nhi    claimed:agent://acme.example/planner  NHI has no mapped owner
+```
+
+An Agent-BOM cannot be incomplete for something the organisation never issued,
+and nobody can be the owner of a name a process wrote about itself. The
+claim-family detectors are unaffected, since they select on the prefix; it is
+the governance-posture family that is wrong here.
+
+**The decision nobody has made** is whether idryx accepts v0.3 on ingest at all.
+It is a different question from emitting it: as a producer idryx decided what a
+claim means, and as a consumer of its own bus it has not. trailryx answered the
+same question for itself by refusing claimed subjects at the door and counting
+them (G4.6).
+
+**Closes when:** idryx decides what a claimed subject means on the way IN, and
+either refuses it, or marks it so the posture detectors skip it.
+**Re-check:** the command above. Any finding whose subject starts with
+`claimed:` and whose detector is not a claim detector is this gap.
+
 ### G4.3 Three sources of truth about what each product emits, and only one is gated
 The registry (SPEC 6.2) is gated against artifacts by C4, which is clean. What
 is **not** gated is the registry against the producers' actual code. C4 checks
@@ -749,6 +782,43 @@ the session that would have implemented it.
 - ~~**A subject kind for the envelope**, so a claimed identity can travel.~~
   **Built 2026-08-10**, and not as a subject KIND: the distinction lives inside
   the subject and the version stamp carries it. See G4.5.
+- **The rest of the Passport, decided 2026-08-10 and not yet built.** `@yurii
+  2026-08-10`, "тепер решту паспорта: власник, атестація, батько". The design is
+  recorded here rather than in a session that ended, because two thirds of it is
+  a decision NOT to build.
+
+  **Attestation gets one detector, `claimed_agent_unattested`.** The binding
+  itself is never observable: idryx has no connector to any attestation plane,
+  and reading a handshake is a payload, which the sensor's promise forbids
+  permanently. What IS observable is a disagreement between two graph facts: a
+  Passport declaring a strong method for `agent://X`, and a graph whose only
+  runtime carrier of that name is `claimed:agent://X`, with the established node
+  carrying no events at all. Gated on at least one bus event existing anywhere,
+  so "nothing established this agent" cannot silently mean "no bus file was
+  loaded". Medium, high when the established node is privileged.
+
+  **Owner: build nothing, permanently.** No event, packet or syscall carries
+  ownership, so the only conceivable comparison is declaration against
+  declaration, and even that is erased before any detector runs: `AddIdentity`
+  merges last-non-empty-wins, so two sources disagreeing about an owner resolve
+  silently by load order. Absence is already `orphaned_nhi`'s.
+
+  **Parent: build no behavioural comparison, permanently.** SPEC 4.2 is an org
+  chart and SPEC 5 is a per-request chain, and idryx's own model doc says they
+  are "usually, but not necessarily, the same identity", so their inequality is
+  not evidence and a detector on it cries wolf by construction. The sensor
+  records no process ancestry either. The only honest thing the field supports
+  is referential: a parent no record in the graph has heard of, which is
+  inventory hygiene rather than corroboration, and is optional.
+
+  Both permanent limits belong in G2.5 when the work lands, and this register
+  does not carry them today.
+
+  **One correction to how this gap was described.** It was recorded as living
+  here. It does not: the line lives in three idryx files, `SECURITY.md`,
+  `AGENTS.md` invariant 7 and the README's status. This register never carried
+  it, and the two never-closable halves have no home until they are added to
+  G2.5.
 
 ---
 
