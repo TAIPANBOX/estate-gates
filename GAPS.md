@@ -328,6 +328,46 @@ neither heraldyx nor trailryx, because it never enters the bus they read.
 **Closes when:** idryx has an event writer and SPEC 6.2's row stops saying
 reserved.
 
+**The vocabulary was measured 2026-08-10 and the reserved list is wrong in BOTH
+directions**, which changes what this item is asking for. `@measured`
+`grep -rhoE 'return "[a-z_]+"' Idryx/internal/detect/detectors/` against
+`agent-passport/SPEC.md` §6.2:
+
+- idryx ships **25 detectors**. 6.2 reserves **seven** names for it.
+- **Two reserved names have no producer at all**: `excessive_privilege` and
+  `blast_radius_change`. Nothing in the repository emits either, and
+  `excessive_privilege` has three near neighbours that are not it
+  (`excessive_agency`, `least_privilege`, `over_privileged_nhi`).
+- **Twenty detectors have no reserved name**, including the ones the estate
+  actually talks about: `shadow_mcp`, `agent_shadow_tool`, `undeclared_llm`,
+  `claimed_agent_drift`, `unmanaged_egress`, `data_exfiltration`.
+- **One name collides.** `mcp_drift` is a detector in idryx and a REGISTERED
+  type under `tokenfuse` in 6.2. If idryx emitted it, C4's attribution check
+  would be right to object, and a consumer would have two producers for one
+  name with no way to tell which meant what.
+
+So "stop saying reserved" is not an edit to a row, it is a decision about the
+shape of the vocabulary, and it is the user's:
+
+- **one type**, `identity_finding`, with the detector name inside `data`. One
+  row, one handler downstream, and the 25 names stay idryx's own vocabulary
+  where they can change without a nine-repository edit.
+- **many types**, one per detector. Every name is visible in the registry and
+  every consumer can route on it, at the cost of 25 rows, 25 severities, 25
+  entries in heraldyx's render catalogue, and a nine-repository edit each time
+  idryx adds a detector.
+
+`@claude`: the first. The registry's own stated purpose is to tell a consumer
+which events exist so it can act on them, and a consumer that must learn 25
+names to handle identity findings will handle none of them. The second shape
+also makes every new detector a spec change, which is the tax that stops
+detectors being written. The collision decides itself under the first shape:
+`mcp_drift` stays tokenfuse's, and idryx's detector of that name travels as
+`data.detector` under `identity_finding`.
+
+Recorded before building either, because a vocabulary is the one thing here
+that cannot be changed quietly afterwards.
+
 ### ~~G4.2 `agent_id` is not validated against the `agent://` pattern by any emitter~~
 **Closed 2026-08-09**, and it was the last of the three claims in it to go. See
 section 8 for the evidence. Every emitter now checks, counts and warns; the
