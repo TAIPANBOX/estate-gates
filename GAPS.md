@@ -79,19 +79,24 @@ by a few bytes, and the paragraph below says which bytes and why they matter.
 If this section and a fresh run disagree, the run is right and this section is
 overdue a refresh.
 
-@measured `./run-gates.py --mode ref --ref origin/main`, 2026-08-10: **seven
-gates, six clean, C5 drifted.** The suite has grown a gate since the reading
-below was written.
+@measured `./run-gates.py --mode ref --ref origin/main`, 2026-08-10, after
+estate-gates#14: **all 7 gates clean, and every subject was measured.** The
+suite has grown a gate since the reading below was written.
 
-**C5's finding is one line and it is a gate that cannot see rather than an
-estate that disagrees:** `stack-single` brings up a component called
-`scopyx-browser`, and C5 has no mapping for that name in its own `SERVICE_KIND`,
-so it cannot compare that component across the three deployments. The check says
-so and names the file to edit, which is invariant 2 working: a subject it cannot
-read is a red naming what it could not read, never a skip. Teaching it the name
-is a one-line change in `gates/c5-deployment-parity.py` and is NOT in this
-register's own PR, because a register that edits the gate it reports on is a
-register measuring its own output.
+**Earlier the same day C5 was red, and what it found is worth keeping**, because
+it is the difference between a gate that cannot see and an estate that
+disagrees. `stack-single` had grown a component called `scopyx-browser`, and C5
+had no mapping for that name in its own `SERVICE_KIND`, so it refused to compare
+that component rather than defaulting it, said so, and named the file to edit.
+That is invariant 2 working: a subject a check cannot read is a red naming what
+it could not read, never a skip.
+
+The name turned out to be the same plane in a second compose profile, which
+`stack-single/compose.yaml` says of itself: `egress` and `egress-browser` are
+mutually exclusive and both bind the network alias `scopyx`. So it is one
+component with two backends, and estate-gates#14 teaches C5 that one name.
+Proven not to be a widening by planting `scopyx-experimental` and watching C5 go
+red about it, then clean again with the probe removed.
 
 Everything else C5 reads is green, including the routine counts that section
 G1.3 is about (stack-k8s 4, stack-single 0, stack-up 5).
