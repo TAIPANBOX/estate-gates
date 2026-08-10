@@ -79,10 +79,29 @@ by a few bytes, and the paragraph below says which bytes and why they matter.
 If this section and a fresh run disagree, the run is right and this section is
 overdue a refresh.
 
+@measured `./run-gates.py --mode ref --ref origin/main`, 2026-08-10: **seven
+gates, six clean, C5 drifted.** The suite has grown a gate since the reading
+below was written.
+
+**C5's finding is one line and it is a gate that cannot see rather than an
+estate that disagrees:** `stack-single` brings up a component called
+`scopyx-browser`, and C5 has no mapping for that name in its own `SERVICE_KIND`,
+so it cannot compare that component across the three deployments. The check says
+so and names the file to edit, which is invariant 2 working: a subject it cannot
+read is a red naming what it could not read, never a skip. Teaching it the name
+is a one-line change in `gates/c5-deployment-parity.py` and is NOT in this
+register's own PR, because a register that edits the gate it reports on is a
+register measuring its own output.
+
+Everything else C5 reads is green, including the routine counts that section
+G1.3 is about (stack-k8s 4, stack-single 0, stack-up 5).
+
+The previous reading, kept because its interpretation is still the useful part:
+
 @measured `./run-gates.py --mode ref --ref origin/main`, 2026-08-09, second run
 of the day: **all 6 gates clean, and every subject was measured.**
 
-The first run of the day found three gates drifted. All four findings across
+The first run of that day found three gates drifted. All four findings across
 C1, C2 and C5 were closed the same day and are in section 8 with the evidence.
 This section keeps only what is still open.
 
@@ -238,6 +257,58 @@ datasets already exist in compatible shapes.
 
 **Closes when:** an `unrouted_egress` detector exists in idryx and its finding
 reaches the shared bus. The second half depends on G4.1.
+
+### G2.4 is HALF closed, and the sentence above is wrong about the datasets
+
+**The detector exists.** idryx#43, merged 2026-08-10. **Its finding does not
+reach the bus**, and that half is now blocked on something this register had not
+named. Both halves below are `@measured` on the same run.
+
+**The join this item describes cannot be built, and that is the more useful
+result than the detector.** "Both datasets already exist in compatible shapes"
+was my sentence and it was wrong three ways:
+
+- the sensor reports ADDRESSES and substitutes a hostname for exactly three
+  hosts, resolved once at startup (`Idryx/internal/ebpfcapture/capture_linux.go`,
+  `knownLLMHosts`); scopyx's journal records an ORIGIN, `https://docs.example`,
+  and deliberately never more of the URL. They meet on three hosts out of the
+  internet;
+- closing that gap by resolving names inside a detector puts DNS in the
+  detection path, which is idryx invariant 1 gone;
+- and in the deployment scopyx ships, the governed side is invisible to the
+  sensor anyway. It is an MCP server, its default bind is `127.0.0.1:4300`, and
+  the sensor discards loopback that is not a local model port.
+
+A detector written as this item describes would have compiled, passed its tests
+and found nothing on a real run. That is the shape section 6's class 2 is about,
+arriving through a register entry rather than through code.
+
+**What was built instead is the inversion**, which needs no hostnames: a
+governed fetch is performed by the enforcement point's own process, on all three
+of its backends, so a flow the sensor attributed to a governed agent, reaching a
+PUBLIC address, could not have been governed. The journal supplies the
+precondition (this agent is in scope) rather than the comparison. Private,
+loopback and carrier-NAT destinations are not judged, because scopyx's own
+address rules refuse those ranges, and model APIs are left to the shadow-AI
+detectors; both are counted in the finding rather than dropped.
+
+**Why the second half did not close, and it is not G4.1's fault.** G4.1 closed
+on 2026-08-09 and idryx does emit. The blocker is narrower and was not visible
+until a detector needed it: **the subject of this detector is a claim by
+construction.** `AGENT_PASSPORT_ID` is the only way the sensor can name an
+agent, so the finding is about `claimed:agent://...`, and the envelope has one
+subject field with no way to qualify it. Writing the claim into `agent_id` would
+deliver a self-declaration to every conforming consumer as an established fact,
+which agent-passport SPEC 3.3 forbids, and no `data` key repairs it because 6.1
+obliges a consumer to ignore keys it does not know. See G4.5.
+
+`@measured` 2026-08-10,
+`IDRYX_EVENTS=... IDRYX_TRUST_DOMAIN=acme.example idryx detect --load scopyx:testdata/scopyx.ndjson --load egress:testdata/ebpf_claimed.json`:
+four findings reached the bus with correct subjects, and idryx reported
+`3 were about a self-declared (claimed:) identity the envelope cannot carry`.
+
+**Closes when:** G4.5 does. Nothing else is outstanding on this item.
+**Re-check:** the command above. A nonzero claimed count is this gap.
 
 ### G2.5 Four limits on agent monitoring that no amount of work removes
 
@@ -427,6 +498,56 @@ The second is the larger of the two: fixing only the registry would leave the
 gate as blind as it is now, and the next producer to use a constant would be
 missed in the same silence.
 
+**The registry half is closed.** `@measured` 2026-08-10,
+`grep -c 'web_fetch' ~/Development/agent-passport/SPEC.md` returns 3, and 6.2
+carries `| scopyx | web_fetch (low) . web_blocked (high) |` beside a source row.
+That is the half this item said returns nothing, and the re-check command above
+now answers the other way. **The C4 half is untouched and is still the larger
+one**, so this item stays open: nothing yet reads a type named as a constant.
+
+### G4.5 A claimed subject has no way onto the bus, so a whole detector family never reaches it
+
+Opened 2026-08-10, found by building G2.4's detector rather than by an audit.
+
+agent-passport SPEC 3.3 requires a consumer to record an identity learned from
+`AGENT_PASSPORT_ID` as CLAIMED, and an observer that reports it to make the
+distinction visible. idryx does: the eBPF sensor records those identities under
+a `claimed:` prefix, and they travel with it to Slack and to OTLP.
+
+The shared envelope cannot carry that distinction. It has one subject field,
+`agent_id`, and no way to say whether the subject was established or asserted.
+So idryx holds those findings back rather than publishing a self-declaration as
+a fact, which is the right call and leaves a real hole:
+
+`@measured` 2026-08-10, `idryx detect --load egress:<capture with claimed ids>`
+with the bus sink configured: every finding about a `claimed:` identity is
+counted and not written. Today that is `unrouted_egress`, `claimed_agent_drift`,
+`claimed_agent_unknown` and `shadow_ai`'s claimed-subject cases. None of them
+reaches heraldyx or trailryx.
+
+**This is NOT the whole eBPF family, and the difference matters.**
+`unmanaged_egress` selects only `proc:` identities, which have no agent subject
+under any envelope and correctly never travel. Only the claimed subset is in
+play, and the fix would not change the `proc:` half.
+
+**What it would take**, stated so the size is visible rather than discovered
+later: a subject-basis field on the envelope (or a registered `data` key that
+6.2 documents, so consumers are permitted to read it), plus heraldyx deciding
+how it renders a claimed subject and trailryx deciding whether it files one
+under that agent's history at all, and what its invariant 35 tenant check does
+with a claimed foreign domain. That is a change every consumer makes together,
+which is what SPEC 6.1 says about facts the envelope has no subject kind for.
+
+**This is the user's, twice over:** it edits SPEC.md, and it decides how a claim
+is recorded, which his standing rule of 2026-08-09 governs. Recorded here rather
+than proposed, because a vocabulary decision is the one thing that cannot be
+changed quietly afterwards.
+
+**Closes when:** the envelope can say a subject was asserted rather than
+established, and idryx writes claimed findings under it.
+**Re-check:** run any capture carrying a `claimed:` identity through
+`idryx detect` with `IDRYX_EVENTS` set and read the claimed count on stderr.
+
 ### G4.3 Three sources of truth about what each product emits, and only one is gated
 The registry (SPEC 6.2) is gated against artifacts by C4, which is clean. What
 is **not** gated is the registry against the producers' actual code. C4 checks
@@ -502,8 +623,10 @@ the session that would have implemented it.
   `browse-plane-plan.md`. Name decided `@yurii 2026-08-09`. Three open
   questions in that file's section 14, one of which (fail-closed on an
   unreachable PDP) blocks implementation.
-- **`unrouted_egress` detector** in idryx, plus the emitter G4.1 needs. Design
-  in this file, G2.4.
+- ~~**`unrouted_egress` detector** in idryx, plus the emitter G4.1 needs.~~
+  **Built**, idryx#43, 2026-08-10, and not as the design in G2.4 described it:
+  the join that item specifies cannot be built, and the detector that works is
+  the inversion of it. See G2.4.
 - **A C7 cross-repo check**: the event registry against producers' code, G4.3.
 - **The silent-zero rule** as an estate-wide convention, class 2 above.
 
@@ -531,6 +654,51 @@ Kept rather than deleted, so the next audit knows what was checked.
   right subjects from `testdata/demo_agents.json`, and zero events with a
   zero-byte journal and the count reported from `testdata/events.json`, whose
   findings are about people.
+
+  **What that evidence did not cover, found 2026-08-10 and fixed in idryx#42.**
+  It was measured on `testdata/demo_agents.json`, which uses idryx's own
+  inventory namespace, `agent:ops-helper`. That was the namespace the writer was
+  built for, and it was the only one it handled. Every identity that arrives
+  ALREADY canonical, from a Passport document or from any bus producer, also
+  begins with `agent:`, so the same two lines cut that prefix and prepended the
+  operator's domain to a string that already carried a scheme.
+
+  `@measured` 2026-08-10, two real runs: the journal received
+  `agent://acme-bank.example///acme-bank.example/eng/standalone` and
+  `agent://acme.example///acme-bank.example/support/tier1-bot`. The findings
+  were not dropped, they were published about agents that do not exist, and
+  `passport.ValidateAgentURI` accepted the shape because its pattern lets the
+  path hold empty segments.
+
+  The second is the one worth keeping. An agent of `acme-bank.example` came out
+  carrying the OPERATOR's trust domain. trailryx invariant 35 compares exactly
+  that field to decide whether it may record an event, so the defect did not
+  merely corrupt a subject, it walked a foreign tenant's agent past the one
+  check in the estate that exists to stop that. The function's own comment cites
+  invariant 35 as the reason it must not invent a domain.
+
+  **The lesson is about the evidence rather than the code.** A closure is only
+  as wide as the namespace it was measured in. This one said "six events with
+  the right subjects", which was true, and nothing in the sentence hinted that a
+  second namespace existed. Where a producer accepts identifiers from more than
+  one source, closing evidence should name which shapes it exercised.
+
+  Two narrower faults of the same class were found by reviewing that fix and are
+  closed in the same PR: a non-empty but invalid `IDRYX_TRUST_DOMAIN` wrote
+  canonical subjects while silently dropping every inventory one, which is a
+  journal that reads as whole while missing half the estate; and `agent://` or
+  `agent:///bot` still built `agent://<domain>///`, the same fabrication one
+  namespace narrower.
+
+  **Not fixed, and it is upstream.** `agentURIPattern` in agent-stack-go is
+  `^agent://[a-z0-9.-]+/[a-z0-9._/-]+$`. The `/` inside the path class permits
+  empty segments, which contradicts SPEC 3.1's "one or more segments", and the
+  domain class accepts `...` and `-` where 3.1 asks for a DNS name the
+  organisation controls. Tightening it would have turned this defect into a
+  counted skip. It is a shared wire contract in nine repositories and would
+  start refusing identifiers that pass today, so it is a decision rather than a
+  fix, and it belongs beside a sentence in SPEC 3.1 saying plainly what 3.1
+  currently only implies.
 
 ### Closed 2026-08-09, the day this file was opened
 
