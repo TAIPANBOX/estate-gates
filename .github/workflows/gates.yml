@@ -40,7 +40,7 @@ jobs:
     # whole run is a few seconds of python and a shallow clone of each repo.
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: No long dashes anywhere
         run: ./scripts/no-long-dashes.sh --prove
