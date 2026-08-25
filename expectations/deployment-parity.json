@@ -26,7 +26,8 @@
         "qryx-trend",
         "verdryx-drift",
         "idryx-detect",
-        "mockryx-drill"
+        "mockryx-drill",
+        "trailryx-seal"
       ],
       "divergences": {
         "routines:stack-up:disabled:mockryx-drill": {
@@ -38,6 +39,16 @@
           "recorded": "2026-08-06",
           "provenance": "@claude",
           "why": "Same decision as stack-up, expressed as `suspend: true` on the `drills` CronJob. The operator unsuspends it when they want a drill."
+        },
+        "routines:stack-k8s:absent:trailryx-seal": {
+          "recorded": "2026-08-25",
+          "provenance": "@yurii 2026-08-25",
+          "why": "A GAP, not a decision, and the decision behind that word is his: asked directly whether all three deployments are meant to seal the record, he said all three are. stack-up runs trailryx-node events over the shared event directory and gets an offline-verifiable record of what the stack did; a Kubernetes install gets none. Measured 2026-08-25: stack-k8s does not mention trailryx anywhere at all, not in a manifest and not in a comment, so this is not a routine that was considered and left out. Recorded here so the day somebody closes it, this entry goes red as stale and gets removed."
+        },
+        "routines:stack-single:absent:trailryx-seal": {
+          "recorded": "2026-08-25",
+          "provenance": "@yurii 2026-08-25",
+          "why": "The same gap, on the deployment that already installs no governance routine of any kind. Measured 2026-08-25: stack-single does not mention trailryx anywhere. It is the single-box install, which is the one most likely to be somebody's first look at the estate, and it produces no sealed record of anything it did."
         },
         "routines:stack-k8s:absent:focus-export": {
           "recorded": "2026-08-06",

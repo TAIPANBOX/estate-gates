@@ -83,6 +83,13 @@ ROUTINE_KIND = {
     "verdryx-drift": "verdryx-drift",
     "idryx-detect": "idryx-detect",
     "mockryx-drill": "mockryx-drill",
+    # trailryx-node events over the shared event directory, sealing what the
+    # routines above and the rest of the stack did into an offline-verifiable
+    # record. Its own kind rather than one of the five: it governs nothing and
+    # produces no finding, it writes down what happened. stack-up runs it last
+    # in the hour on purpose, after the one other routine that can still emit
+    # an event that day.
+    "trailryx-seal": "trailryx-seal",
     # stack-k8s (CronJob metadata.name)
     "crypto-trend": "qryx-trend",
     "identity-sweep": "idryx-detect",
