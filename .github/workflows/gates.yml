@@ -21,7 +21,22 @@ on:
     # the other repositories have finished moving things.
     - cron: "40 5 * * *"
   workflow_dispatch:
+
+  # main only, because pull_request below covers the branches. With a bare
+  # `push:` a pull request from a branch in this repository fires BOTH events
+  # and the whole estate is cloned twice for one change. Free on a public
+  # repository, and not free in queue time on an account shared with sixteen
+  # others, which is the cost this file already says it is watching.
   push:
+    branches: [main]
+
+  # A pull request runs the gates against the estate using THIS branch's
+  # version of the checks, which is the only moment a change to a check can
+  # be judged before it starts speaking for the estate. Until 2026-08-25
+  # nothing here ran on a pull request at all, so `main` could not be given
+  # required status checks: a branch protection demanding a check that never
+  # appears on a pull request blocks every merge for ever.
+  pull_request:
 
 permissions:
   contents: read
