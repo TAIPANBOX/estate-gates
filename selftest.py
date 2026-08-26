@@ -350,7 +350,7 @@ MUTATIONS: dict[str, list[tuple[str, callable]]] = {
             "the Rust side reverses the chain and nothing in Rust notices",
             lambda r: edit(
                 r,
-                "tokenfuse/crates/cloud/src/delegation.rs",
+                "tokenfuse/crates/delegation/src/lib.rs",
                 '"user://acme/alice",\n                "agent://acme/triage",\n                "agent://acme/runbook"',
                 '"agent://acme/runbook",\n                "agent://acme/triage",\n                "user://acme/alice"',
             ),
@@ -384,7 +384,7 @@ MUTATIONS: dict[str, list[tuple[str, callable]]] = {
             ),
             edit(
                 r,
-                "tokenfuse/crates/cloud/src/delegation.rs",
+                "tokenfuse/crates/delegation/src/lib.rs",
                 '"user://acme/alice",\n                "agent://acme/triage",',
                 '"agent://acme/cron",\n                "agent://acme/triage",',
             ),
@@ -401,7 +401,7 @@ MUTATIONS: dict[str, list[tuple[str, callable]]] = {
     )],
     "c10.no-implementation-to-read": [(
         "the Rust implementation is gone",
-        lambda r: drop(r, "tokenfuse/crates/cloud/src/delegation.rs"),
+        lambda r: drop(r, "tokenfuse/crates/delegation/src/lib.rs"),
     )],
     "c10.no-vector-to-read": [(
         "the Go vector's test is renamed away, so nothing asserts the mapping",

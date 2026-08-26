@@ -28,7 +28,8 @@ WHY IT IS ESTATE-SHAPED RATHER THAN A NOTE IN ONE REPOSITORY
 
 Two implementations exist and neither can see the other:
 `agent-stack-go/delegation` for the five Go enforcement points, and
-`tokenfuse/crates/cloud/src/delegation.rs` for the Rust side. Each holds its
+`tokenfuse/crates/delegation/src/lib.rs` for the Rust side, wherever that
+file has moved to since. Each holds its
 expected chain as a LITERAL in its own suite, retyped by hand. Change one and
 the other goes on passing. Both would report green while producing two
 different answers about who acted for whom, which is exactly the shape C6
@@ -79,8 +80,9 @@ SOURCES = [
         "TestTheEstateChainCarriesTheSubjectAndTheRfcsActDoesNot",
     ),
     (
+        # The PATH is a hint, not the subject. See `find_subject`.
         "tokenfuse",
-        "crates/cloud/src/delegation.rs",
+        "crates/delegation/src/lib.rs",
         "a_delegation_verifies_and_the_chain_keeps_its_root",
     ),
 ]
@@ -99,6 +101,38 @@ def body_of(text: str, fn: str) -> str | None:
     rest = text[i:]
     stop = re.search(r"\n(?:func |    fn |fn )", rest[1:])
     return rest[: stop.start() + 1] if stop else rest
+
+
+def find_subject(estate: E.Estate, repo: str, hint: str, fn: str) -> str | None:
+    """Where the test named `fn` actually lives in `repo`, or None.
+
+    The path was a fixed string until 2026-08-26, and on that day the Rust
+    verifier moved from `crates/cloud/src/delegation.rs` into its own crate so
+    the gateway could use it without depending on the control plane. The file
+    was gone, this gate said so honestly, and main went red for a rename.
+
+    "Measured nothing" was the RIGHT answer to give and the wrong question to be
+    asking. The subject of this comparison is a TEST, not a file: a test that
+    moved is still being asserted, and a test that was deleted is the failure
+    worth a red. So the hint is tried first, because it is almost always right
+    and costs one read, and a search follows when it is not.
+
+    This is the third time today a check has been told where to look instead of
+    looking: C2's copies and C4's producers were the other two. The shape is the
+    same each time. A hand-written location is a copy of the truth that nothing
+    watches, and the fix is to name what the subject IS rather than where it was
+    last seen.
+    """
+    if estate.exists(repo, hint):
+        return hint
+    try:
+        hits = estate.grep_files(repo, fn)
+    except (E.Unavailable, E.Missing):
+        return None
+    for path in hits:
+        if path.endswith((".rs", ".go", ".py")):
+            return path
+    return None
 
 
 def run(estate: E.Estate) -> E.Check:
@@ -120,13 +154,22 @@ def run(estate: E.Estate) -> E.Check:
                 f"mapping was not compared against the others.",
             )
             continue
-        if not estate.exists(repo, path):
+        found = find_subject(estate, repo, path, fn)
+        if found is None:
             c.missing(
                 "c10.no-implementation-to-read",
-                f"{repo}: {path} is gone, so this comparison measured nothing "
+                f"{repo}: no file holds {fn}, so this comparison measured nothing "
                 f"rather than agreeing with itself.",
+                [
+                    f"  looked at {path} first, then searched the repository.",
+                    "A moved test is found; a DELETED one is this finding, and it",
+                    "means one language's mapping is asserted nowhere.",
+                ],
             )
             continue
+        if found != path:
+            c.note(f"{repo}: {fn} has moved to {found} (this file expects {path}).")
+        path = found
         text = estate.read_text(repo, path)
         body = body_of(text, fn)
         if body is None:

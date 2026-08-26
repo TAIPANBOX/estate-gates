@@ -1089,7 +1089,7 @@ ESTATE: dict[str, dict] = {
         "crates/gateway/src/pricebook.rs": PRICEBOOK_RS,
         "crates/gateway/src/sink.rs": SINK_RS,
         "contracts/tokenfuse-constants.json": CONSTANTS_JSON,
-        "crates/cloud/src/delegation.rs": DELEGATION_RS,
+        "crates/delegation/src/lib.rs": DELEGATION_RS,
     },
     "verdryx": {
         "verdryx/costper.py": COSTPER_PY,
