@@ -143,6 +143,7 @@ SPEC = """# The agent passport specification
 | `mockryx` | `sim_run` |
 | `console` | `console_command` |
 | `heraldyx` | `alert_sent` |
+| `vouchryx` | `delegation_issued` (info) · `delegation_denied` (high) · `delegation_revoked` (high) |
 | `scopyx` | `web_fetch` . `web_blocked` |
 
 A row here is a CLAIM that the source writes those types into this envelope
@@ -1050,6 +1051,9 @@ fn mapping_for(kind: &str) -> Option<Mapping> {
         "memory_written" | "memory_forgotten" => m(EventType::MemoryAccess),
         "identity_finding" => m(EventType::IdentityFinding),
         "policy_allow" | "policy_deny" => m(EventType::PolicyDecision),
+        "delegation_issued" | "delegation_denied" | "delegation_revoked" => {
+            m(EventType::PolicyDecision)
+        }
         "alert_sent" => m(EventType::NotificationDispatched),
         "web_fetch" => m(EventType::ToolCall),
         "web_blocked" => m(EventType::PolicyDecision),
@@ -1079,6 +1083,41 @@ pub fn admit(req: &Request) -> DecideContext {
             ..Default::default()
         },
     }
+}
+"""
+
+
+# vouchryx: the producer C4 did not know about until 2026-08-26, kept here so
+# the completeness pass has something real to find when it is taken away.
+# Types at the CALL SITES, not in a `Type:` field, which is why it needs its own
+# extractor and cannot simply be read by `go_types`.
+VOUCHRYX_API_GO = """package api
+
+// Source is the `source` on every event this service writes.
+const Source = "vouchryx"
+
+func (s *Server) token(w http.ResponseWriter, r *http.Request) {
+\tdeny := func(sub, reason string, detail map[string]any) {
+\t\ts.emit("delegation_denied", sub, nil, detail)
+\t}
+\ts.emit("delegation_issued", sub, recorded, data)
+}
+
+func (s *Server) revoke(w http.ResponseWriter, r *http.Request) {
+\ts.emit("delegation_revoked", body.Subject, nil, data)
+}
+
+func (s *Server) emit(kind, agentID string, chain []string, data map[string]any) {
+\t_ = s.Events.Write(event.Event{Source: Source, Type: kind})
+}
+"""
+
+VOUCHRYX_MAIN_GO = """package main
+
+func main() {
+\tw, err := event.NewWriter(path)
+\t_ = w
+\t_ = err
 }
 """
 
@@ -1147,6 +1186,10 @@ ESTATE: dict[str, dict] = {
     "scopyx": {
         "go.mod": gomod("scopyx", "v0.5.1"),
         "internal/record/record.go": SCOPYX_RECORD_GO,
+    },
+    "vouchryx": {
+        "internal/api/api.go": VOUCHRYX_API_GO,
+        "cmd/vouchryx/main.go": VOUCHRYX_MAIN_GO,
     },
     "wardryx": {
         "go.mod": gomod("wardryx", "v0.5.1"),

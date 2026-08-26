@@ -305,6 +305,31 @@ def _mockryx(estate: E.Estate) -> dict[str, set[str]]:
     return {"mockryx": types}
 
 
+def _vouchryx(estate: E.Estate) -> dict[str, set[str]]:
+    """vouchryx names its types at the CALL SITES, not in a `Type:` field.
+
+    Every other Go producer here builds a composite literal with `Type: "x"`, so
+    `go_types` reads it. vouchryx has one `emit` helper and `Type: kind`, a
+    variable, so the same reader would find one unresolved value and refuse.
+
+    The types are the string literals handed to that helper. Reading those is
+    narrower than reading a struct field and it is what this producer actually
+    does; a check that insisted on the other shape would be measuring the code
+    style rather than the contract.
+    """
+    text = estate.read_text("vouchryx", "internal/api/api.go")
+    m = re.search(r"const\s+Source\s*=\s*\"([a-z0-9-]+)\"", text)
+    if not m:
+        raise E.Missing('vouchryx internal/api/api.go: no `const Source = "..."`')
+    types = set(re.findall(r"s\.emit\(\s*\"([a-z0-9_]+)\"", text))
+    if not types:
+        raise E.Missing(
+            "vouchryx internal/api/api.go: no `s.emit(\"...\")` call site resolved, so "
+            "this producer's types could not be read and nothing was compared"
+        )
+    return {m.group(1): types}
+
+
 def _heraldyx(estate: E.Estate) -> dict[str, set[str]]:
     text = estate.read_text("heraldyx", "internal/record/record.go")
     m = re.search(r"const\s+Source\s*=\s*\"([a-z0-9-]+)\"", text)
@@ -385,6 +410,11 @@ PRODUCERS: dict[str, dict] = {
         "extract": _qryx,
         "owns": ["qryx"],
     },
+    "vouchryx": {
+        "writer": ("internal/api/api.go", "const Source"),
+        "extract": _vouchryx,
+        "owns": ["vouchryx"],
+    },
     "wardryx": {
         "writer": ("cmd/wardryx/main.go", "event.NewChainedWriter"),
         "extract": _wardryx,
@@ -436,6 +466,100 @@ SOURCE_REPO = {
 # Every Go file in a repo that could open a writer. Used only for idryx, where
 # the claim being checked is that NO event-writing path exists.
 WRITER_CALLS = ("event.NewChainedWriter", "event.NewWriter")
+
+
+# Markers a Go or Python producer cannot avoid: CALLING the writer.
+#
+# Package-qualified on purpose. A bare `NewChainedWriter(` also matches
+# agent-stack-go, which DEFINES it, and a library that defines a writer emits
+# nothing: the first version of this flagged agent-stack-go as an undeclared
+# producer, which is the check confusing the tool for its user.
+#
+# Rust producers build their own writers and are declared rather than
+# discovered, which is a real limit and is stated in `discover_producers`.
+WRITER_MARKERS = ("event.NewChainedWriter(", "event.NewWriter(", "class EventLog")
+
+_TEST_PATH = re.compile(
+    r"(^|/)tests?/ | _test\.(go|py)$ | (^|/)test_[^/]+\.py$ | \.test\.(ts|tsx)$",
+    re.X,
+)
+
+
+def discover_producers(estate: E.Estate, c: E.Check) -> None:
+    """Find a repository that WRITES events and that PRODUCERS does not declare.
+
+    The dict above is written by hand, and a hand-written list of subjects is
+    itself a copy of the truth that nothing watches. That is not a hypothetical
+    here: vouchryx wrote three types from the day it existed and was absent from
+    PRODUCERS, so this check reported clean on eight producers while a ninth
+    emitted types 6.2 did not register. C2 had the same defect on the same day,
+    about vendored schema copies.
+
+    It cannot be closed the way C2's was. Each producer needs a bespoke
+    extractor because each names its types differently, so the DECLARATIONS
+    stay. What is discovered is the QUESTION: is there a producer nobody
+    declared. The answer then needs a person to write the extractor, which is
+    the right amount of work to ask for.
+
+    THE LIMIT, stated rather than left to be found: it looks for the writer
+    constructors a Go or Python producer must call. tokenfuse and genaryx are
+    Rust and build their own, so they are declared and not discovered, and a new
+    RUST producer would be invisible to this. Go-first is the estate's rule for
+    new services, which is why this covers the likely case rather than every
+    case, and why saying so matters.
+    """
+    declared = set(PRODUCERS)
+    searched = 0
+    undeclared = 0
+    for repo in sorted(estate.repos):
+        hits: list[str] = []
+        for marker in WRITER_MARKERS:
+            try:
+                hits += estate.grep_files(repo, marker)
+            except E.Unavailable as u:
+                c.unavailable(
+                    f"c4.search-unavailable:{repo}",
+                    f"{repo} could not be read in this run ({u.reason}), so it was "
+                    f"not searched for an undeclared producer.",
+                )
+                hits = []
+                break
+            except E.Missing:
+                hits = []
+                break
+        else:
+            searched += 1
+        real = [h for h in hits if h.endswith((".go", ".py")) and not _TEST_PATH.search(h)]
+        if not real or repo in declared:
+            continue
+        undeclared += 1
+        c.drift(
+            "c4.producer-undeclared",
+            f"{repo} constructs an agent-event writer and PRODUCERS does not "
+            f"declare it, so nothing compares what it emits against 6.2.",
+            [
+                f"  writer: {estate.where(repo, real[0])}",
+                "",
+                "Every type this repository emits is currently unchecked against the",
+                "registry, and this gate reports on the producers it knows while",
+                "saying nothing about this one. That is not a smaller answer, it is",
+                "a confident one about the wrong set.",
+                "",
+                "Add an entry to PRODUCERS with an extractor that reads how THIS",
+                "producer names its types. They all differ, which is why the list",
+                "cannot simply be replaced by this search.",
+            ],
+        )
+
+    # Only when nothing drifted. Saying "every one found is declared" beside a
+    # finding that one is not would be two answers to one question, and the
+    # reassuring one is the one a reader remembers.
+    if searched and undeclared == 0:
+        c.ok(
+            "c4.producers-all-declared",
+            f"{searched} repositories searched for an agent-event writer; every one "
+            f"found is declared above.",
+        )
 
 
 def run(estate: E.Estate) -> E.Check:
@@ -639,6 +763,7 @@ def run(estate: E.Estate) -> E.Check:
                     f"source it does not own, and 6.2 registers every one of them.",
                 )
 
+    discover_producers(estate, c)
     return c
 
 
