@@ -798,6 +798,45 @@ acting, and the store's subject axis is the agent.
 
 ---
 
+### G4.9 Two repositories reach for a sibling with a hook's environment still set
+
+Opened and gated on 2026-08-26 by C9, which was written after the fault was
+found the hard way in trailryx and fixed there.
+
+git runs a hook with `GIT_DIR` set to the repository being pushed. `git -C
+<elsewhere>` changes the directory and keeps the variable, so the command reads
+the other repository's working tree against this one's index and objects.
+
+**Both sites are LATENT rather than live, and the distinction is the whole
+entry.** Neither repository installs a git hook today, so neither can currently
+be run in the environment that breaks them. That is a property of those
+repositories on this date and not of the code, and the fix costs one word.
+
+- `tokenfuse/scripts/audit.sh:70`. Byte-identical to the trailryx bug: a
+  `status --porcelain` on `~/.cargo/advisory-db`. Under a leaked `GIT_DIR` it
+  reports every entry of the database as untracked and the gate refuses. Its
+  printed remediation, `git -C <db> clean -fd`, is harmless in a terminal and
+  deletes the database in the environment where the message appears.
+- `agent-stack-go/scripts/schemas-in-sync.sh`, seven sites against
+  `$CANON_REPO`. The worse shape: `show "$CANON_REF:$canon"` resolves the ref in
+  agent-stack-go's own object database. @measured 2026-08-26, that read returns
+  EMPTY there, because agent-stack-go vendors the canonical schemas at different
+  paths, so every file is skipped. The script is already defended against the
+  consequence: it counts what it compared and says "this check measured
+  nothing" at zero, so it fails loudly rather than reporting agreement. That
+  defence is why this site is a nuisance and not a hole.
+
+**Re-check:**
+
+```bash
+./gates/c9-foreign-git-in-hooks.py --mode ref --ref origin/main
+```
+
+**Closes when** both scripts clear the three variables git exports into a hook,
+which is a change in each of those repositories.
+
+---
+
 ## 5. Ungated invariants, estate-wide
 
 @measured `grep -c '(not enforced)'` across every `CLAUDE.md`, 2026-08-09.

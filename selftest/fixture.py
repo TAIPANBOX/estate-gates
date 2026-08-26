@@ -948,6 +948,35 @@ def gomod(module: str, pin: str | None = None) -> str:
 
 # The whole fixture estate: repo -> {path: contents}. `_tags` is consumed by
 
+
+# A script that asks ANOTHER repository a question, written the safe way. C9
+# reads these. The clean fixture carries every shape the check must tell apart:
+# a foreign target that clears the hook's environment, a `tar -C` whose flag
+# belongs to tar and not to git, the remediation printed as prose, and a target
+# that names this repository.
+TRAILRYX_AUDIT_SH = """#!/usr/bin/env bash
+set -uo pipefail
+cd "$(git rev-parse --show-toplevel)" || exit 1
+
+db="${CARGO_HOME:-$HOME/.cargo}/advisory-db"
+if [ -d "$db/.git" ]; then
+	dirty="$(env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE git -C "$db" status --porcelain 2>/dev/null || true)"
+	if [ -n "$dirty" ]; then
+		echo "FAIL: the advisory database has files git does not track."
+		echo "      Fix it with:  git -C $db clean -fd"
+		exit 1
+	fi
+fi
+
+# The flag here is tar's, not git's, and a check that cannot tell them apart
+# reports every repository in the estate.
+git archive HEAD | tar -x -C "$work"
+
+# Asking THIS repository a question needs no clearing: it is already the one
+# the hook is about.
+git -C "$(git rev-parse --show-toplevel)" status --porcelain >/dev/null
+"""
+
 # The record plane's ingest door, small enough to read. C8 asks whether every
 # type the registry carries has an answer here: an arm in `mapping_for`, or a
 # name in the passage that lists what is refused on purpose. It does not ask
@@ -1074,6 +1103,7 @@ ESTATE: dict[str, dict] = {
     "trailryx": {
         "README.md": "# trailryx\n",
         "crates/trailryx-agentevent/src/lib.rs": TRAILRYX_AGENTEVENT,
+        "scripts/audit.sh": TRAILRYX_AUDIT_SH,
     },
     "catalog": {"README.md": "# catalog\n"},
     "bank-in-a-box": {"README.md": "# bank-in-a-box\n"},
