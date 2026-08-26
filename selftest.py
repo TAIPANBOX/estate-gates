@@ -329,6 +329,83 @@ MUTATIONS: dict[str, list[tuple[str, callable]]] = {
     )],
     # ---- C7
     # ---- C9
+    # ---- C10
+    "c10.mapping-disagrees-across-languages": [
+        (
+            "the Rust side reverses the chain and nothing in Rust notices",
+            lambda r: edit(
+                r,
+                "tokenfuse/crates/cloud/src/delegation.rs",
+                '"user://acme/alice",\n                "agent://acme/triage",\n                "agent://acme/runbook"',
+                '"agent://acme/runbook",\n                "agent://acme/triage",\n                "user://acme/alice"',
+            ),
+        ),
+        (
+            # The two actors swapped, which is the direction failure and the
+            # one no signature check can catch: three principals, a human at
+            # the root, and the wrong agent named as the immediate actor.
+            #
+            # NOT "the subject is dropped": that leaves two principals and
+            # exercises c10.vector-too-short instead, which is a different red
+            # path and has its own mutation. The self-test caught that
+            # mislabelling.
+            "the Go side swaps the two actors, inverting who delegated to whom",
+            lambda r: edit(
+                r,
+                "agent-stack-go/delegation/chain_test.go",
+                'want := "user://acme/alice,agent://acme/triage,agent://acme/runbook"',
+                'want := "user://acme/alice,agent://acme/runbook,agent://acme/triage"',
+            ),
+        ),
+    ],
+    "c10.vector-has-no-human-at-its-root": [(
+        "both sides agree on a vector with no person in it, so the worst failure cannot show",
+        lambda r: (
+            edit(
+                r,
+                "agent-stack-go/delegation/chain_test.go",
+                'want := "user://acme/alice,agent://acme/triage,agent://acme/runbook"',
+                'want := "agent://acme/cron,agent://acme/triage,agent://acme/runbook"',
+            ),
+            edit(
+                r,
+                "tokenfuse/crates/cloud/src/delegation.rs",
+                '"user://acme/alice",\n                "agent://acme/triage",',
+                '"agent://acme/cron",\n                "agent://acme/triage",',
+            ),
+        ),
+    )],
+    "c10.no-assertion-to-read": [(
+        "the Go vector stops asserting anything, leaving only the token's own literals",
+        lambda r: edit(
+            r,
+            "agent-stack-go/delegation/chain_test.go",
+            'want := "user://acme/alice,agent://acme/triage,agent://acme/runbook"',
+            'noAssertionHere := 1',
+        ),
+    )],
+    "c10.no-implementation-to-read": [(
+        "the Rust implementation is gone",
+        lambda r: drop(r, "tokenfuse/crates/cloud/src/delegation.rs"),
+    )],
+    "c10.no-vector-to-read": [(
+        "the Go vector's test is renamed away, so nothing asserts the mapping",
+        lambda r: edit(
+            r,
+            "agent-stack-go/delegation/chain_test.go",
+            "func TestTheEstateChainCarriesTheSubjectAndTheRfcsActDoesNot",
+            "func TestSomethingElseEntirely",
+        ),
+    )],
+    "c10.vector-too-short": [(
+        "the Go vector shrinks below a subject and two actors",
+        lambda r: edit(
+            r,
+            "agent-stack-go/delegation/chain_test.go",
+            'want := "user://acme/alice,agent://acme/triage,agent://acme/runbook"',
+            'want := "user://acme/alice"',
+        ),
+    )],
     "c9.foreign-git-keeps-the-environment": [
         (
             "a foreign-target git call stops clearing the hook's variables",

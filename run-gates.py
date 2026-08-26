@@ -45,6 +45,7 @@ GATES = [
     "c7-rule-in-code.py",
     "c8-registry-reaches-the-record.py",
     "c9-foreign-git-in-hooks.py",
+    "c10-delegation-mapping.py",
 ]
 
 EXIT_PARTIAL_EXPECTED = 3
