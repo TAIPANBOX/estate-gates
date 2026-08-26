@@ -545,8 +545,21 @@ missed in the same silence.
 `grep -c 'web_fetch' ~/Development/agent-passport/SPEC.md` returns 3, and 6.2
 carries `| scopyx | web_fetch (low) . web_blocked (high) |` beside a source row.
 That is the half this item said returns nothing, and the re-check command above
-now answers the other way. **The C4 half is untouched and is still the larger
-one**, so this item stays open: nothing yet reads a type named as a constant.
+now answers the other way.
+
+**And the C4 half is closed too, which this file said otherwise about for
+sixteen days.** `@measured` 2026-08-26: `gates/c4-event-registry.py` carries
+`go_consts` and `go_call_first_args`, `_scopyx` resolves the constants and
+passes the unresolved ones to `_refuse_unresolved`, and a live run reports
+`every one of the 2 types 6.2 lists under scopyx appears at an emit site in
+scopyx`. So a type named as a constant IS read, and an identifier that cannot
+be resolved is a finding rather than silence, which is both halves of what
+this item asked for.
+
+The paragraph above it stayed wrong because nothing re-reads this file. That
+is the cost this file's own rule 0.2 names, met by the file itself: a recorded
+gap decays exactly like a recorded blocker, and the next session reads "still
+the larger one" and goes to build what exists. **Item CLOSED 2026-08-26.**
 
 ### G4.5 A claimed subject has no way onto the bus, so a whole detector family never reaches it
 
@@ -731,12 +744,57 @@ whose Agent-BOM really is incomplete.
 **Re-check:** the command above. Any finding whose subject starts with
 `claimed:` and whose detector is not a claim detector is this gap returning.
 
-### G4.3 Three sources of truth about what each product emits, and only one is gated
-The registry (SPEC 6.2) is gated against artifacts by C4, which is clean. What
-is **not** gated is the registry against the producers' actual code. C4 checks
-that nothing in `agent-passport` contradicts the registry; nothing checks that
-the registry matches what tokenfuse, heraldyx and genaryx really write.
-**Closes when:** a C7 reads each producer's emission sites and compares.
+### ~~G4.3 Three sources of truth about what each product emits, and only one is gated~~
+**CLOSED, and this entry described the world before C4 was rewritten.**
+`@measured` 2026-08-26: C4's `PRODUCERS` table carries an entry per emitting
+repository, each naming the file and the call that opens its writer, and each
+`extract` reads the actual emission sites. A live run prints
+`every one of the N types 6.2 lists under <source> appears at an emit site in
+<repo>` per source, and the reverse direction reports a type nobody registered.
+That is the "reads each producer's emission sites and compares" this item was
+waiting for.
+
+Kept rather than deleted because the closing condition it named was met by a
+different check than the one it guessed at, and because it sat here reading as
+open for long enough to be worth a note about how long.
+
+The direction it never covered is now C8: what the RECORD PLANE does with each
+registered type. See below.
+
+---
+
+### G4.8 The record plane silently drops the event that says the rules changed
+
+Opened and gated on 2026-08-26, found by building C8 rather than by an audit,
+which is the order this repository prefers.
+
+`policy_updated` is wardryx's admin type: an operator changing a policy through
+the policy-as-code API, severity `high`, carrying the synthetic subject
+`agent://wardryx.internal/admin/policy-api` because no governed agent did
+anything. SPEC 6.2 registers it. wardryx emits it from two sites.
+
+trailryx neither maps it nor names it in the passage listing what it refuses on
+purpose, so it arrives at the ingest door, is refused as `UnknownType`, is
+counted with every other unknown, and nothing anywhere says that a governance
+event has not reached the record. For a store whose claim is that it holds what
+happened in a form nobody can quietly alter, "somebody changed the rules" is a
+conspicuous thing to be missing, and it went missing by omission rather than by
+anyone deciding it should.
+
+**The gate half is closed.** C8 reports it, red, naming both files.
+
+**Re-check:**
+
+```bash
+./gates/c8-registry-reaches-the-record.py --mode ref --ref origin/main
+grep -c policy_updated ~/Development/trailryx/crates/trailryx-agentevent/src/lib.rs
+```
+
+**Closes when** trailryx either maps it or names it in the refused list with the
+reason, which is a trailryx change and belongs there. By trailryx's own stated
+criterion the second is the likelier answer: it sits beside `console_command`,
+which is already refused because an operator acting on the stack is not an agent
+acting, and the store's subject axis is the agent.
 
 ---
 

@@ -116,6 +116,23 @@ beside it, so a rename breaks loudly rather than quietly finding nothing. Three
 anchor on a constant; tokenfuse compiles its regex inside a function, so that
 one anchors on the function and refuses to cross another `fn`.
 
+**C8, the registry reaches the record** (`gates/c8-registry-reaches-the-record.py`).
+C4 holds SPEC 6.2 against the producers and says nothing about what becomes of
+an event afterwards. trailryx is the record plane, and a type its ingest door
+does not know is refused as `UnknownType` and counted. That refusal is correct
+behaviour, and it is also what an omission looks like: "we decided this does
+not belong in the record" and "nobody got to it" produce the same refusal, the
+same counter and the same silence. trailryx already writes its decisions down,
+in a doc-comment passage naming the types it refuses on purpose, so this check
+asks only that every registered type appears on one of the two lists, the
+mapping arms or the refused names. It never requires a mapping: the record
+vocabulary is deliberately narrower than the bus, and forcing a record type per
+registered type would be the wrong direction. Writing it found `policy_updated`,
+wardryx's admin type at severity `high`, on neither list, which meant the record
+plane was silently dropping the event that says an operator changed the policy
+rules.
+
+
 ## Running it
 
 Locally, against the sibling checkouts in the parent directory:

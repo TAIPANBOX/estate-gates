@@ -43,6 +43,7 @@ GATES = [
     "c5-deployment-parity.py",
     "c6-chain-vectors.py",
     "c7-rule-in-code.py",
+    "c8-registry-reaches-the-record.py",
 ]
 
 EXIT_PARTIAL_EXPECTED = 3

@@ -60,47 +60,9 @@ SPEC_PATH = "SPEC.md"
 
 
 def parse_registry(spec: str) -> tuple[dict[str, set[str]], set[str]]:
-    """Section 6.2's table: source -> set of type strings, plus reserved rows.
-
-    The table is markdown, `| `source` | `a` . `b` . `c` |`. A row whose type
-    cell begins with RESERVED is a promise about names, not a claim about a
-    producer, and 6.2 says so on the row.
-    """
-    start = spec.find("### 6.2")
-    if start < 0:
-        raise E.Missing(
-            f"{SPEC_PATH} has no `### 6.2` heading, which is where the event-type "
-            f"registry lives. Without it this check has no statement to measure "
-            f"anything against"
-        )
-    end = spec.find("### 6.3", start)
-    section = spec[start : end if end > 0 else len(spec)]
-
-    registry: dict[str, set[str]] = {}
-    reserved: set[str] = set()
-    for line in section.splitlines():
-        line = line.strip()
-        if not line.startswith("|") or line.startswith("|---") or "`source`" in line:
-            continue
-        cells = [c.strip() for c in line.strip("|").split("|")]
-        if len(cells) < 2:
-            continue
-        m = re.fullmatch(r"`([a-z0-9-]+)`", cells[0])
-        if not m:
-            continue
-        source = m.group(1)
-        cell = cells[1]
-        if cell.upper().startswith("RESERVED"):
-            reserved.add(source)
-        types = set(re.findall(r"`([a-z0-9_]+)`", cell))
-        registry.setdefault(source, set()).update(types)
-    if not registry:
-        raise E.Missing(
-            f"{SPEC_PATH} section 6.2 was found but no `source` rows could be "
-            f"parsed out of it. The table's shape changed and this check is "
-            f"comparing against an empty registry"
-        )
-    return registry, reserved
+    """Section 6.2's table. Lives in `_estate` since 2026-08-26, because C8
+    reads the same table and a second parser would be a second reading of it."""
+    return E.parse_registry(spec)
 
 
 # ------------------------------------------------------------ small parsers
