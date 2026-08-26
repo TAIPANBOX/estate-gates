@@ -680,6 +680,31 @@ MUTATIONS: dict[str, list[tuple[str, callable]]] = {
             every=True,
         ),
     )],
+    "c4.producer-undeclared": [
+        (
+            # A new service starts writing events and nobody adds it to
+            # PRODUCERS, which is what happened to vouchryx: it wrote three
+            # types from the day it existed and this gate reported clean on the
+            # eight it knew. The repository is arbitrary; what matters is a
+            # writer where the declared list has no entry.
+            "a service writes events and PRODUCERS has no entry for it",
+            lambda r: plant(
+                r,
+                "catalog/cmd/emitter/main.go",
+                'package main\n\nfunc main() {\n\tw, _ := event.NewChainedWriter("e.ndjson")\n\t_ = w\n}\n',
+            ),
+        ),
+        (
+            # And the Python spelling, because two of the estate's producers are
+            # Python and a search that only knew Go would be half a check.
+            "a Python service writes events and PRODUCERS has no entry for it",
+            lambda r: plant(
+                r,
+                "catalog/emitter/events.py",
+                'class EventLog:\n    def emit(self, kind):\n        pass\n',
+            ),
+        ),
+    ],
     # ---- C2
     "c2.canonical-gone": [(
         "the canonical schema is deleted",
