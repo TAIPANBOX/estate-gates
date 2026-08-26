@@ -217,6 +217,33 @@ class Estate:
             names = [n for n in names if n.endswith(suffix)]
         return names
 
+    def grep_files(self, repo: str, marker: str) -> list[str]:
+        """Every tracked path in the repo whose CONTENT contains `marker`.
+
+        A fixed-string search, not a pattern: callers pass a literal that
+        identifies what they are looking for, and a caller that wanted a regex
+        would be asking a different question.
+
+        This exists so a check can DISCOVER files rather than be told where
+        they are. A hand-kept list of paths is itself a copy of the truth, and
+        the estate has already been bitten by one going stale.
+        """
+        directory = self.dir_of(repo)
+        args = ["git", "-C", str(directory), "grep", "-l", "--fixed-strings", marker]
+        if self.mode == "ref":
+            args += [self.ref]
+        proc = subprocess.run(args, capture_output=True, text=True)
+        # git grep exits 1 for "no match", which is an answer and not a failure.
+        if proc.returncode not in (0, 1):
+            raise Missing(f"{repo}: could not search files ({proc.stderr.strip()})")
+        names = []
+        for line in proc.stdout.splitlines():
+            if not line:
+                continue
+            # In ref mode git prefixes each hit with "<ref>:".
+            names.append(line.split(":", 1)[1] if self.mode == "ref" else line)
+        return sorted(names)
+
     def tags(self, repo: str) -> list[str]:
         directory = self.dir_of(repo)
         proc = subprocess.run(

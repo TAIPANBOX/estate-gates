@@ -266,6 +266,21 @@ def drop(root: pathlib.Path, rel: str) -> None:
     p.unlink()
 
 
+def plant(root: pathlib.Path, rel: str, contents: str) -> None:
+    """Add a NEW tracked file to a fixture repository.
+
+    `git add` and not just a write, because the checks read what git tracks. An
+    untracked file is invisible to them, so planting one and calling it a
+    mutation would prove nothing.
+    """
+    p = root / rel
+    if p.exists():
+        raise AssertionError(f"selftest mutation is stale: {rel} is already in the fixture")
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(contents, encoding="utf-8")
+    git(root / rel.split("/", 1)[0], "add", rel.split("/", 1)[1])
+
+
 def gomod_pin(root: pathlib.Path, repo: str, pin: str) -> None:
     edit(root, f"{repo}/go.mod", "agent-stack-go v0.5.1", f"agent-stack-go {pin}")
 
@@ -627,6 +642,35 @@ MUTATIONS: dict[str, list[tuple[str, callable]]] = {
     "c2.copy-gone": [(
         "a vendored copy is deleted",
         lambda r: drop(r, "engram/tests/fixtures/agent-event.v0.2.schema.json"),
+    )],
+    "c2.copy-unwatched": [
+        (
+            # The defect exactly as it happened on 2026-08-26: a repository
+            # keeps a copy of a canonical schema at a path COPIES never
+            # mentioned, so nothing ever compared it and it drifted in silence.
+            "a repository vendors a copy nobody declared",
+            lambda r: plant(
+                r,
+                "tokenfuse/crates/core/src/schemas/agent-event.v0.2.schema.json",
+                fixture.EVENT_V02,
+            ),
+        ),
+        (
+            # And the case that catches discovery being keyed on the filename
+            # instead of on what the file CLAIMS. A copy under any name is a
+            # copy, and a renamed one is the easiest kind to forget.
+            "an undeclared copy is filed under a name no schema uses",
+            lambda r: plant(r, "engram/tests/fixtures/envelope.json", fixture.EVENT_V02),
+        ),
+    ],
+    "c2.canonical-has-no-id": [(
+        "the canonical schema stops saying what it is",
+        lambda r: edit(
+            r,
+            "agent-passport/schemas/agent-event.v0.2.schema.json",
+            '  "$id": "https://taipanbox.dev/agent-passport/v0.2/agent-event.schema.json",\n',
+            "",
+        ),
     )],
     "c2.bytes-differ": [
         (
