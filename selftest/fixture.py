@@ -947,6 +947,42 @@ def gomod(module: str, pin: str | None = None) -> str:
 
 
 # The whole fixture estate: repo -> {path: contents}. `_tags` is consumed by
+
+# The record plane's ingest door, small enough to read. C8 asks whether every
+# type the registry carries has an answer here: an arm in `mapping_for`, or a
+# name in the passage that lists what is refused on purpose. It does not ask
+# which of the two, because refusing is a legitimate answer and the record
+# vocabulary is deliberately narrower than the bus.
+TRAILRYX_AGENTEVENT = """//! The estate's shared agent-event envelope, mapped into records.
+//!
+//! # What is mapped, and what is refused by name
+//!
+//! Refused today, each because the record vocabulary has no honest home for it
+//! rather than because nobody got to it: `crypto_finding`, `eval_run`,
+//! `sim_run` and `console_command`. Each is a finding or an observation about
+//! infrastructure rather than a decision an agent took.
+//!
+//! # The one that got a type of its own, and what that cost
+//!
+//! `alert_sent` is a notification leaving for a person, which is an event in
+//! the run's own history rather than a finding about infrastructure.
+
+fn mapping_for(kind: &str) -> Option<Mapping> {
+    match kind {
+        "budget_exhausted" => m(EventType::BudgetCheck),
+        "run_killed" => m(EventType::RunCompleted),
+        "memory_written" | "memory_forgotten" => m(EventType::MemoryAccess),
+        "identity_finding" => m(EventType::IdentityFinding),
+        "policy_allow" | "policy_deny" => m(EventType::PolicyDecision),
+        "alert_sent" => m(EventType::NotificationDispatched),
+        "web_fetch" => m(EventType::ToolCall),
+        "web_blocked" => m(EventType::PolicyDecision),
+        _ => None,
+    }
+}
+"""
+
+
 # selftest.py when it materialises the git repositories.
 ESTATE: dict[str, dict] = {
     "agent-passport": {
@@ -1035,7 +1071,10 @@ ESTATE: dict[str, dict] = {
         "manifests/45-heraldyx.yaml": K8S_HERALDYX,
         "manifests/kustomization.yaml": K8S_KUSTOMIZATION,
     },
-    "trailryx": {"README.md": "# trailryx\n"},
+    "trailryx": {
+        "README.md": "# trailryx\n",
+        "crates/trailryx-agentevent/src/lib.rs": TRAILRYX_AGENTEVENT,
+    },
     "catalog": {"README.md": "# catalog\n"},
     "bank-in-a-box": {"README.md": "# bank-in-a-box\n"},
 }

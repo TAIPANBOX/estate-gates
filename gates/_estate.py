@@ -371,6 +371,64 @@ class Check:
 # ------------------------------------------------------------------ helpers
 
 
+#: The document the registry lives in, named here because the parser moved out
+#: of C4 and took its error messages with it. A reader who sees this in a
+#: failure needs to know which file to open.
+SPEC_DOC = "agent-passport/SPEC.md"
+
+# --------------------------------------------------------------- the registry
+#
+# SPEC 6.2's event-type table, parsed once and read by more than one check.
+#
+# It lived inside C4 until 2026-08-26, when C8 arrived needing the same table.
+# A second parser would have been a second reading of a document whose shape is
+# already load-bearing for two checks, which is the copy hazard this suite
+# exists to find in other people's repositories.
+
+def parse_registry(spec: str) -> tuple[dict[str, set[str]], set[str]]:
+    """Section 6.2's table: source -> set of type strings, plus reserved rows.
+
+    The table is markdown, `| `source` | `a` . `b` . `c` |`. A row whose type
+    cell begins with RESERVED is a promise about names, not a claim about a
+    producer, and 6.2 says so on the row.
+    """
+    start = spec.find("### 6.2")
+    if start < 0:
+        raise Missing(
+            f"{SPEC_DOC} has no `### 6.2` heading, which is where the event-type "
+            f"registry lives. Without it this check has no statement to measure "
+            f"anything against"
+        )
+    end = spec.find("### 6.3", start)
+    section = spec[start : end if end > 0 else len(spec)]
+
+    registry: dict[str, set[str]] = {}
+    reserved: set[str] = set()
+    for line in section.splitlines():
+        line = line.strip()
+        if not line.startswith("|") or line.startswith("|---") or "`source`" in line:
+            continue
+        cells = [c.strip() for c in line.strip("|").split("|")]
+        if len(cells) < 2:
+            continue
+        m = re.fullmatch(r"`([a-z0-9-]+)`", cells[0])
+        if not m:
+            continue
+        source = m.group(1)
+        cell = cells[1]
+        if cell.upper().startswith("RESERVED"):
+            reserved.add(source)
+        types = set(re.findall(r"`([a-z0-9_]+)`", cell))
+        registry.setdefault(source, set()).update(types)
+    if not registry:
+        raise Missing(
+            f"{SPEC_DOC} section 6.2 was found but no `source` rows could be "
+            f"parsed out of it. The table's shape changed and this check is "
+            f"comparing against an empty registry"
+        )
+    return registry, reserved
+
+
 def unified_first_difference(
     left: str, right: str, left_name: str, right_name: str, context: int = 2
 ) -> list[str]:

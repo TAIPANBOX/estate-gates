@@ -72,15 +72,40 @@ sys.path.insert(0, str(HERE / "selftest"))
 import _estate as E  # noqa: E402
 import fixture  # noqa: E402
 
-GATE_FILES = [
-    "c1-pin-currency.py",
-    "c2-vendored-schemas.py",
-    "c3-mirrored-constants.py",
-    "c4-event-registry.py",
-    "c5-deployment-parity.py",
-    "c6-chain-vectors.py",
-    "c7-rule-in-code.py",
-]
+def _gate_files() -> list[str]:
+    """The gate list, read out of `run-gates.py` rather than kept beside it.
+
+    This file held its own copy until 2026-08-26. Two lists that must agree,
+    with nothing comparing them, is the exact defect shape this suite exists to
+    find in other repositories, and the failure it invites is the quiet one: a
+    gate added to the runner and not here would ship UNPROVEN, with the
+    self-test reporting green about six of seven checks and saying nothing
+    about the seventh.
+
+    Read from the AST rather than by importing, because the runner's filename
+    carries a hyphen and cannot be imported by name, and because parsing a
+    literal list is the whole of what is needed. A `GATES` that stops being a
+    plain list of strings raises here rather than silently reading as empty.
+    """
+    tree = ast.parse((HERE / "run-gates.py").read_text(encoding="utf-8"))
+    for node in tree.body:
+        if not isinstance(node, ast.Assign):
+            continue
+        if not any(getattr(t, "id", None) == "GATES" for t in node.targets):
+            continue
+        try:
+            names = ast.literal_eval(node.value)
+        except (ValueError, SyntaxError, TypeError) as exc:
+            raise SystemExit(
+                f"run-gates.py's GATES is not a literal list this file can read: {exc}"
+            ) from exc
+        if not isinstance(names, list) or not names:
+            raise SystemExit("run-gates.py's GATES is empty, so this self-test would prove nothing")
+        return list(names)
+    raise SystemExit("run-gates.py has no GATES assignment, so this self-test has no gates to prove")
+
+
+GATE_FILES = _gate_files()
 
 
 # --------------------------------------------------------- building the estate
@@ -303,6 +328,76 @@ MUTATIONS: dict[str, list[tuple[str, callable]]] = {
         lambda r: gomod_pin(r, "qryx", "v0.5.0"),
     )],
     # ---- C7
+    # ---- C8
+    "c8.type-unanswered": [
+        (
+            "a registered type loses its mapping arm and nobody names it refused",
+            lambda r: edit(
+                r,
+                "trailryx/crates/trailryx-agentevent/src/lib.rs",
+                '        "run_killed" => m(EventType::RunCompleted),\n',
+                "",
+            ),
+        ),
+        (
+            "a type named as refused drops out of the passage that names it",
+            lambda r: edit(
+                r,
+                "trailryx/crates/trailryx-agentevent/src/lib.rs",
+                "`crypto_finding`, `eval_run`,\n//! `sim_run`",
+                "`eval_run`,\n//! `sim_run`",
+            ),
+        ),
+        (
+            "the registry grows a type the record plane has never heard of",
+            lambda r: edit(
+                r,
+                "agent-passport/SPEC.md",
+                "| `wardryx` | `policy_allow` . `policy_deny` |",
+                "| `wardryx` | `policy_allow` . `policy_deny` . `policy_updated` |",
+            ),
+        ),
+    ],
+    "c8.registry-unparsed": [(
+        # The same fault C4 plants, and deliberately so: both gates read one
+        # parser now, and a mutation that fires only one of them would leave
+        # the other's unparsed path unproven the day the parser changes.
+        "SPEC.md loses its 6.2 heading",
+        lambda r: edit(r, "agent-passport/SPEC.md", "### 6.2 Initial", "### 6.9 Initial"),
+    )],
+    "c8.mapper-file-gone": [(
+        "the record plane's ingest door is deleted",
+        lambda r: drop(r, "trailryx/crates/trailryx-agentevent/src/lib.rs"),
+    )],
+    "c8.mapper-unreadable": [
+        (
+            "the mapping function is renamed, so the arms cannot be found",
+            lambda r: edit(
+                r,
+                "trailryx/crates/trailryx-agentevent/src/lib.rs",
+                "fn mapping_for",
+                "fn record_type_for",
+            ),
+        ),
+        (
+            "the fallback arm goes, so the extractor has nowhere to stop",
+            lambda r: edit(
+                r,
+                "trailryx/crates/trailryx-agentevent/src/lib.rs",
+                "        _ => None,\n",
+                "",
+            ),
+        ),
+        (
+            "the passage naming deliberate refusals loses its own anchor",
+            lambda r: edit(
+                r,
+                "trailryx/crates/trailryx-agentevent/src/lib.rs",
+                "Refused today",
+                "Not mapped at present",
+            ),
+        ),
+    ],
     "c7.canonical-gone": [(
         "agent-passport's v0.2 schema is deleted",
         lambda r: drop(r, "agent-passport/schemas/agent-event.v0.2.schema.json"),

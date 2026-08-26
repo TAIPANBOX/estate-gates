@@ -63,7 +63,11 @@ jobs:
       - name: Every check can go red
         run: ./selftest.py
 
-      - name: Run the six cross-repo gates against fresh clones
+      # Deliberately not a count. It said "six" while the suite ran eight,
+      # which is the same stale-number failure this suite exists to find in
+      # other repositories, sitting in its own CI label where every run
+      # printed it.
+      - name: Run every cross-repo gate against fresh clones
         id: gates
         run: |
           set +e
