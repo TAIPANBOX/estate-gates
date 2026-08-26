@@ -59,6 +59,7 @@ import ast
 import io
 import json
 import pathlib
+import os
 import re
 import shutil
 import subprocess
@@ -75,34 +76,31 @@ import fixture  # noqa: E402
 def _gate_files() -> list[str]:
     """The gate list, read out of `run-gates.py` rather than kept beside it.
 
-    This file held its own copy until 2026-08-26. Two lists that must agree,
-    with nothing comparing them, is the exact defect shape this suite exists to
-    find in other repositories, and the failure it invites is the quiet one: a
-    gate added to the runner and not here would ship UNPROVEN, with the
-    self-test reporting green about six of seven checks and saying nothing
-    about the seventh.
+    This file held its own copy until 2026-08-26, and the runner held a literal
+    `GATES` list until later the same day. Two lists that must agree, with
+    nothing comparing them, is the exact defect shape this suite exists to find
+    in other repositories, and the failure it invites is the quiet one: a gate
+    in one list and not the other ships UNPROVEN while the summary reports green
+    about the gates it knew about.
 
-    Read from the AST rather than by importing, because the runner's filename
-    carries a hyphen and cannot be imported by name, and because parsing a
-    literal list is the whole of what is needed. A `GATES` that stops being a
-    plain list of strings raises here rather than silently reading as empty.
+    So neither place has a list any more. The runner DISCOVERS the gate files in
+    `gates/`, and this reads the same directory the same way, which is the only
+    arrangement where the two cannot disagree.
+
+    Read by globbing rather than by importing the runner, because its filename
+    carries a hyphen and cannot be imported by name. An empty directory raises
+    here rather than silently reading as "nothing to prove".
     """
-    tree = ast.parse((HERE / "run-gates.py").read_text(encoding="utf-8"))
-    for node in tree.body:
-        if not isinstance(node, ast.Assign):
-            continue
-        if not any(getattr(t, "id", None) == "GATES" for t in node.targets):
-            continue
-        try:
-            names = ast.literal_eval(node.value)
-        except (ValueError, SyntaxError, TypeError) as exc:
-            raise SystemExit(
-                f"run-gates.py's GATES is not a literal list this file can read: {exc}"
-            ) from exc
-        if not isinstance(names, list) or not names:
-            raise SystemExit("run-gates.py's GATES is empty, so this self-test would prove nothing")
-        return list(names)
-    raise SystemExit("run-gates.py has no GATES assignment, so this self-test has no gates to prove")
+    found = sorted(
+        (HERE / "gates").glob("c*.py"),
+        key=lambda p: (int(re.match(r"c(\d+)", p.stem).group(1)), p.stem),
+    )
+    names = [p.name for p in found if re.match(r"c\d+-", p.stem)]
+    if not names:
+        raise SystemExit(
+            "no gate was found in gates/, so this self-test would prove nothing"
+        )
+    return names
 
 
 GATE_FILES = _gate_files()
@@ -1202,6 +1200,50 @@ def main() -> int:
                 f"OK: the fixture estate passes every check "
                 f"({', '.join(verdicts)})."
             )
+
+        # -- 1b. every gate can be RUN, on its own -------------------------
+        #
+        # `run-gates.py` imports each gate and calls its `run(estate)`, so a
+        # gate whose own `main()` is broken runs perfectly through the runner
+        # and crashes when a person invokes the file. Measured 2026-08-26: C8,
+        # C9 and C10 called `Estate.run_one`, a method that does not exist.
+        # All three shipped, all three read as `clean` in every summary, and
+        # every single-gate invocation in the README raised AttributeError.
+        #
+        # A mutation harness cannot see this: it proves what a gate FINDS, and
+        # this is about whether the gate can be started at all.
+        if not problems:
+            for name in GATE_FILES:
+                done = subprocess.run(
+                    [
+                        sys.executable,
+                        str(HERE / "gates" / name),
+                        "--root",
+                        str(base),
+                        "--registry",
+                        str(registry),
+                    ],
+                    capture_output=True,
+                    text=True,
+                    env=dict(os.environ, ESTATE_GATES_EXPECTATIONS=str(expectations)),
+                )
+                # Exactly clean, because the fixture IS clean and every gate
+                # just reported so through the runner. Accepting "any exit code
+                # a gate is allowed to produce" would accept 1, and an uncaught
+                # Python exception exits 1: the first version of this check
+                # passed with C9's crash planted back in, which is how it was
+                # found to be measuring nothing.
+                if done.returncode != E.EXIT_CLEAN:
+                    problems.append(
+                        f"{name} does not run cleanly on its own against the "
+                        f"fixture every gate just passed: exit "
+                        f"{done.returncode}.\n{done.stderr.strip()[-400:]}"
+                    )
+            if not problems:
+                print(
+                    f"OK: all {len(GATE_FILES)} gates run standalone, not only "
+                    f"through run-gates.py."
+                )
 
         # -- 2. each red path fires ----------------------------------------
         if not problems:
