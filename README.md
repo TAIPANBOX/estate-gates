@@ -133,6 +133,26 @@ plane was silently dropping the event that says an operator changed the policy
 rules.
 
 
+**C9, a git command aimed elsewhere clears the hook's environment**
+(`gates/c9-foreign-git-in-hooks.py`). git runs a hook with `GIT_DIR` set to the
+repository being pushed, and `git -C <somewhere else>` changes the working
+directory without clearing it, so the command reads the other repository's
+working tree against this one's index and object database. Found in trailryx on
+2026-08-26: a check asking whether the local advisory database had untracked
+files answered nothing from a terminal and all 1221 of its entries from the
+pre-push hook, and refused the push. Three sessions retried instead of looking
+at the environment, because the failure only exists in a context nobody debugs
+from. The quieter shape is worse than the one that was found: `show <ref>:<path>`
+under the wrong object database resolves the ref in the wrong repository, and
+where both hold a file at that path it succeeds and returns the wrong content,
+so a check comparing a vendored copy against its original compares the copy
+against itself. The single rule that keeps this honest is that the target must
+sit before the subcommand, where git requires it, which is what keeps
+`git archive HEAD | tar -x -C "$dir"` out of the answer: five repositories write
+that line, and a check matching `git` and `-C` anywhere would have reported all
+five and been deleted by whoever read the first finding.
+
+
 ## Running it
 
 Locally, against the sibling checkouts in the parent directory:

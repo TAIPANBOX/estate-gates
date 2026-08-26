@@ -328,6 +328,43 @@ MUTATIONS: dict[str, list[tuple[str, callable]]] = {
         lambda r: gomod_pin(r, "qryx", "v0.5.0"),
     )],
     # ---- C7
+    # ---- C9
+    "c9.foreign-git-keeps-the-environment": [
+        (
+            "a foreign-target git call stops clearing the hook's variables",
+            lambda r: edit(
+                r,
+                "trailryx/scripts/audit.sh",
+                'env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE git -C "$db"',
+                'git -C "$db"',
+            ),
+        ),
+        (
+            "it clears something else and leaves GIT_DIR set, which is the one that bites",
+            lambda r: edit(
+                r,
+                "trailryx/scripts/audit.sh",
+                "env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE git",
+                "env -u GIT_WORK_TREE -u GIT_INDEX_FILE git",
+            ),
+        ),
+        (
+            # The self-exclusion is not blanket: point the same call somewhere
+            # else and it must fire. Without this the exclusion could be a
+            # wildcard nobody noticed.
+            "the call that names this repository is pointed at a sibling",
+            lambda r: edit(
+                r,
+                "trailryx/scripts/audit.sh",
+                'git -C "$(git rev-parse --show-toplevel)" status',
+                'git -C ../agent-passport status',
+            ),
+        ),
+    ],
+    "c9.nothing-scanned": [(
+        "every script the check reads is gone",
+        lambda r: drop(r, "trailryx/scripts/audit.sh"),
+    )],
     # ---- C8
     "c8.type-unanswered": [
         (
