@@ -83,6 +83,11 @@
       "local": "trailryx",
       "role": "the record plane. No check reads it today; see README, uncovered surfaces."
     },
+    "vouchryx": {
+      "github": "TAIPANBOX/vouchryx",
+      "local": "vouchryx",
+      "role": "the delegation-token service. Issues RFC 8693 tokens sender-constrained by DPoP, and the revocation list every enforcement point polls, so a delegation can be proved and ended rather than only recorded."
+    },
     "catalog": {
       "github": "TAIPANBOX/catalog",
       "local": "catalog",
