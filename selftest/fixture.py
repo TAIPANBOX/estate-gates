@@ -61,6 +61,47 @@ EVENT_V02 = """{
 }
 """
 
+# The RFC 8693 -> on_behalf_of mapping vector, as each language's own suite
+# holds it. Two forms on purpose: Go asserts a comma-joined string and Rust a
+# slice, which is what C10 has to read without asking either to change.
+DELEGATION_CHAIN_TEST_GO = """package delegation
+
+import (
+	"strings"
+	"testing"
+)
+
+func TestTheEstateChainCarriesTheSubjectAndTheRfcsActDoesNot(t *testing.T) {
+	act, _ := BuildAct([]string{"agent://acme/triage", "agent://acme/runbook"})
+	chain, err := Chain("user://acme/alice", act)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "user://acme/alice,agent://acme/triage,agent://acme/runbook"
+	if strings.Join(chain, ",") != want {
+		t.Fatalf("%v", chain)
+	}
+}
+"""
+
+DELEGATION_RS = """//! Verifying a vouchryx delegation token, offline.
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn a_delegation_verifies_and_the_chain_keeps_its_root() {
+        assert_eq!(
+            v.chain,
+            vec![
+                "user://acme/alice",
+                "agent://acme/triage",
+                "agent://acme/runbook"
+            ],
+        );
+    }
+}
+"""
+
 PASSPORT = """{
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://taipanbox.dev/schemas/agent-passport.schema.json",
@@ -1029,6 +1070,7 @@ ESTATE: dict[str, dict] = {
         "event/testdata/agent-event.v0.2.schema.json": EVENT_V02,
         "event/testdata/chain-vectors.json": CHAIN_VECTORS,
         "event/chain_test.go": CHAIN_TEST_GO,
+        "delegation/chain_test.go": DELEGATION_CHAIN_TEST_GO,
         "_tags": ["v0.1.0", "v0.5.1"],
     },
     "tokenfuse": {
@@ -1038,6 +1080,7 @@ ESTATE: dict[str, dict] = {
         "crates/gateway/src/pricebook.rs": PRICEBOOK_RS,
         "crates/gateway/src/sink.rs": SINK_RS,
         "contracts/tokenfuse-constants.json": CONSTANTS_JSON,
+        "crates/cloud/src/delegation.rs": DELEGATION_RS,
     },
     "verdryx": {
         "verdryx/costper.py": COSTPER_PY,

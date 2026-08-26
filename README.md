@@ -153,6 +153,25 @@ that line, and a check matching `git` and `-C` anywhere would have reported all
 five and been deleted by whoever read the first finding.
 
 
+**C10, the RFC 8693 mapping produces one chain in every language**
+(`gates/c10-delegation-mapping.py`). agent-passport SPEC 5.3 says how an RFC
+8693 `act` claim becomes an `on_behalf_of` chain, and it is the one place in
+this estate where a mistake produces something that VERIFIES PERFECTLY and
+asserts the opposite of what happened: a signature is over the claims and says
+nothing about how a reader turned them into a list. Two mistakes are available
+and both were made on 2026-08-26, in the hour the mapping was first written.
+The direction: the RFC nests `act` current-first, SPEC 5 orders the chain
+root-first, and reversing it wrongly records that the root delegated to nobody.
+The head: the RFC keeps the subject OUT of `act` and SPEC 5 puts the root INTO
+the chain, so the mapping is `[sub] + reverse(act)`, and missing that writes the
+chain with the human missing from it. Two implementations exist and neither can
+see the other, each holding its expected chain as a literal in its own suite, so
+changing one leaves the other passing against the old answer. The gate reads the
+ASSERTION rather than the test body, which is the correction its own self-test
+forced: taking the last three principals found the same three whatever the
+assertion said, because a body also names the principals that BUILD the token,
+and the gate could not see the exact failure it exists for.
+
 ## Running it
 
 Locally, against the sibling checkouts in the parent directory:
