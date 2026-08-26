@@ -208,3 +208,21 @@ Stop and tell the user, then wait:
 - Nothing paid or metered gets enabled without telling the user first and
   getting agreement.
 - Do not delete or revoke keys, tokens or certificates on your own initiative.
+
+11. **A check about a trust boundary belongs on the side that can see across
+    it.** wardryx believes `chain_proven` and says so in its own comment. That
+    is the right design: a PDP deciding at 3.2 ms p50 must not verify a
+    signature per decision. It also means no amount of care inside wardryx can
+    tell a verified claim from an asserted one, because the evidence is in
+    another repository.
+
+    This repository is where that evidence meets the claim, and C11 is the
+    shape: for every producer, does the file that asserts also call. It
+    generalises past this one field. Any time a plane documents "the caller is
+    believed here", ask what would notice a caller who lied, and if the answer
+    is nothing, the check belongs in this repository rather than in either of
+    theirs. *(gate: `gates/c11-proven-means-verified.py`, with three cases in
+    `selftest.py`: an assertion with no verifier, a verifier left in an import
+    and a comment with the call gone, and the field vanishing from the estate
+    entirely, which is the "measured nothing" answer rather than a clean one.)*
+

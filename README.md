@@ -282,3 +282,28 @@ will name both sides and the file to open.
 
 Several checks are red today. That is correct, and working around any of them
 by weakening the check would be the one change this repository cannot survive.
+
+
+**C11, a proved chain was proved by something**
+(`gates/c11-proven-means-verified.py`). wardryx decides on `chain_proven`, and
+its own comment states the trust boundary plainly: "a caller that lies about
+this is believed. That is not a weakness of this field, it is where the boundary
+is." That is correct, and it is exactly why the check belongs on this side of
+the boundary. The PDP cannot tell a verified `true` from an asserted one, and
+nobody can from inside wardryx: it is visible only to something holding wardryx
+and every producer open at once.
+
+The failure it names is the one the 2026-08-25 identity plan called A5, and the
+dangerous half is not the one the plan led with. A chain wrongly marked unproven
+makes a policy fire that should not have, which somebody notices. A chain
+wrongly marked proved makes `deny_if_chain_unproven` stay silent, and an estate
+where that rule never fires looks exactly like an estate where every chain is
+proved.
+
+So every non-test file that sets `chain_proven` true must CALL a verifier. A
+call and not an import: `use tokenfuse_delegation::verify_delegation;` at the
+top of a file that never calls it is what a refactor leaves behind, and counting
+it would let this pass on the wreckage. It reads text rather than data flow, so
+it sees a literal `true` and not a variable that happens to be one. That is the
+shape a rubber stamp actually takes, and the limit is written in the script
+rather than left to be discovered.

@@ -634,6 +634,52 @@ MUTATIONS: dict[str, list[tuple[str, callable]]] = {
             ),
         ),
     ],
+    # ---- C11
+    "c11.asserted-not-verified": [
+        (
+            # The rubber stamp: a producer that tells the PDP a chain was proved
+            # with no verification anywhere in the file. wardryx believes it, and
+            # `deny_if_chain_unproven` then never fires.
+            "an enforcement point asserts a proved chain without verifying one",
+            lambda r: edit(
+                r,
+                "tokenfuse/crates/gateway/src/chainproof.rs",
+                "match crate::chainproof::resolve(&req.cfg, req.token(), req.proof()) {",
+                "match req.declared_chain() {",
+            ),
+        ),
+        (
+            # The same thing one layer subtler: the import survives and the call
+            # does not, which is what a refactor leaves behind.
+            "the verifier is imported, mentioned in a comment, and never called",
+            lambda r: edit(
+                r,
+                "tokenfuse/crates/gateway/src/chainproof.rs",
+                "crate::chainproof::resolve(&req.cfg, req.token(), req.proof())",
+                "req.declared_chain() /* verify_delegation was here */",
+            ),
+        ),
+    ],
+    "c11.no-producer": [(
+        # The field is RENAMED, so it exists nowhere. That is the case worth
+        # catching: a rename leaves this gate looking for a string that no
+        # longer exists, which would make it permanently and quietly green.
+        #
+        # It used to plant `chain_proven: proved` instead, back when this gate
+        # counted literal assertions rather than mentions. That version of the
+        # gate reported `measured nothing` about the real estate, whose two
+        # doors set the value from a match arm and never write the literal at
+        # all. Counting mentions fixed the gate and made that mutation useless,
+        # which is the mutation doing its job in reverse.
+        "the field the PDP decides on is renamed away",
+        lambda r: edit(
+            r,
+            "tokenfuse/crates/gateway/src/chainproof.rs",
+            "chain_proven",
+            "chain_was_proved",
+            every=True,
+        ),
+    )],
     # ---- C2
     "c2.canonical-gone": [(
         "the canonical schema is deleted",
