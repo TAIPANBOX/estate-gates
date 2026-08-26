@@ -10,7 +10,9 @@ the checks found, run them.
 The cross-repo gate suite. Checks that each compare two or more OTHER
 repositories in the estate, plus a self-test that proves each of them can
 fail. How many there are is not written here: it is a number that moves, and
-this file holds no status. `GATES` in `run-gates.py` is the list.
+this file holds no status. There is no list anywhere: `run-gates.py` and
+`selftest.py` both DISCOVER the gate files in `gates/`, which is the only
+arrangement in which the two cannot disagree about what exists.
 
 **It is the only repository allowed to know about more than one repository at
 once**, and that is its whole reason to exist. Every other repo in the estate
@@ -226,3 +228,32 @@ Stop and tell the user, then wait:
     and a comment with the call gone, and the field vanishing from the estate
     entirely, which is the "measured nothing" answer rather than a clean one.)*
 
+12. **A gate the runner can call is not a gate a person can run, and the
+    self-test could not tell the difference.** `run-gates.py` imports each gate
+    and calls its `run(estate)` directly, so a gate whose own `main()` is broken
+    works perfectly through the runner. Measured 2026-08-26: C8, C9 and C10 all
+    called `Estate.run_one`, a method that does not exist. All three shipped,
+    all three read as `clean` in every summary this repository ever printed, and
+    every single-gate invocation in the README raised `AttributeError`. The
+    mutation harness could not see it either, because it proves what a gate
+    FINDS and this is about whether the gate can be started at all.
+
+    So the self-test now runs each gate file as a subprocess against the clean
+    fixture and requires **exactly** `EXIT_CLEAN`. Exactly, and this is the
+    point: the first version of the check accepted any exit code a gate is
+    allowed to produce, an uncaught Python exception exits 1, and 1 is
+    `EXIT_DRIFT`. It passed with C9's crash planted back in. A check that
+    accepts the failure it was written to catch is worse than none, because it
+    reports that the question was asked.
+
+    **And neither the runner nor the self-test carries a list any more.** Both
+    discover `gates/c<N>-*.py`. A literal list is a second place a gate has to
+    be registered, and the failure it invites is the silent one: a gate added to
+    `gates/` and forgotten in the list never runs, while the summary says every
+    gate is clean because it counted the ones it knew about. That is the same
+    shape this suite exists to find in other repositories, and 2026-08-26 found
+    it four times across the estate before finding it here.
+    *(test: `selftest.py`, the standalone-invocation check, proved red by
+    planting C9's original `run_one` call back in. The discovery is proved by
+    dropping a twelfth gate file into `gates/` and watching the summary count
+    twelve.)*

@@ -28,6 +28,7 @@ from __future__ import annotations
 import argparse
 import importlib.util
 import pathlib
+import re
 import sys
 import time
 
@@ -35,19 +36,24 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent / "gates"))
 
 import _estate as E  # noqa: E402
 
-GATES = [
-    "c1-pin-currency.py",
-    "c2-vendored-schemas.py",
-    "c3-mirrored-constants.py",
-    "c4-event-registry.py",
-    "c5-deployment-parity.py",
-    "c6-chain-vectors.py",
-    "c7-rule-in-code.py",
-    "c8-registry-reaches-the-record.py",
-    "c9-foreign-git-in-hooks.py",
-    "c10-delegation-mapping.py",
-    "c11-proven-means-verified.py",
-]
+# The gates are DISCOVERED in gates/, never listed here.
+#
+# A list in this file is a second place a gate has to be registered, and the
+# failure it produces is silent: a gate added to gates/ and forgotten here never
+# runs, and the summary says every gate is clean because it counted the ones it
+# knew about. That is the same shape as a gate carrying its own list of subjects,
+# which this estate has now found four times, and the answer is the same one.
+#
+# Sorted by the number in the name so C2 comes before C10, which a plain sort
+# would not do.
+def discover_gates(gates_dir: pathlib.Path) -> list[pathlib.Path]:
+    found = sorted(
+        gates_dir.glob("c*.py"),
+        key=lambda p: (int(re.match(r"c(\d+)", p.stem).group(1)), p.stem),
+    )
+    return [p for p in found if re.match(r"c\d+-", p.stem)]
+
+
 
 EXIT_PARTIAL_EXPECTED = 3
 
@@ -74,17 +80,15 @@ def main() -> int:
     args = p.parse_args()
 
     gates_dir = pathlib.Path(__file__).resolve().parent / "gates"
-    chosen = [
-        gates_dir / g
-        for g in GATES
-        if not args.only or any(o in g for o in args.only)
-    ]
-    missing = [g for g in chosen if not g.is_file()]
-    if missing or not chosen:
-        for g in missing:
-            print(f"FAIL: {g} is listed in run-gates.py and is not there.")
-        if not chosen:
-            print("FAIL: no gate matched --only, so this run measured nothing.")
+    found = discover_gates(gates_dir)
+    if not found:
+        print(f"FAIL: no gate was found in {gates_dir}, so this run measured")
+        print("nothing. A runner that finds no gates must say so rather than")
+        print("report that every gate it knows about is clean.")
+        return E.EXIT_DRIFT
+    chosen = [g for g in found if not args.only or any(o in g.name for o in args.only)]
+    if not chosen:
+        print("FAIL: no gate matched --only, so this run measured nothing.")
         return E.EXIT_DRIFT
 
     estate = E.estate_from_args(args)

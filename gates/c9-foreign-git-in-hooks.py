@@ -253,9 +253,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     E.add_common_args(parser)
     args = parser.parse_args()
-    check = E.estate_from_args(args).run_one(run)
-    check.render()
-    return check.exit_code()
+    return run(E.estate_from_args(args)).render()
 
 
 if __name__ == "__main__":
