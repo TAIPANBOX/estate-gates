@@ -1060,6 +1060,29 @@ fn mapping_for(kind: &str) -> Option<Mapping> {
 
 
 # selftest.py when it materialises the git repositories.
+# A gateway that PROVES the chain before telling the PDP so: it calls the
+# resolver, and the `true` it sends has a verification behind it. C11's
+# baseline, and the shape a real enforcement point has.
+CHAINPROOF_RS = """//! The door that resolves who a caller acts for.
+use tokenfuse_delegation::verify_delegation;
+
+pub fn admit(req: &Request) -> DecideContext {
+    match crate::chainproof::resolve(&req.cfg, req.token(), req.proof()) {
+        Chain::Proven(chain) => DecideContext {
+            on_behalf_of: chain,
+            chain_proven: true,
+            ..Default::default()
+        },
+        Chain::Claimed(chain) => DecideContext {
+            on_behalf_of: chain,
+            chain_proven: false,
+            ..Default::default()
+        },
+    }
+}
+"""
+
+
 ESTATE: dict[str, dict] = {
     "agent-passport": {
         "schemas/agent-event.schema.json": EVENT_V01,
@@ -1090,6 +1113,7 @@ ESTATE: dict[str, dict] = {
         "crates/gateway/src/sink.rs": SINK_RS,
         "contracts/tokenfuse-constants.json": CONSTANTS_JSON,
         "crates/delegation/src/lib.rs": DELEGATION_RS,
+        "crates/gateway/src/chainproof.rs": CHAINPROOF_RS,
     },
     "verdryx": {
         "verdryx/costper.py": COSTPER_PY,
