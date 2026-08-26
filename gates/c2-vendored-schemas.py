@@ -174,12 +174,30 @@ def discover(estate: E.Estate, c: E.Check) -> None:
     is no copy we do not know of, which is the failure the declared list cannot
     catch about itself.
     """
+    # The canonical set is DISCOVERED too, and this is not a detail. The first
+    # version of this pass read the `$id` of each schema named in COPIES, which
+    # meant a canonical schema absent from COPIES had no id registered and every
+    # copy of it stayed invisible. That is precisely the v0.3 case it was
+    # written to catch, so it would have shipped blind to its own example.
+    try:
+        canonical_files = [
+            f
+            for f in estate.list_files(CANONICAL_REPO, ".json")
+            if f.startswith("schemas/")
+        ]
+    except (E.Unavailable, E.Missing) as exc:
+        c.unavailable(
+            "c2.canonical-unlistable",
+            f"the canonical repository {CANONICAL_REPO} could not be listed "
+            f"({exc}), so no repository was searched for undeclared copies.",
+        )
+        return
+
     canonical_ids: dict[str, str] = {}
-    for canonical_path in sorted(COPIES):
+    for canonical_path in sorted(canonical_files):
         try:
             raw = estate.read_bytes(CANONICAL_REPO, canonical_path)
         except (E.Unavailable, E.Missing):
-            # Already reported by the loop above; not reported twice.
             continue
         ident = _id_of(raw)
         if ident is None:
@@ -206,7 +224,7 @@ def discover(estate: E.Estate, c: E.Check) -> None:
         return
 
     declared = _declared_paths()
-    canonical_paths = set(COPIES)
+    canonical_paths = set(canonical_files)
     searched = 0
 
     for repo in sorted(estate.repos):
