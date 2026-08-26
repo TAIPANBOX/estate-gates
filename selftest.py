@@ -633,6 +633,81 @@ MUTATIONS: dict[str, list[tuple[str, callable]]] = {
         ),
     ],
     # ---- C11
+    "c12.member": [
+        (
+            # The real finding, planted: a spec envelope member the store never
+            # heard of. It is not refused and not counted; it lands in the
+            # payload plane, which a per-event key erases, and SPEC 5.2 reads a
+            # chain with no proof beside it as NOT proven. A routine erasure
+            # then downgrades a proven chain to an unproven one, silently.
+            "the record plane has no decision about a spec envelope member",
+            lambda r: edit(
+                r,
+                "trailryx/crates/trailryx-agentevent/src/lib.rs",
+                '    "delegation_proof",\n',
+                "",
+            ),
+        ),
+        (
+            # The same hole one step subtler: the member is named in the doc but
+            # OUTSIDE the passage that argues the plane boundary. Prose that
+            # mentions a member is not prose that decides about it, and an
+            # extractor scanning the whole module doc would call this an answer.
+            "a member mentioned in the doc but outside the plane-boundary passage",
+            lambda r: edit(
+                r,
+                "trailryx/crates/trailryx-agentevent/src/lib.rs",
+                '    "delegation_proof",\n',
+                "",
+            )
+            or edit(
+                r,
+                "trailryx/crates/trailryx-agentevent/src/lib.rs",
+                "//! # Rule two: nothing is invented",
+                "//! # Rule two: nothing is invented\n//!\n//! `delegation_proof` is mentioned here and decided nowhere.",
+            ),
+        ),
+    ],
+    "c12.mapper-unreadable": [(
+        # The anchors this gate reads the mapper through are its subject list.
+        # An anchor that stops matching must be a finding, never a skip: a gate
+        # that quietly reads an empty list of consumed members would report that
+        # every member is in the payload plane and pass.
+        "the mapper's own list of typed members is gone",
+        lambda r: edit(
+            r,
+            "trailryx/crates/trailryx-agentevent/src/lib.rs",
+            "const CONSUMED: &[&str] = &[",
+            "const KEPT_MEMBERS: &[&str] = &[",
+        ),
+    )],
+    "c12.schemas": [(
+        # The subjects are DISCOVERED from the schema files. A gate that can no
+        # longer find one must say it measured nothing rather than report that
+        # every member it knows about has a plane.
+        "the envelope schemas it reads its subjects from are gone",
+        lambda r: edit(
+            r,
+            "agent-stack-go/cmd/agent-conform/schemas/agent-event.schema.json",
+            '"properties"',
+            '"disabled_properties"',
+            every=True,
+        )
+        or edit(
+            r,
+            "agent-stack-go/cmd/agent-conform/schemas/agent-event.v0.2.schema.json",
+            '"properties"',
+            '"disabled_properties"',
+            every=True,
+        )
+        or edit(
+            r,
+            "agent-stack-go/cmd/agent-conform/schemas/agent-event.v0.3.schema.json",
+            '"properties"',
+            '"disabled_properties"',
+            every=True,
+        ),
+    )],
     "c11.asserted-not-verified": [
         (
             # The rubber stamp: a producer that tells the PDP a chain was proved

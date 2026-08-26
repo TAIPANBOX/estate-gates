@@ -257,3 +257,38 @@ Stop and tell the user, then wait:
     planting C9's original `run_one` call back in. The discovery is proved by
     dropping a twelfth gate file into `gates/` and watching the summary count
     twelve.)*
+
+13. **A member the record plane has never heard of is not refused, it is
+    ERASED.** C8 asks whether every event TYPE has an answer at the store. This
+    asks it of the envelope's MEMBERS, and the failure is worse, because a
+    member has no refusal path at all: trailryx partitions every member into a
+    typed list that is kept and a payload plane that a per-event key destroys,
+    and its own rule says "a member this version has never seen is by definition
+    something this version cannot classify". So an unknown member is filed in
+    the erasable half, silently, and nothing counts it.
+
+    Found on 2026-08-26: `delegation_proof`, SPEC 5.2, in the v0.2 and v0.3
+    envelopes and emitted by tokenfuse from that day. It records that the
+    `on_behalf_of` chain was PROVED. The chain is typed and kept; the proof went
+    to the erasable plane. SPEC 5.2 reads a chain with no proof beside it as NOT
+    proven, so a routine erasure turns a proven chain into an unproven one, in
+    the store whose whole claim is that nobody can quietly alter what it holds.
+    5.2 spends a MUST on exactly that downgrade.
+
+    The sharpest part is that the identical argument had been made INSIDE
+    tokenfuse the same day, against putting the proof in `data`, and accepted
+    there. Nobody checked whether the store one repository over made the same
+    mistake for the same reason. That distance is what this suite is for.
+
+    **Coverage, never which answer.** Payload is right for most members and is
+    the only correct answer for `data`. The rule is that an answer EXISTS: a
+    member is consumed into typed metadata, or named in the mapper's own
+    plane-boundary passage with the reason it belongs in the erasable half.
+
+    **Subjects come from the SCHEMA files, unioned across every version**, so a
+    member added in a newer envelope is a subject the day it lands rather than
+    the day somebody remembers this file. Finding no schema, or no members, is a
+    finding and not a pass.
+    *(gate: `gates/c12-envelope-members-have-a-plane.py`, four mutations in
+    `selftest.py` covering the missing decision, a mention outside the passage
+    that decides, the anchors going away, and the schemas going away)*
