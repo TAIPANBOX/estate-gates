@@ -278,6 +278,16 @@ impl ParquetSink {
 """
 
 AGENT_EVENT_RS = """//! The agent-event exporter.
+//!
+//! The record carries SPEC 5.2's proof, not a boolean. `chain_proven: true`
+//! says "trust me, something checked"; four values say which token, bound to
+//! which key, from which issuer, until when.
+//!
+//! This paragraph is in the fixture on purpose, and this file calls no
+//! verifier. C11 reported it as a file asserting a proved chain with nothing
+//! behind it, against the real estate on 2026-08-27, because it matched text
+//! rather than code. A comment that ARGUES about the pattern is not the
+//! pattern, and the baseline passing is what says so.
 
 pub const AGENT_ID_MAX_LENGTH: usize = 255;
 

@@ -292,3 +292,29 @@ Stop and tell the user, then wait:
     *(gate: `gates/c12-envelope-members-have-a-plane.py`, four mutations in
     `selftest.py` covering the missing decision, a mention outside the passage
     that decides, the anchors going away, and the schemas going away)*
+
+14. **A gate that reads TEXT will one day read prose that disagrees with it.**
+    C11 counted literal `chain_proven: true` and missed the real doors, which
+    set the value from a match arm; on 2026-08-26 it was changed to count
+    mentions, and on 2026-08-27 it reported tokenfuse's `agent_event.rs` as a
+    file asserting a proved chain with nothing behind it. The only occurrence
+    there is a doc comment ARGUING AGAINST the boolean: "`chain_proven: true`
+    says trust me, something checked". A comment that disagrees with the pattern
+    was read as the pattern, one day after the opposite mistake.
+
+    Both directions have the same cause: the subject is CODE, and text is not
+    code. `code_only()` strips comments before either check runs, and it is
+    deliberately crude rather than a parser, because the only direction it can
+    err in is seeing LESS, which makes this gate fire less rather than more, and
+    the mention count that guards against seeing nothing at all runs on the same
+    stripped text.
+
+    **The case for it lives in the fixture, not in the mutations.** An overeager
+    gate is not a red path, so no mutation can express it: the proof is that the
+    BASELINE passes. The prose sits in a fixture file that calls no verifier, on
+    ONE line, and both of those matter. In a file that calls a verifier the case
+    proves nothing, because the verifier check would pass anyway; split across
+    two lines the needle stops matching, which is the same split-needle trap
+    this estate hit in a teeth harness the day before.
+    *(proved by removing `code_only` and watching the baseline go red with the
+    exact sentence the real estate produced)*
