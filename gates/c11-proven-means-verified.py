@@ -87,6 +87,52 @@ import _estate as E  # noqa: E402
 
 FIELD = "chain_proven"
 
+
+def code_only(text: str) -> str:
+    """The file with its comments removed.
+
+    Added 2026-08-27, after this gate reported tokenfuse's `agent_event.rs` as a
+    file that asserts a proved chain without verifying one. The only occurrence
+    there is a doc comment ARGUING AGAINST the boolean: "`chain_proven: true`
+    says trust me, something checked". A comment that disagrees with the pattern
+    was read as the pattern.
+
+    That is the mirror of the defect the mention-counting fixed on 2026-08-26.
+    Counting literal assertions missed the real doors, which set the value from
+    a match arm; counting text found prose. Code is the subject in both cases,
+    and this is the line that says so.
+
+    Deliberately crude: `//` and `#` to end of line, and `/* */` spans. It is
+    not a parser, so a `//` inside a string literal takes the rest of that line
+    with it. That direction is safe here: it can only make this gate see LESS
+    and therefore fire less, and the mention count that guards against seeing
+    nothing at all is computed on the same text.
+    """
+    out = []
+    in_block = False
+    for line in text.split("\n"):
+        if in_block:
+            end = line.find("*/")
+            if end < 0:
+                continue
+            line = line[end + 2 :]
+            in_block = False
+        start = line.find("/*")
+        while start >= 0:
+            end = line.find("*/", start + 2)
+            if end < 0:
+                line = line[:start]
+                in_block = True
+                break
+            line = line[:start] + line[end + 2 :]
+            start = line.find("/*")
+        for marker in ("//", "#"):
+            i = line.find(marker)
+            if i >= 0:
+                line = line[:i]
+        out.append(line)
+    return "\n".join(out)
+
 # The literal, in the three languages' spellings. Rust and Go struct literals,
 # JSON, and the Rust shorthand `chain_proven,` where a local of that name is
 # moved into a struct field are all the same statement.
@@ -153,8 +199,14 @@ def run(estate: E.Estate) -> E.Check:
                 text = estate.read_text(repo, relpath)
             except (E.Unavailable, E.Missing):
                 continue
+            code = code_only(text)
+            if FIELD not in code:
+                # Named only in prose here. Not a mention for the purposes of
+                # "did this field get renamed away", because a comment survives
+                # a rename that a compiler would have caught.
+                continue
             mentions += 1
-            if not SETS_TRUE.search(text):
+            if not SETS_TRUE.search(code):
                 # The field is alive here and nothing in this file CLAIMS it.
                 # That is the ordinary shape: `chain_proven: ctx.chain_proven`
                 # passes a value along, and the file that produced the value is
@@ -162,7 +214,7 @@ def run(estate: E.Estate) -> E.Check:
                 continue
 
             asserted += 1
-            if any(v in text for v in VERIFIERS):
+            if any(v in code for v in VERIFIERS):
                 c.ok(
                     "c11.proved-by-something",
                     f"{repo}:{relpath} tells the PDP a chain was proved and reaches "

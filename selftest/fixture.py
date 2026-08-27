@@ -56,7 +56,8 @@ EVENT_V02 = """{
   "properties": {
     "schema": { "const": "taipanbox.dev/agent-event/v0.2" },
     "agent_id": { "type": "string", "pattern": "^agent://[a-z0-9.-]+/[a-z0-9._/-]+$", "maxLength": 255 },
-    "prev_hash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+    "prev_hash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "delegation_proof": { "type": "object", "required": ["jti", "jkt", "iss", "exp"] }
   }
 }
 """
@@ -277,6 +278,16 @@ impl ParquetSink {
 """
 
 AGENT_EVENT_RS = """//! The agent-event exporter.
+//!
+//! The record carries SPEC 5.2's proof, not a boolean. `chain_proven: true`
+//! says "trust me, something checked"; four values say which token, bound to
+//! which key, from which issuer, until when.
+//!
+//! This paragraph is in the fixture on purpose, and this file calls no
+//! verifier. C11 reported it as a file asserting a proved chain with nothing
+//! behind it, against the real estate on 2026-08-27, because it matched text
+//! rather than code. A comment that ARGUES about the pattern is not the
+//! pattern, and the baseline passing is what says so.
 
 pub const AGENT_ID_MAX_LENGTH: usize = 255;
 
@@ -1043,6 +1054,26 @@ TRAILRYX_AGENTEVENT = """//! The estate's shared agent-event envelope, mapped in
 //!
 //! `alert_sent` is a notification leaving for a person, which is an event in
 //! the run's own history rather than a finding about infrastructure.
+//!
+//! # Rule one: the plane boundary
+//!
+//! A member goes into a typed metadata field only if it parses into one.
+//! Everything else goes to the payload plane: `data` is free-form by
+//! specification, and `source` and `prev_hash` have no typed home in a frozen
+//! record. None of them is dropped and none of them is promoted.
+//!
+//! # Rule two: nothing is invented
+
+const CONSUMED: &[&str] = &[
+    "schema",
+    "ts",
+    "type",
+    "severity",
+    "agent_id",
+    "run_id",
+    "on_behalf_of",
+    "delegation_proof",
+];
 
 fn mapping_for(kind: &str) -> Option<Mapping> {
     match kind {

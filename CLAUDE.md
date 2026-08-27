@@ -257,3 +257,64 @@ Stop and tell the user, then wait:
     planting C9's original `run_one` call back in. The discovery is proved by
     dropping a twelfth gate file into `gates/` and watching the summary count
     twelve.)*
+
+13. **A member the record plane has never heard of is not refused, it is
+    ERASED.** C8 asks whether every event TYPE has an answer at the store. This
+    asks it of the envelope's MEMBERS, and the failure is worse, because a
+    member has no refusal path at all: trailryx partitions every member into a
+    typed list that is kept and a payload plane that a per-event key destroys,
+    and its own rule says "a member this version has never seen is by definition
+    something this version cannot classify". So an unknown member is filed in
+    the erasable half, silently, and nothing counts it.
+
+    Found on 2026-08-26: `delegation_proof`, SPEC 5.2, in the v0.2 and v0.3
+    envelopes and emitted by tokenfuse from that day. It records that the
+    `on_behalf_of` chain was PROVED. The chain is typed and kept; the proof went
+    to the erasable plane. SPEC 5.2 reads a chain with no proof beside it as NOT
+    proven, so a routine erasure turns a proven chain into an unproven one, in
+    the store whose whole claim is that nobody can quietly alter what it holds.
+    5.2 spends a MUST on exactly that downgrade.
+
+    The sharpest part is that the identical argument had been made INSIDE
+    tokenfuse the same day, against putting the proof in `data`, and accepted
+    there. Nobody checked whether the store one repository over made the same
+    mistake for the same reason. That distance is what this suite is for.
+
+    **Coverage, never which answer.** Payload is right for most members and is
+    the only correct answer for `data`. The rule is that an answer EXISTS: a
+    member is consumed into typed metadata, or named in the mapper's own
+    plane-boundary passage with the reason it belongs in the erasable half.
+
+    **Subjects come from the SCHEMA files, unioned across every version**, so a
+    member added in a newer envelope is a subject the day it lands rather than
+    the day somebody remembers this file. Finding no schema, or no members, is a
+    finding and not a pass.
+    *(gate: `gates/c12-envelope-members-have-a-plane.py`, four mutations in
+    `selftest.py` covering the missing decision, a mention outside the passage
+    that decides, the anchors going away, and the schemas going away)*
+
+14. **A gate that reads TEXT will one day read prose that disagrees with it.**
+    C11 counted literal `chain_proven: true` and missed the real doors, which
+    set the value from a match arm; on 2026-08-26 it was changed to count
+    mentions, and on 2026-08-27 it reported tokenfuse's `agent_event.rs` as a
+    file asserting a proved chain with nothing behind it. The only occurrence
+    there is a doc comment ARGUING AGAINST the boolean: "`chain_proven: true`
+    says trust me, something checked". A comment that disagrees with the pattern
+    was read as the pattern, one day after the opposite mistake.
+
+    Both directions have the same cause: the subject is CODE, and text is not
+    code. `code_only()` strips comments before either check runs, and it is
+    deliberately crude rather than a parser, because the only direction it can
+    err in is seeing LESS, which makes this gate fire less rather than more, and
+    the mention count that guards against seeing nothing at all runs on the same
+    stripped text.
+
+    **The case for it lives in the fixture, not in the mutations.** An overeager
+    gate is not a red path, so no mutation can express it: the proof is that the
+    BASELINE passes. The prose sits in a fixture file that calls no verifier, on
+    ONE line, and both of those matter. In a file that calls a verifier the case
+    proves nothing, because the verifier check would pass anyway; split across
+    two lines the needle stops matching, which is the same split-needle trap
+    this estate hit in a teeth harness the day before.
+    *(proved by removing `code_only` and watching the baseline go red with the
+    exact sentence the real estate produced)*
