@@ -1514,6 +1514,24 @@ EXPECTATIONS = {
     },
 }
 
+# What each fixture repository contributes to a running fixture stack, in the
+# canonical kind names C5 compares by. Derived from what the fixture
+# deployments above ACTUALLY install, so the baseline is green by construction
+# rather than by an allowance: the fixture stack-up registers six services and
+# five routines, and its scopyx, trailryx, engram and vouchryx run nothing at
+# all here. A repo absent from this map gets [], and the mutation that removes
+# the field entirely is what proves the required-field path can fire.
+FIXTURE_RUNS: dict[str, list[str]] = {
+    "tokenfuse": ["tokenfuse-gateway", "tokenfuse-cloud", "focus-export"],
+    "wardryx": ["wardryx"],
+    "idryx": ["idryx", "idryx-detect"],
+    "heraldyx": ["heraldyx"],
+    "qryx": ["qryx-trend"],
+    "verdryx": ["verdryx-drift"],
+    "mockryx": ["mockryx-drill"],
+    "genaryx": ["console"],
+}
+
 REGISTRY = {
     "comment": ["The fixture estate. See selftest/fixture.py."],
     "repos": {
@@ -1522,6 +1540,7 @@ REGISTRY = {
             "why_no_remote": "fixture: stands in for a repo with no public remote",
             "local": name,
             "role": "fixture",
+            "runs": FIXTURE_RUNS.get(name, []),
         }
         for name in ESTATE
     },

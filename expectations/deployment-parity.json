@@ -157,6 +157,16 @@
           "why": "A one-shot busybox container that creates the shared volume layout, not a running component. Kubernetes gets the same effect from PersistentVolumeClaims in 00-base.yaml and stack-up from mkdir in up.sh."
         }
       }
+    },
+    "coverage": {
+      "what": "Components the registry says a repository runs, that no deployment installs. Subjects are DISCOVERED from estate.json's `runs` field, not listed here.",
+      "divergences": {
+        "coverage:vouchryx:installable-by-nothing": {
+          "recorded": "2026-08-27",
+          "provenance": "@claude",
+          "why": "A GAP, not a decision, and the newest one in the estate. vouchryx shipped on 2026-08-26 as the delegation plane's issuer and revocation list, was registered in this repository's estate.json and in SPEC 6.2 the same day, and no deployment installs it. Measured 2026-08-27: the three variables tokenfuse needs to open its delegation door at all (TOKENFUSE_DELEGATION_ISSUER, _JWKS, _URL) appear in none of stack-up, stack-single, stack-k8s or taipan, and `chainproof::from_env` returns None and stays quiet when they are unset. So the whole of the 2026-08-26/27 delegation work is unreachable by any operator who installs this stack. It also cost the cloud range: stack-k8s cloud/gcp/evidence/range-2026-08-27 lists scenario 9, 'vouchryx unreachable mid-flight', as not run because of F1; F1 is fixed and that scenario still cannot run, because there is no vouchryx in the cluster to make unreachable. The fix is the `delegate` profile in agent-market-research-2026-08/PLAN.md section 8. Recorded here so the day somebody closes it, this entry goes red as stale and is removed."
+        }
+      }
     }
   }
 }
