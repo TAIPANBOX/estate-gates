@@ -42,7 +42,7 @@ EVENT_V01 = """{
     "type": { "type": "string" },
     "agent_id": { "type": "string", "pattern": "^agent://" },
     "severity": { "type": "string" },
-    "on_behalf_of": { "type": "array", "items": { "type": "string" } },
+    "on_behalf_of": { "type": "array", "items": { "type": "string" }, "maxItems": 32 },
     "data": { "type": "object" }
   }
 }
@@ -56,6 +56,7 @@ EVENT_V02 = """{
   "properties": {
     "schema": { "const": "taipanbox.dev/agent-event/v0.2" },
     "agent_id": { "type": "string", "pattern": "^agent://[a-z0-9.-]+/[a-z0-9._/-]+$", "maxLength": 255 },
+    "on_behalf_of": { "type": "array", "items": { "type": "string" }, "maxItems": 32 },
     "prev_hash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
     "delegation_proof": { "type": "object", "required": ["jti", "jkt", "iss", "exp"] }
   }
@@ -91,7 +92,68 @@ func TestTheEstateChainCarriesTheSubjectAndTheRfcsActDoesNot(t *testing.T) {
 }
 """
 
+# The record side of the cap: one number, in entries, and no `act` anywhere,
+# which is why it is right for this file to state only one.
+CHAIN_GO = """package chain
+
+// MaxDepth is the maximum number of entries a delegation chain may hold, per
+// agent-passport SPEC section 5.1.
+const MaxDepth = 32
+
+func Validate(chain []string) error {
+\tif len(chain) > MaxDepth {
+\t\treturn ErrTooDeep
+\t}
+\treturn nil
+}
+"""
+
+# The producer side. It maps `act` into the chain, so it bounds two quantities
+# and states both, the second derived from the first.
+DELEGATION_CHAIN_GO = """package delegation
+
+// MaxDepth is the longest chain this service will build or accept, counted in
+// `on_behalf_of` ENTRIES, which is the unit SPEC 5.1 bounds.
+const MaxDepth = 32
+
+// MaxActorsWithSubject is the same cap in RFC 8693 actors.
+const MaxActorsWithSubject = MaxDepth - 1
+
+// Act is the RFC 8693 section 4.1 actor claim, nested.
+type Act struct {
+\tSub string `json:"sub"`
+\tAct *Act   `json:"act,omitempty"`
+}
+
+func Chain(sub string, act *Act) ([]string, error) {
+\tactors, err := ReadAct(act)
+\tif err != nil {
+\t\treturn nil, err
+\t}
+\tif sub == "" {
+\t\treturn actors, nil
+\t}
+\tif len(actors) > MaxActorsWithSubject {
+\t\treturn nil, ErrTooDeep
+\t}
+\treturn append([]string{sub}, actors...), nil
+}
+"""
+
 DELEGATION_RS = """//! Verifying a vouchryx delegation token, offline.
+
+/// The chain cap agent-passport SPEC 5.1 sets, in the unit SPEC 5.1 uses.
+const MAX_CHAIN_ENTRIES: usize = 32;
+
+/// The same cap counted in RFC 8693 actors.
+const MAX_ACTORS_WITH_SUBJECT: usize = MAX_CHAIN_ENTRIES - 1;
+
+/// RFC 8693 section 4.1's nested actor claim.
+struct Act {
+    sub: String,
+    act: Option<Box<Act>>,
+}
+
 
 #[cfg(test)]
 mod tests {
@@ -124,6 +186,22 @@ PASSPORT = """{
 """
 
 SPEC = """# The agent passport specification
+
+## 5 Delegation chain
+
+Entries are `agent://` or `user://` URIs. The last entry is the immediate
+principal; the first is the root, usually a human.
+
+### 5.3 The RFC 8693 mapping, which is not a reversal
+
+So the mapping is `on_behalf_of = [sub] + reverse(act)`: a list and a
+list-plus-its-head, not a reversal.
+
+### 5.1 Cycle safety (normative)
+
+The `on_behalf_of` chain MUST be acyclic. A service appends exactly one
+entry (its own principal) to the chain it forwards. Maximum chain
+depth is 32 entries.
 
 ## 6 The event envelope
 
@@ -1172,6 +1250,8 @@ ESTATE: dict[str, dict] = {
         "event/testdata/agent-event.v0.2.schema.json": EVENT_V02,
         "event/testdata/chain-vectors.json": CHAIN_VECTORS,
         "event/chain_test.go": CHAIN_TEST_GO,
+        "chain/chain.go": CHAIN_GO,
+        "delegation/chain.go": DELEGATION_CHAIN_GO,
         "delegation/chain_test.go": DELEGATION_CHAIN_TEST_GO,
         "_tags": ["v0.1.0", "v0.5.1"],
     },

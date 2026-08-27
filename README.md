@@ -172,6 +172,38 @@ forced: taking the last three principals found the same three whatever the
 assertion said, because a body also names the principals that BUILD the token,
 and the gate could not see the exact failure it exists for.
 
+**C13, the delegation depth cap counts one thing**
+(`gates/c13-delegation-cap.py`). SPEC 5.1 reads "Maximum chain depth is 32
+entries" and SPEC 5 calls the members of `on_behalf_of` entries, so the bound
+belongs to the assembled chain. SPEC 5.3's mapping is `[sub] + reverse(act)`,
+so a producer building that chain out of an RFC 8693 token bounds two
+quantities one apart, and one sentence cannot tell it which one it meant.
+
+Measured 2026-08-27 with agent-conform against a real emitted line: both
+producers in the estate had bounded the ACTORS at 32 and then prepended the
+subject, while every consumer bounded the CHAIN at 32. A token carrying 32
+actors verified at the door and every record it produced was quarantined with
+`maxItems: got 33, want 32`. Every number read 32, every repository was
+internally consistent, and every suite was green: the disagreement was in the
+UNIT, which is precisely what no repository can see about another.
+
+Three sides, all discovered. The SPEC's sentence, parsed for the number and for
+the unit word, so a reworded sentence is a red rather than a silent
+re-reading. Every JSON Schema anywhere in the estate that DECLARES
+`on_behalf_of`, found by searching each repository for the member, so a
+vendored copy is a subject the day it lands and one that bounds nothing is a
+consumer accepting what the SPEC forbids. And every cap constant under a
+`chain` or `delegation` path, where an entries cap must equal the SPEC's number
+and an actors cap must equal it minus one AND be derived from the entries cap
+rather than retyped.
+
+The finding to read first is none of those three. A file that maps an `act`
+claim into a chain must state BOTH numbers, and that check does not depend on
+finding a cap at all, so a constant renamed out of the anchor cannot switch it
+off. Run against the estate as it stood on the morning of 2026-08-27 it names
+`agent-stack-go/delegation/chain.go` and `tokenfuse/crates/delegation/src/lib.rs`,
+which is the defect, from the only place in the estate that could have seen it.
+
 ## Running it
 
 Locally, against the sibling checkouts in the parent directory:

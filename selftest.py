@@ -279,6 +279,21 @@ def plant(root: pathlib.Path, rel: str, contents: str) -> None:
     git(root / rel.split("/", 1)[0], "add", rel.split("/", 1)[1])
 
 
+#: Every fixture file that declares the member C13 bounds, found by reading the
+#: fixture rather than by being listed here. `c13.no-schema-bounds` renames the
+#: member out of all of them, and a list left behind by a new vendored copy
+#: would leave one standing and prove nothing.
+_ON_BEHALF_SCHEMAS = sorted(
+    f"{repo}/{rel}"
+    for repo, files in fixture.ESTATE.items()
+    for rel, body in files.items()
+    if not rel.startswith("_")
+    and rel.endswith(".json")
+    and isinstance(body, str)
+    and '"on_behalf_of"' in body
+)
+
+
 def gomod_pin(root: pathlib.Path, repo: str, pin: str) -> None:
     edit(root, f"{repo}/go.mod", "agent-stack-go v0.5.1", f"agent-stack-go {pin}")
 
@@ -1170,6 +1185,179 @@ MUTATIONS: dict[str, list[tuple[str, callable]]] = {
             fixture.VEC1_HASH, fixture.VEC1_HASH[:-1] + "0"
         ),
     )],
+    # ---- C13
+    #
+    # Where a check ANDs, so must the mutations. This one compares three sides
+    # against one sentence and, separately, asks whether the file that maps
+    # `act` into a chain states BOTH units. Each of those is a different way to
+    # be wrong and each has its own case.
+    "c13.spec-cap-gone": [
+        (
+            "SPEC 5.1's sentence is reworded away",
+            lambda r: edit(
+                r,
+                "agent-passport/SPEC.md",
+                "Maximum chain\ndepth is 32 entries.",
+                "The chain does not go on for ever.",
+            ),
+        ),
+        (
+            "the 5.1 heading is gone, so the sentence has no section",
+            lambda r: edit(
+                r, "agent-passport/SPEC.md", "### 5.1 Cycle safety (normative)", "### Cycle safety"
+            ),
+        ),
+        (
+            "5.1 states the cap twice",
+            lambda r: edit(
+                r,
+                "agent-passport/SPEC.md",
+                "Maximum chain\ndepth is 32 entries.",
+                "Maximum chain\ndepth is 32 entries. Maximum chain depth is 31 entries.",
+            ),
+        ),
+        ("the SPEC is gone", lambda r: drop(r, "agent-passport/SPEC.md")),
+    ],
+    "c13.spec-unit-unknown": [
+        (
+            "5.1 starts counting hops instead of entries",
+            lambda r: edit(
+                r,
+                "agent-passport/SPEC.md",
+                "Maximum chain\ndepth is 32 entries.",
+                "Maximum chain\ndepth is 32 hops.",
+            ),
+        )
+    ],
+    "c13.schema-cap-differs": [
+        (
+            "a vendored copy bounds the chain one lower",
+            lambda r: edit(
+                r,
+                "verdryx/tests/fixtures/agent-event.v0.2.schema.json",
+                '"maxItems": 32',
+                '"maxItems": 31',
+            ),
+        )
+    ],
+    "c13.schema-unbounded": [
+        (
+            "a consumer declares the member and bounds nothing",
+            lambda r: edit(
+                r,
+                "engram/tests/fixtures/agent-event.v0.2.schema.json",
+                ', "maxItems": 32',
+                "",
+            ),
+        )
+    ],
+    "c13.no-schema-bounds": [
+        (
+            "no schema in the estate declares the member any more",
+            lambda r: [
+                edit(r, rel, '"on_behalf_of"', '"acted_for"', every=True)
+                for rel in _ON_BEHALF_SCHEMAS
+            ],
+        )
+    ],
+    # A directory that is there and is not a repository. `Estate.dir_of` hands
+    # it back, because the checkout exists, and then git refuses to list or
+    # search it. Both halves of C13's discovery go through git, so both have to
+    # say they could not look rather than report an estate with nothing in it.
+    "c13.schema-search-failed": [
+        (
+            "a repository's .git is gone, so nothing can be searched in it",
+            lambda r: shutil.rmtree(r / "mockryx" / ".git"),
+        )
+    ],
+    "c13.source-listing-failed": [
+        (
+            "a repository's .git is gone, so nothing can be listed in it",
+            lambda r: shutil.rmtree(r / "mockryx" / ".git"),
+        )
+    ],
+    "c13.no-code-caps": [
+        (
+            "every producer's cap constant is renamed out of the anchor",
+            lambda r: [
+                edit(r, rel, old, new, every=True)
+                for rel, old, new in (
+                    ("agent-stack-go/chain/chain.go", "MaxDepth", "Ceiling"),
+                    ("agent-stack-go/delegation/chain.go", "MaxDepth", "Ceiling"),
+                    (
+                        "agent-stack-go/delegation/chain.go",
+                        "MaxActorsWithSubject",
+                        "ActorCeiling",
+                    ),
+                    ("tokenfuse/crates/delegation/src/lib.rs", "MAX_CHAIN_ENTRIES", "CEILING"),
+                    (
+                        "tokenfuse/crates/delegation/src/lib.rs",
+                        "MAX_ACTORS_WITH_SUBJECT",
+                        "ACTOR_CEILING",
+                    ),
+                )
+            ],
+        )
+    ],
+    "c13.cap-unparsed": [
+        (
+            "a cap is set to something this check cannot evaluate",
+            lambda r: edit(
+                r,
+                "tokenfuse/crates/delegation/src/lib.rs",
+                "const MAX_CHAIN_ENTRIES: usize = 32;",
+                "const MAX_CHAIN_ENTRIES: usize = default_cap();",
+            ),
+        )
+    ],
+    "c13.entry-cap-differs": [
+        (
+            "the record's cap drifts below the SPEC",
+            lambda r: edit(r, "agent-stack-go/chain/chain.go", "MaxDepth = 32", "MaxDepth = 24"),
+        )
+    ],
+    "c13.actor-cap-differs": [
+        (
+            "the actor bound is the entry bound, which is the 2026-08-27 defect",
+            lambda r: edit(
+                r,
+                "tokenfuse/crates/delegation/src/lib.rs",
+                "const MAX_ACTORS_WITH_SUBJECT: usize = MAX_CHAIN_ENTRIES - 1;",
+                "const MAX_ACTORS_WITH_SUBJECT: usize = MAX_CHAIN_ENTRIES;",
+            ),
+        )
+    ],
+    "c13.actor-cap-retyped": [
+        (
+            "the actor bound is a second literal that happens to agree today",
+            lambda r: edit(
+                r,
+                "agent-stack-go/delegation/chain.go",
+                "const MaxActorsWithSubject = MaxDepth - 1",
+                "const MaxActorsWithSubject = 31",
+            ),
+        )
+    ],
+    "c13.no-actor-cap": [
+        (
+            "the producer states one bound where it maps two quantities",
+            lambda r: edit(
+                r,
+                "agent-stack-go/delegation/chain.go",
+                "const MaxActorsWithSubject = MaxDepth - 1",
+                "",
+            ),
+        )
+    ],
+    "c13.no-mapping-found": [
+        (
+            "no file under a chain or delegation path declares an `act` claim",
+            lambda r: [
+                edit(r, "agent-stack-go/delegation/chain.go", "type Act struct", "type Hop struct"),
+                edit(r, "tokenfuse/crates/delegation/src/lib.rs", "struct Act {", "struct Hop {"),
+            ],
+        )
+    ],
 }
 
 
