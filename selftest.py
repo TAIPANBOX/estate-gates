@@ -648,6 +648,61 @@ MUTATIONS: dict[str, list[tuple[str, callable]]] = {
         ),
     ],
     # ---- C11
+    "c14.copy-drifted": [
+        (
+            # The whole reason the gate exists: a copy that says something the
+            # canonical does not. One vector's verdict flipped, which is the
+            # smallest possible drift and the one a reviewer would miss.
+            "a vendored copy answers a case differently from the canonical",
+            lambda r: edit(
+                r,
+                "tokenfuse/crates/delegation/testdata/chain-verdict-vectors.json",
+                '"verdict": "cycle"',
+                '"verdict": "accept"',
+            ),
+        ),
+        (
+            # Drift that changes no verdict, which still matters: a copy that
+            # has drifted at all is a copy nobody is maintaining, and the next
+            # drift will be the one that counts.
+            "a vendored copy drifts in a way that changes no answer",
+            lambda r: edit(
+                r,
+                "tokenfuse/crates/delegation/testdata/chain-verdict-vectors.json",
+                "the shape every real token has",
+                "the shape every real token takes",
+            ),
+        ),
+    ],
+    "c14.canonical-missing": [(
+        # A copy whose canonical moved away. Every implementation then passes
+        # its own reading of a table that no longer exists anywhere.
+        "the canonical table moves and the copies point at nothing",
+        lambda r: edit(
+            r,
+            "agent-stack-go/chain/testdata/chain-verdict-vectors.json",
+            '"$source": "agent-stack-go/chain/testdata/chain-verdict-vectors.json"',
+            '"$source": "agent-stack-go/chain/testdata/verdict-vectors.json"',
+        ),
+    )],
+    "c14.no-tables": [(
+        # The subjects are DISCOVERED by `$source`. A gate that can no longer
+        # find one must say it measured nothing rather than agree over an empty
+        # set.
+        "nothing in the estate carries the marker any more",
+        lambda r: edit(
+            r,
+            "agent-stack-go/chain/testdata/chain-verdict-vectors.json",
+            '"$source"',
+            '"$origin"',
+        )
+        or edit(
+            r,
+            "tokenfuse/crates/delegation/testdata/chain-verdict-vectors.json",
+            '"$source"',
+            '"$origin"',
+        ),
+    )],
     "c12.member": [
         (
             # The real finding, planted: a spec envelope member the store never

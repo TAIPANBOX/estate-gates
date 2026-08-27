@@ -359,3 +359,35 @@ Stop and tell the user, then wait:
     `origin/main` as it stood before the fixes it names both producers, and run
     against the estate after them it reports 18 comparisons and no
     disagreement.)*
+
+16. **Some rules cannot be shared, so they are answered from one TABLE, and a
+    vendored table is the table.** `agent-stack-go/chain` holds what the record
+    accepts of a delegation chain; `agent-stack-go/delegation` is a door that
+    `deps-layering.sh` forbids from importing it; `tokenfuse/crates/delegation`
+    is a third implementation in another language with no seam to either. The
+    rules exist three times by construction.
+
+    Three of them were found disagreeing on 2026-08-27, in one afternoon. Prose
+    did not hold them and a source-reading gate could not: **a regex over two
+    languages says a rule is MENTIONED, never that it ANSWERS.** The answer was
+    a table each implementation RUNS, which a comment cannot satisfy, and it
+    found two further disagreements on its first run, both in an assembler
+    neither door could reach.
+
+    **A table only holds while every copy of it is the same table.** Let one
+    drift and each implementation passes its own copy, and the estate is back
+    where it started with a green check on top.
+
+    Copies are found by `$source`, which every canonical table carries and which
+    names its own path, so a new language vendoring one is checked the day it
+    lands. C6 does this job for the hash vectors through a hand-written COPIES
+    list; this is that check with the list taken out.
+
+    **What it does not catch, said rather than papered over:** whether an
+    implementation actually RUNS its copy. A vendored file nobody reads passes
+    happily. What stops that is the copy sitting in a test fixture directory,
+    which is convention and not enforcement.
+    *(gate: `gates/c14-vendored-tables-are-the-table.py`. Four mutations: a copy
+    that answers a case differently, a copy that drifts without changing any
+    answer, the canonical moving away from the path its copies name, and the
+    marker going away entirely)*

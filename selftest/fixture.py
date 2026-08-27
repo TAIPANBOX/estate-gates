@@ -1119,6 +1119,26 @@ git -C "$(git rev-parse --show-toplevel)" status --porcelain >/dev/null
 # name in the passage that lists what is refused on purpose. It does not ask
 # which of the two, because refusing is a legitimate answer and the record
 # vocabulary is deliberately narrower than the bus.
+CHAIN_VERDICT_VECTORS = """{
+  "$source": "agent-stack-go/chain/testdata/chain-verdict-vectors.json",
+  "vectors": [
+    {
+      "name": "the shape every real token has",
+      "sub": "user://acme.example/alice",
+      "act": ["agent://acme.example/triage"],
+      "verdict": "accept",
+      "chain": ["user://acme.example/alice", "agent://acme.example/triage"]
+    },
+    {
+      "name": "the subject is also an actor",
+      "sub": "user://acme.example/alice",
+      "act": ["user://acme.example/alice"],
+      "verdict": "cycle"
+    }
+  ]
+}
+"""
+
 TRAILRYX_AGENTEVENT = """//! The estate's shared agent-event envelope, mapped into records.
 //!
 //! # What is mapped, and what is refused by name
@@ -1242,6 +1262,7 @@ ESTATE: dict[str, dict] = {
     "agent-stack-go": {
         "go.mod": gomod("agent-stack-go"),
         "passport/passport.go": PASSPORT_GO,
+        "chain/testdata/chain-verdict-vectors.json": CHAIN_VERDICT_VECTORS,
         "cmd/agent-conform/schemas/agent-event.schema.json": EVENT_V01,
         "cmd/agent-conform/schemas/agent-event.v0.2.schema.json": EVENT_V02,
         "cmd/agent-conform/schemas/agent-event.v0.3.schema.json": EVENT_V03,
@@ -1263,6 +1284,7 @@ ESTATE: dict[str, dict] = {
         "crates/gateway/src/sink.rs": SINK_RS,
         "contracts/tokenfuse-constants.json": CONSTANTS_JSON,
         "crates/delegation/src/lib.rs": DELEGATION_RS,
+        "crates/delegation/testdata/chain-verdict-vectors.json": CHAIN_VERDICT_VECTORS,
         "crates/gateway/src/chainproof.rs": CHAINPROOF_RS,
     },
     "verdryx": {
