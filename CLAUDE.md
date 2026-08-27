@@ -383,11 +383,26 @@ Stop and tell the user, then wait:
     lands. C6 does this job for the hash vectors through a hand-written COPIES
     list; this is that check with the list taken out.
 
-    **What it does not catch, said rather than papered over:** whether an
-    implementation actually RUNS its copy. A vendored file nobody reads passes
-    happily. What stops that is the copy sitting in a test fixture directory,
-    which is convention and not enforcement.
-    *(gate: `gates/c14-vendored-tables-are-the-table.py`. Four mutations: a copy
+    **A copy nobody runs is a copy that proves nothing**, and byte-identical
+    copies of a table nobody reads are files that agree about nothing. Worse,
+    this gate keeping them byte-perfect is what makes that look like agreement.
+    So every copy must also be NAMED from a file carrying a test declaration in
+    its own language: `#[test]`, `func Test`, `def test_`. A path called
+    `tests/` proves where a file sits; a declaration proves a suite enters it.
+
+    The name, and not a name that merely starts with it. The first draft grepped
+    for the file name, and `chain-verdict-vectors.json.disabled` contains it as
+    a substring, so a disabled reference read as a live one and the mutation
+    that renamed it stayed silent.
+
+    **The distance still left, stated rather than implied away:** this proves a
+    test file OPENS the table, not that it asserts every case in it. Nothing a
+    read-only gate can do reaches further, since it would have to run another
+    repository's suite and this one reads `git show` and builds nothing. What it
+    does close is the shape that actually happens: a table vendored during a
+    migration, wired to nothing, and read by a reviewer as proof of an agreement
+    it never had.
+    *(gate: `gates/c14-vendored-tables-are-the-table.py`. Six mutations: a copy
     that answers a case differently, a copy that drifts without changing any
     answer, the canonical moving away from the path its copies name, and the
     marker going away entirely)*

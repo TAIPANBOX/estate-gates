@@ -29,12 +29,22 @@ day somebody remembers this file. C6 does the same job for the hash vectors
 through a hand-written COPIES list; this is that check with the list taken out,
 which is the defect shape this estate found nine times in two days.
 
-WHAT IT DOES NOT CATCH
+A COPY NOBODY RUNS IS A COPY THAT PROVES NOTHING
 
-Whether an implementation actually RUNS its copy. A vendored file nobody reads
-passes this happily. That is a real gap and it is named rather than papered
-over: what stops it is the copy sitting in a test fixture directory, which is
-convention rather than enforcement.
+Byte-identical copies of a table nobody reads are four files that agree about
+nothing. So every copy must also be REFERENCED from a file that carries a test
+marker in its own language: `#[test]`, `func Test`, `def test_`.
+
+That is evidence a suite reaches the file, and it is deliberately not a claim
+that the suite asserts on every vector. Nothing a read-only gate can do reaches
+that far: it would have to run another repository's tests, and this suite reads
+`git show` and builds nothing. The distance between "a test file opens it" and
+"a test asserts every case in it" is real, is left, and is stated here rather
+than implied away.
+
+What it does close is the shape that actually happens: a table vendored during
+a migration, wired to nothing, kept byte-perfect by this very gate, and read by
+a reviewer as proof of agreement it never had.
 """
 
 from __future__ import annotations
@@ -42,6 +52,7 @@ from __future__ import annotations
 import argparse
 import json
 import pathlib
+import re
 import sys
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
@@ -49,6 +60,15 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import _estate as E  # noqa: E402
 
 MARKER = "$source"
+
+#: What a file that RUNS something looks like, per language. Deliberately the
+#: test-declaration form and not the word "test": a path called `tests/` proves
+#: where a file sits, and a declaration proves a suite enters it.
+TEST_MARKERS = ("#[test]", "func Test", "def test_", "@Test", "it(", "describe(")
+
+#: Suffixes worth searching for a reference. A copy referenced only from a
+#: README is not run by anything.
+SOURCE_SUFFIXES = (".rs", ".go", ".py", ".ts", ".js", ".java", ".rb")
 
 
 def tables(
@@ -123,6 +143,50 @@ def run(estate: E.Estate) -> E.Check:
         if not others:
             c.ok(f"c14.copies:{source}", "canonical only, no vendored copy yet")
             continue
+
+        # Every copy, canonical included, must be reached by a suite. A
+        # byte-perfect copy nobody runs is a file that agrees about nothing,
+        # and this gate keeping it byte-perfect is what makes it look otherwise.
+        for repo, relpath, _ in copies:
+            name = pathlib.PurePath(relpath).name
+            exercised = False
+            try:
+                refs = estate.grep_files(repo, name)
+            except (E.Unavailable, E.Missing):
+                refs = []
+            for ref in refs:
+                if ref == relpath or not ref.endswith(SOURCE_SUFFIXES):
+                    continue
+                try:
+                    body = estate.read_text(repo, ref)
+                except (E.Unavailable, E.Missing):
+                    continue
+                # The name, and not a name that merely STARTS with it.
+                # `chain-verdict-vectors.json.disabled` contains the file name
+                # as a substring, so a grep alone reads a disabled reference as
+                # a live one. The harness caught exactly that: the mutation
+                # that renamed the reference stayed silent.
+                if not re.search(
+                    re.escape(name) + r"(?![A-Za-z0-9._-])", body
+                ):
+                    continue
+                if any(m in body for m in TEST_MARKERS):
+                    exercised = True
+                    break
+            if exercised:
+                c.ok(f"c14.exercised:{repo}", f"{relpath} is read by a suite")
+            else:
+                c.drift(
+                    f"c14.copy-unexercised:{repo}",
+                    f"{repo}/{relpath} is a table no suite in that repository reads",
+                    [
+                        "Byte-identical copies of a table nobody runs are files "
+                        "that agree about nothing, and this gate keeping them "
+                        "byte-perfect is what makes that look like agreement.",
+                        "Some file with a test declaration in it has to name "
+                        f"`{name}`.",
+                    ],
+                )
 
         drifted = [(r, p) for r, p, t in others if t != want]
         if drifted:
