@@ -439,3 +439,41 @@ Stop and tell the user, then wait:
     *(gate: `gates/c6-chain-vectors.py`. Mutations: a language quietly stops
     pinning, a fifth language in a form the gate cannot read, and every hash
     blanked in every copy so the discovery finds nothing at all)*
+
+18. **A gate that compares deployments WITH EACH OTHER cannot see a component
+    absent from all of them, so the subjects come from the registry and not
+    from a list in the expectations file.** C5's four fact families all ask
+    "do the three deployments agree", and its services family asked it against
+    a hand-written `agreed` list of eight names. A component nobody installs is
+    not a disagreement between deployments, so it is invisible to the one gate
+    whose stated subject is which components come up.
+
+    That is not hypothetical. vouchryx entered the estate on 2026-08-26 as the
+    delegation plane's issuer and revocation list, was added to `estate.json`
+    and to SPEC 6.2 the same day, and no deployment installs it. Every family
+    stayed green. Measured 2026-08-27, the consequence reaches further than the
+    binary: the three variables tokenfuse needs to open its delegation door
+    (`TOKENFUSE_DELEGATION_ISSUER`, `_JWKS`, `_URL`) appear in none of stack-up,
+    stack-single, stack-k8s or taipan, and `chainproof::from_env` returns `None`
+    and stays quiet when they are unset. Two days of delegation work reachable
+    by nobody, with fourteen green gates over it.
+
+    So every registry entry now carries `runs`, naming the components that
+    repository contributes in the canonical kind names C5 already compares by.
+    **An empty list is a valid answer and no answer is a FAIL**, because a
+    repository nobody classified is one this check passes over silently, which
+    is the state that let this happen.
+
+    **A component is not always a service or a routine.** engram contributes
+    `engram-mcp`, a stdio MCP server a harness launches on demand: stack-up
+    installs it as a console script and supervises nothing. Classifying it as
+    either would have put a false statement into the one file the coverage
+    check trusts, so C5 reads installed tools as a third observation. The first
+    draft did call it a service, and the finding it produced read like a gap in
+    two deployments that was really a misclassification in this repository.
+    *(gate: `gates/c5-deployment-parity.py`, coverage family. Two mutations: a
+    repository claiming a component no deployment installs, and a registry
+    entry with no `runs` field at all. The second needed a harness change: the
+    fixture registry was one file shared by every case, so a mutation to it
+    would have leaked into every case after it, and a case may now carry its
+    own `estate.json`)*

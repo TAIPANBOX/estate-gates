@@ -56,6 +56,7 @@ Needs nothing but python3 and git. Takes a couple of seconds.
 from __future__ import annotations
 
 import ast
+import copy
 import io
 import json
 import pathlib
@@ -160,6 +161,12 @@ def run_checks(
     import os
 
     os.environ["ESTATE_GATES_EXPECTATIONS"] = str(expectations)
+    # A case may carry its own registry. The shared one is a single file for
+    # every case, so a mutation that edited it would leak into every case run
+    # after it; a case-local copy is the only way to plant a fault in the
+    # registry itself, which is where the `runs` field lives.
+    case_registry = root / "estate.json"
+    registry = case_registry if case_registry.exists() else registry
     estate = E.Estate(
         json.loads(registry.read_text(encoding="utf-8")),
         mode="worktree",
@@ -296,6 +303,27 @@ _ON_BEHALF_SCHEMAS = sorted(
 
 def gomod_pin(root: pathlib.Path, repo: str, pin: str) -> None:
     edit(root, f"{repo}/go.mod", "agent-stack-go v0.5.1", f"agent-stack-go {pin}")
+
+
+def _case_registry(root: pathlib.Path) -> tuple[pathlib.Path, dict]:
+    """The case's own copy of the registry, seeded from the fixture's."""
+    path = root / "estate.json"
+    reg = json.loads(path.read_text()) if path.exists() else copy.deepcopy(fixture.REGISTRY)
+    return path, reg
+
+
+def registry_runs(root: pathlib.Path, repo: str, kinds: list[str]) -> None:
+    """Make the registry claim `repo` contributes `kinds`."""
+    path, reg = _case_registry(root)
+    reg["repos"][repo]["runs"] = kinds
+    path.write_text(json.dumps(reg, indent=2) + "\n")
+
+
+def registry_drop_runs(root: pathlib.Path, repo: str) -> None:
+    """Take the required `runs` field off one registry entry."""
+    path, reg = _case_registry(root)
+    del reg["repos"][repo]["runs"]
+    path.write_text(json.dumps(reg, indent=2) + "\n")
 
 
 MUTATIONS: dict[str, list[tuple[str, callable]]] = {
@@ -1215,7 +1243,20 @@ MUTATIONS: dict[str, list[tuple[str, callable]]] = {
                 "  heraldyx:\n    image: stack/heraldyx:dev\n", ""
             ),
         ),
+        (
+            # The fifth family, and the one the other four cannot express: a
+            # component absent from EVERY deployment at once. The four above
+            # all compare deployments with each other, so a thing nobody
+            # installs is not a divergence between them. This is what vouchryx
+            # was between 2026-08-26 and this check.
+            "a repository runs a component no deployment installs",
+            lambda r: registry_runs(r, "vouchryx", ["vouchryx"]),
+        ),
     ],
+    "c5.runs-undeclared": [(
+        "a repository does not say whether it runs anything",
+        lambda r: registry_drop_runs(r, "wardryx"),
+    )],
     "c5.stale-expectation": [(
         "a recorded divergence stops being one",
         lambda r: edit(r, "stack-single/compose.yaml", "  wg:\n    image: stack/wg:dev\n", ""),

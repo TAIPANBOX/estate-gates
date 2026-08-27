@@ -307,6 +307,11 @@ def observe_stack_up(estate: E.Estate) -> dict:
     return {
         "routines": {n: (n in default) for n in names},
         "services": services,
+        # Console scripts installed into ~/.taipan/bin rather than supervised.
+        # `engram-mcp` is a stdio MCP server a harness launches on demand, so
+        # it is neither a service nor a routine, and calling it either would be
+        # a false statement in the one file the coverage check trusts.
+        "tools": re.findall(r"^\s*install_py_tool\s+\S+\s+([a-z][\w-]*)", up_sh, re.MULTILINE),
         "ports": ports,
         "min_severity": min_severity(estate, "stack-up", ["up.sh"]),
     }
@@ -373,6 +378,8 @@ def observe_stack_single(estate: E.Estate) -> dict:
         "routines": {},
         "routine_scheduler_hits": found,
         "services": services,
+        "tools": [],  # neither deployment installs a console script
+
         "ports": ports,
         "min_severity": min_severity(
             estate, "stack-single", ["compose.yaml", "install.sh"]
@@ -424,6 +431,8 @@ def observe_stack_k8s(estate: E.Estate) -> dict:
     return {
         "routines": routines,
         "services": services,
+        "tools": [],  # neither deployment installs a console script
+
         "ports": ports,
         "min_severity": min_severity(
             estate, "stack-k8s", ["manifests/45-heraldyx.yaml"]
@@ -618,6 +627,59 @@ def run(estate: E.Estate) -> E.Check:
             "c5.services-read",
             f"{name}: {len(kinds)} component(s) read.",
         )
+
+    # -- coverage: a runnable piece no deployment installs -------------------
+    #
+    # The three families above compare the deployments WITH EACH OTHER. They
+    # cannot see a component that is absent from all three at once, because
+    # the subject list they compare against was written by hand and only ever
+    # held what somebody remembered to add. vouchryx entered the estate on
+    # 2026-08-26, installable by nothing, and every family above stayed green.
+    #
+    # So the subjects here are DISCOVERED from the registry's `runs` field
+    # rather than declared in this file, and a repository that does not say
+    # what it runs is a FAIL and not a skip.
+    installable: set[str] = set()
+    for obs in observed.values():
+        for local in obs["services"]:
+            kind = SERVICE_KIND.get(local)
+            if kind is not None:
+                installable.add(kind)
+        for local in obs["routines"]:
+            kind = ROUTINE_KIND.get(local)
+            if kind is not None:
+                installable.add(kind)
+        installable.update(obs["tools"])
+
+    for repo in sorted(estate.repos):
+        entry = estate.repos[repo]
+        if "runs" not in entry:
+            c.missing(
+                "c5.runs-undeclared",
+                f"the registry entry for `{repo}` has no `runs` field, so this "
+                f"check cannot tell whether it is a component that ought to be "
+                f"installable or a library that ought not to be.",
+                [
+                    f"  add it in: {E.REPO_ROOT / 'estate.json'}",
+                    "An empty list is a valid and common answer. No answer is not,",
+                    "because a repository nobody classified is one this check",
+                    "silently passes over, which is the state that let a service",
+                    "reach the estate installable by nothing.",
+                ],
+            )
+            continue
+        for kind in entry["runs"]:
+            if kind in installable:
+                c.ok(
+                    "c5.component-installable",
+                    f"{repo} contributes `{kind}`, and at least one deployment "
+                    f"installs it.",
+                )
+            else:
+                divergences[f"coverage:{kind}:installable-by-nothing"] = (
+                    f"{repo} contributes the component `{kind}` and not one of "
+                    f"the {len(DEPLOYMENTS)} deployments installs it"
+                )
 
     # -- the expectations file ----------------------------------------------
     recorded = {}
