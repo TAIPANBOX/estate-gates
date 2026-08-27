@@ -155,18 +155,17 @@
           "recorded": "2026-08-06",
           "provenance": "@claude",
           "why": "A one-shot busybox container that creates the shared volume layout, not a running component. Kubernetes gets the same effect from PersistentVolumeClaims in 00-base.yaml and stack-up from mkdir in up.sh."
+        },
+        "services:stack-up:extra:vouchryx": {
+          "recorded": "2026-08-27",
+          "provenance": "@yurii 2026-08-27",
+          "why": "A DECISION, and his: the estate is one product installed by function (\u00ab\u0437 \u043c\u043e\u0436\u043b\u0438\u0432\u0456\u0441\u0442\u044e \u0432\u0441\u0442\u0430\u043d\u043e\u0432\u043b\u0435\u043d\u043d\u044f \u0437\u0430 \u043e\u043a\u0440\u0435\u043c\u0438\u043c\u0438 \u0444\u0443\u043d\u043a\u0446\u0456\u043e\u043d\u0430\u043b\u0430\u043c\u0438\u00bb), and `delegate` is one of those functions rather than part of the base stack. stack-up gained it first because it is the sandbox; stack-single and stack-k8s are step 3 of agent-market-research-2026-08/PLAN.md section 8 and will follow. Recorded as `extra` rather than by adding vouchryx to `agreed` on purpose: `agreed` is what every deployment brings up, and an opt-in profile is not that. Measured 2026-08-27 on a real ./up.sh --with-delegation: the gateway reports `delegation door: ON` and refuses a revoked token with HTTP 401, while the same launcher without the flag returns 200 to that same revoked token because the door never examines it. NOTE for whoever adds the other two: this file's model has no notion of a PROFILE, only of agreed/extra/absent, so a second and third deployment installing vouchryx will read here as two more `extra` entries rather than as one decision. That is a limit of C5 worth fixing when it bites, not a reason to write the wrong thing now."
         }
       }
     },
     "coverage": {
-      "what": "Components the registry says a repository runs, that no deployment installs. Subjects are DISCOVERED from estate.json's `runs` field, not listed here.",
-      "divergences": {
-        "coverage:vouchryx:installable-by-nothing": {
-          "recorded": "2026-08-27",
-          "provenance": "@claude",
-          "why": "A GAP, not a decision, and the newest one in the estate. vouchryx shipped on 2026-08-26 as the delegation plane's issuer and revocation list, was registered in this repository's estate.json and in SPEC 6.2 the same day, and no deployment installs it. Measured 2026-08-27: the three variables tokenfuse needs to open its delegation door at all (TOKENFUSE_DELEGATION_ISSUER, _JWKS, _URL) appear in none of stack-up, stack-single, stack-k8s or taipan, and `chainproof::from_env` returns None and stays quiet when they are unset. So the whole of the 2026-08-26/27 delegation work is unreachable by any operator who installs this stack. It also cost the cloud range: stack-k8s cloud/gcp/evidence/range-2026-08-27 lists scenario 9, 'vouchryx unreachable mid-flight', as not run because of F1; F1 is fixed and that scenario still cannot run, because there is no vouchryx in the cluster to make unreachable. The fix is the `delegate` profile in agent-market-research-2026-08/PLAN.md section 8. Recorded here so the day somebody closes it, this entry goes red as stale and is removed."
-        }
-      }
+      "what": "Components the registry says a repository runs, that no deployment installs. Subjects are DISCOVERED from estate.json's `runs` field, not listed here. Empty is the state this family is meant to be in: its one entry, vouchryx, was recorded on 2026-08-27 and closed the same day by stack-up's --with-delegation profile, which is exactly the lifecycle the entry described for itself.",
+      "divergences": {}
     }
   }
 }
