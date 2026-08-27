@@ -1194,12 +1194,48 @@ MUTATIONS: dict[str, list[tuple[str, callable]]] = {
         lambda r: edit(r, "stack-single/compose.yaml", "  wg:\n    image: stack/wg:dev\n", ""),
     )],
     # ---- C6
+    "c6.copy-unreadable": [(
+        # A FIFTH language pins the vectors and this gate has no extractor for
+        # it. The list of copies used to be hand-written here, so this case
+        # could not exist: an unknown language was invisible rather than a
+        # finding. Now copies are found by the hash they quote, and a copy the
+        # gate cannot READ must be a finding, because reporting agreement about
+        # the four it can read is the silence this check exists to end.
+        "a fifth language pins the vectors in a form the gate cannot read",
+        lambda r: plant(
+            r,
+            "qryx/internal/agentstack/chain_vectors.ts",
+            'export const VEC1 = "' + fixture.VEC1_HASH + '";\n',
+        ),
+    )],
+    "c6.no-copies": [(
+        # The subjects are DISCOVERED by the hash they quote. A gate that finds
+        # no copy at all must say it measured nothing rather than report that
+        # every copy it knows about agrees.
+        "nothing in the estate quotes the canonical hash any more",
+        # Every hash in every copy, because the gate probes with all of them:
+        # blanking one would leave the copies findable by the others, which is
+        # the fix the harness forced on the gate one case earlier.
+        lambda r: [
+            edit(r, path, h, "sha256:" + str(i) * 64, every=True)
+            for path in (
+                "agent-stack-go/event/chain_test.go",
+                "tokenfuse/crates/core/src/agent_event.rs",
+                "engram/tests/test_events.py",
+                "verdryx/tests/test_events.py",
+            )
+            for i, h in enumerate(fixture.ALL_VECTOR_HASHES, start=5)
+        ],
+    )],
     "c6.canonical-gone": [(
         "the pinned vector file is deleted",
         lambda r: drop(r, "agent-stack-go/event/testdata/chain-vectors.json"),
     )],
-    "c6.copy-file-gone": [(
-        "a language's copy of the vectors is deleted",
+    "c6.copy-count-differs": [(
+        # A language stops pinning the vectors. Discovery cannot see an absence,
+        # so the stated count is what notices: removing a copy is allowed and
+        # doing it silently is not.
+        "a language quietly stops pinning the vectors",
         lambda r: drop(r, "engram/tests/test_events.py"),
     )],
     "c6.copy-unparsed": [(

@@ -149,32 +149,27 @@ def rust_copy(text: str, path: str, fn: str) -> list[tuple[str, str]]:
     ]
 
 
-COPIES: list[tuple[str, str, str, callable]] = [
-    (
-        "agent-stack-go",
-        "event/chain_test.go",
-        "the Go constants the event package asserts against",
-        lambda text, path: go_copy(text, path),
-    ),
-    (
-        "tokenfuse",
-        "crates/core/src/agent_event.rs",
-        "the Rust literals in cross_language_chain_vectors_pin",
-        lambda text, path: rust_copy(text, path, "fn cross_language_chain_vectors_pin"),
-    ),
-    (
-        "engram",
-        "tests/test_events.py",
-        "the Python literals engram's own suite pins",
-        lambda text, path: python_copy(text, path),
-    ),
-    (
-        "verdryx",
-        "tests/test_events.py",
-        "the Python literals verdryx's own suite pins",
-        lambda text, path: python_copy(text, path),
-    ),
-]
+# The extractor for each language a copy can be written in, chosen by suffix.
+#
+# The LIST of copies used to live here: four (repo, path, purpose, extractor)
+# tuples, hand-written. That is the defect shape this suite found nine times in
+# two days, and it goes stale in the one direction that matters: a fifth
+# language pins the vectors, nobody adds a row, and this gate reports agreement
+# among the four it knew about.
+#
+# Copies are now FOUND, by the thing that makes a copy a copy: it quotes one of
+# the canonical hashes. A 64-hex digest appears nowhere by accident, so any file
+# carrying one is either the canonical or something pinning it.
+#: How many copies of the vectors the estate is supposed to hold. Stated, and
+#: compared against what is FOUND, for the reason at the check itself: discovery
+#: cannot notice a copy that went away.
+EXPECTED_COPIES = 4
+
+EXTRACTORS: dict[str, callable] = {
+    ".go": lambda text, path: go_copy(text, path),
+    ".rs": lambda text, path: rust_copy(text, path, "fn cross_language_chain_vectors_pin"),
+    ".py": lambda text, path: python_copy(text, path),
+}
 
 
 def run(estate: E.Estate) -> E.Check:
@@ -199,22 +194,98 @@ def run(estate: E.Estate) -> E.Check:
 
     c.note(f"{CANON_PATH} pins {len(canon)} vectors.")
 
-    for repo, relpath, purpose, extract in COPIES:
+    # Every file in the estate quoting ANY canonical hash, which is what makes
+    # a file a copy. The canonical itself is excluded by path.
+    #
+    # Every hash and not the first one, because the first draft probed with one
+    # and the harness caught it: a mutation that changed THAT hash in a copy
+    # made the copy vanish from the search instead of disagreeing, so the check
+    # written to catch a drifting hash was blind to a drift in the hash it
+    # searched by.
+    probes = [h for _, h in canon]
+    copies: list[tuple[str, str]] = []
+    for repo in estate.repos:
         try:
-            text = estate.read_text(repo, relpath)
+            hits: list[str] = []
+            for probe in probes:
+                for hit in estate.grep_files(repo, probe):
+                    if hit not in hits:
+                        hits.append(hit)
         except E.Unavailable as u:
             c.unavailable(
                 f"c6.copy-unavailable:{repo}",
-                f"{repo} could not be read in this run ({u.reason}), so "
-                f"{purpose} was not compared.",
+                f"{repo} could not be read in this run ({u}), so any copy it "
+                "holds was not compared.",
             )
             continue
         except E.Missing:
-            c.missing(
-                "c6.copy-file-gone",
-                f"{repo} is recorded here as pinning the chain vectors in "
-                f"{relpath}, and that file is not there ({purpose}).",
+            continue
+        for relpath in hits:
+            if repo == CANON_REPO and relpath == CANON_PATH:
+                continue
+            copies.append((repo, relpath))
+
+    # How many copies there are supposed to be.
+    #
+    # Discovery cannot miss a NEW copy and cannot notice a REMOVED one: a
+    # language that stops pinning the vectors simply is not found, and its
+    # implementation goes unchecked in silence. The harness caught exactly that
+    # when the hand-written list came out.
+    #
+    # So the COUNT is stated and the discovered number must equal it. It is a
+    # number somebody has to edit deliberately, which is the same bargain
+    # `readme-numbers.sh` makes and the reason it works: removing a copy is
+    # allowed, doing it silently is not.
+    if copies and len(copies) != EXPECTED_COPIES:
+        c.drift(
+            "c6.copy-count-differs",
+            f"{len(copies)} copy/copies of the chain vectors were found and "
+            f"this gate expects {EXPECTED_COPIES}",
+            [f"{r}/{p}" for r, p in copies]
+            + [
+                "A copy that went away is an implementation nobody is "
+                "comparing any more. If that is intended, change "
+                "EXPECTED_COPIES in the same commit, which is the point.",
+            ],
+        )
+
+    if not copies:
+        c.missing(
+            "c6.no-copies",
+            f"nothing in the estate quotes `{probe[:24]}...`, so this gate "
+            "measured nothing. Four implementations are supposed to pin these "
+            "vectors; finding none means the discovery broke or they all went "
+            "away, and both need a person.",
+        )
+        return c
+
+    for repo, relpath in copies:
+        purpose = f"the {pathlib.PurePath(relpath).suffix or '?'} copy in {relpath}"
+        extract = EXTRACTORS.get(pathlib.PurePath(relpath).suffix)
+        if extract is None:
+            c.drift(
+                f"c6.copy-unreadable:{repo}",
+                f"{repo}/{relpath} pins the chain vectors and this gate has no "
+                f"extractor for `{pathlib.PurePath(relpath).suffix}`",
+                [
+                    "A copy it cannot read is a copy it cannot compare, and "
+                    "reporting agreement about the ones it can read would be "
+                    "the silence this check exists to end.",
+                ],
             )
+            continue
+        try:
+            text = estate.read_text(repo, relpath)
+        except E.Unavailable as u:
+            c.unavailable(f"c6.copy-unavailable:{repo}", str(u))
+            continue
+        except E.Missing:
+            # Unreachable by construction: `relpath` came out of a grep over
+            # this same tree, so the file is there. It had its own finding while
+            # the copies were a hand-written list, because then a listed path
+            # could simply not exist. Discovery removed the case, and a FAIL
+            # path nothing can produce is a label rather than a check, so it is
+            # gone rather than kept as decoration.
             continue
 
         try:
