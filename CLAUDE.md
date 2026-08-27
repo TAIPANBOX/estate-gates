@@ -318,3 +318,44 @@ Stop and tell the user, then wait:
     this estate hit in a teeth harness the day before.
     *(proved by removing `code_only` and watching the baseline go red with the
     exact sentence the real estate produced)*
+
+15. **A rule written once and applied twice needs a third party to compare the
+    two applications, and the thing they disagree about may be a UNIT rather
+    than a value.** agent-passport SPEC 5.1 caps the `on_behalf_of` chain at 32
+    entries. SPEC 5.3 maps `on_behalf_of = [sub] + reverse(act)`, so a producer
+    reading a token bounds an ACTOR list while every consumer bounds a CHAIN,
+    and the two are one apart.
+
+    Measured 2026-08-27: both producers had applied the 32 to the actors. A
+    token carrying 32 actors verified at the door and every record it produced
+    was refused by the v0.2 and v0.3 schemas, by `chain.Validate` and by
+    `agent-conform -chain`, with `maxItems: got 33, want 32`. The enforcement
+    point reported success and the audit trail it existed to leave did not
+    exist.
+
+    **Every number in the estate read 32.** That is the part worth keeping. C3
+    compares values, and a value comparison would have reported agreement all
+    day. What disagreed was what the number counted, which is a fact about two
+    files that no single repository may hold open at once.
+
+    So the check asks a different question of a producer: a file that maps an
+    `act` claim into a chain bounds two quantities and must state two numbers,
+    with the second DERIVED from the first rather than retyped. That question
+    does not depend on the cap anchor matching, which is what stops a rename
+    from switching the check off in silence.
+    *(gate: `gates/c13-delegation-cap.py`, with seventeen cases across
+    fourteen findings in `selftest.py`: the SPEC's sentence reworded, its heading gone, the cap
+    stated twice, the SPEC deleted, the unit changed from entries to hops, a
+    vendored schema bounding one lower, a consumer declaring the member and
+    bounding nothing, the member renamed out of every schema in the estate,
+    every cap renamed out of the anchor, a cap set to something unevaluable,
+    the record's cap drifting below the SPEC, the actor bound set equal to the
+    entry bound, the actor bound retyped as a literal, the actor bound removed
+    from a mapping file, the `Act` declaration renamed everywhere, and a
+    repository whose `.git` is gone, which must say it could not look rather
+    than report an estate with nothing in it.
+
+    Proved against the real estate rather than only against the fixture: run at
+    `origin/main` as it stood before the fixes it names both producers, and run
+    against the estate after them it reports 18 comparisons and no
+    disagreement.)*
