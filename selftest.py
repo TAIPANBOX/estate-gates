@@ -674,6 +674,33 @@ MUTATIONS: dict[str, list[tuple[str, callable]]] = {
             ),
         ),
     ],
+    "c14.copy-unexercised": [
+        (
+            # The shape that actually happens: a table vendored during a
+            # migration, wired to nothing, kept byte-perfect by this very gate,
+            # and read by a reviewer as proof of agreement it never had.
+            "a vendored table no suite in that repository reads",
+            lambda r: edit(
+                r,
+                "tokenfuse/crates/delegation/src/lib.rs",
+                "chain-verdict-vectors.json",
+                "chain-verdict-vectors.json.disabled",
+            ),
+        ),
+        (
+            # Referenced, but from a file with no test declaration in it. A
+            # path proves where a file sits; a declaration proves a suite
+            # enters it, which is why the marker is the declaration form.
+            "the only file naming the table has no test in it",
+            lambda r: edit(
+                r,
+                "tokenfuse/crates/delegation/src/lib.rs",
+                "#[test]",
+                "#[allow(dead_code)]",
+                every=True,
+            ),
+        ),
+    ],
     "c14.canonical-missing": [(
         # A copy whose canonical moved away. Every implementation then passes
         # its own reading of a table that no longer exists anywhere.

@@ -142,6 +142,15 @@ func Chain(sub string, act *Act) ([]string, error) {
 
 DELEGATION_RS = """//! Verifying a vouchryx delegation token, offline.
 
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn the_door_answers_the_cross_language_table() {
+        let raw = include_str!("../testdata/chain-verdict-vectors.json");
+        assert!(!raw.is_empty());
+    }
+}
+
 /// The chain cap agent-passport SPEC 5.1 sets, in the unit SPEC 5.1 uses.
 const MAX_CHAIN_ENTRIES: usize = 32;
 
@@ -1144,6 +1153,16 @@ CHAIN_VERDICT_VECTORS = """{
 }
 """
 
+VECTORS_TEST_GO = """package delegation
+
+import "testing"
+
+// The cross-language verdict table, read from the canonical path.
+func TestTheDoorAnswersTheCrossLanguageTable(t *testing.T) {
+	_ = "../chain/testdata/chain-verdict-vectors.json"
+}
+"""
+
 TRAILRYX_AGENTEVENT = """//! The estate's shared agent-event envelope, mapped into records.
 //!
 //! # What is mapped, and what is refused by name
@@ -1278,6 +1297,7 @@ ESTATE: dict[str, dict] = {
         "event/chain_test.go": CHAIN_TEST_GO,
         "chain/chain.go": CHAIN_GO,
         "delegation/chain.go": DELEGATION_CHAIN_GO,
+        "delegation/vectors_test.go": VECTORS_TEST_GO,
         "delegation/chain_test.go": DELEGATION_CHAIN_TEST_GO,
         "_tags": ["v0.1.0", "v0.5.1"],
     },
