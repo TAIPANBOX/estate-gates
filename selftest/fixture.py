@@ -238,6 +238,11 @@ VEC1_HASH = "sha256:" + "1" * 64
 VEC2_CANON = '{"agent_id":"agent://acme.example/a","note":"обмеження","source":"tokenfuse"}'
 VEC2_HASH = "sha256:" + "2" * 64
 
+#: Every hash the fixture's canonical vectors pin. C6 probes with all of them,
+#: so a mutation meaning "no copy quotes the canonical any more" has to blank
+#: every one: leaving a single hash in place leaves the copy findable.
+ALL_VECTOR_HASHES = [VEC1_HASH, VEC2_HASH]
+
 CHAIN_VECTORS = (
     '{\n'
     '  "comment": "Cross-language pinned vectors.",\n'

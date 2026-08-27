@@ -391,3 +391,36 @@ Stop and tell the user, then wait:
     that answers a case differently, a copy that drifts without changing any
     answer, the canonical moving away from the path its copies name, and the
     marker going away entirely)*
+
+17. **Discovery cannot miss a new copy and cannot notice a removed one, so a
+    found set needs a stated COUNT beside it.** C6 held four copies of the chain
+    vectors in a hand-written list, which goes stale in the direction that
+    matters: a fifth language pins them, nobody adds a row, and the gate reports
+    agreement among the four it knew about. Copies are now FOUND, by the thing
+    that makes a copy a copy, which is that it quotes one of the canonical
+    hashes. A 64-hex digest appears nowhere by accident.
+
+    That trade is not free, and the harness charged for it twice in one sitting.
+
+    **A language that STOPS pinning the vectors simply is not found**, and its
+    implementation goes unchecked in silence. So the count is stated and the
+    discovered number must equal it: removing a copy is allowed, doing it
+    silently is not. Same bargain `readme-numbers.sh` makes, and the reason it
+    works is that somebody has to edit the number deliberately.
+
+    **The first draft probed with ONE hash.** A mutation changing that hash in a
+    copy made the copy vanish from the search instead of disagreeing, so the
+    check written to catch a drifting hash was blind to a drift in the hash it
+    searched by. It probes with all of them now.
+
+    **And a copy the gate cannot READ is a finding, never a skip.** A fifth
+    language in a form with no extractor must go red: reporting agreement about
+    the four it can read is the silence this check exists to end.
+
+    One FAIL path died in the move and was REMOVED rather than kept. `Missing`
+    on a discovered path is unreachable by construction, since the path came out
+    of a grep over that same tree, and a FAIL path nothing can produce is a
+    label rather than a check.
+    *(gate: `gates/c6-chain-vectors.py`. Mutations: a language quietly stops
+    pinning, a fifth language in a form the gate cannot read, and every hash
+    blanked in every copy so the discovery finds nothing at all)*
