@@ -450,8 +450,11 @@ Stop and tell the user, then wait:
 
     That is not hypothetical. vouchryx entered the estate on 2026-08-26 as the
     delegation plane's issuer and revocation list, was added to `estate.json`
-    and to SPEC 6.2 the same day, and no deployment installs it. Every family
-    stayed green. Measured 2026-08-27, the consequence reaches further than the
+    and to SPEC 6.2 the same day, and no deployment installed it. Every family
+    stayed green. It was installable by nothing for nineteen hours, and
+    stack-up's `--with-delegation` closed it the same day this check found it,
+    which is the lifecycle the expectation entry described for itself: recorded
+    as a dated gap, then red as stale, then gone. Measured 2026-08-27, the consequence reaches further than the
     binary: the three variables tokenfuse needs to open its delegation door
     (`TOKENFUSE_DELEGATION_ISSUER`, `_JWKS`, `_URL`) appear in none of stack-up,
     stack-single, stack-k8s or taipan, and `chainproof::from_env` returns `None`

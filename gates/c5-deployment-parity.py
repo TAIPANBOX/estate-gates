@@ -105,6 +105,11 @@ SERVICE_KIND = {
     "wardryx": "wardryx",
     "idryx": "idryx",
     "heraldyx": "heraldyx",
+    # Only stack-up registers this one today, and only behind
+    # --with-delegation. It is here for the same reason `scopyx` is: membership
+    # of this dict is what tells the check a name is one it knows, so a plane
+    # absent from here is refused rather than compared against nothing.
+    "vouchryx": "vouchryx",
     # stack-single (compose service keys)
     "tokenfuse-gateway": "tokenfuse-gateway",
     "tokenfuse-cloud": "tokenfuse-cloud",
