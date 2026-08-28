@@ -60,9 +60,10 @@ jobs:
       - name: No long dashes anywhere
         run: ./scripts/no-long-dashes.sh --prove
 
-      # --prove, not a bare run: the gate plants each of its own three faults
-      # in a copy and requires itself to find them. A binding gate that cannot
-      # go red is a paragraph about bindings.
+      # --prove, not a bare run: the gate plants each of its own faults in a
+      # copy and requires itself to find them, and plants a non-fault and
+      # requires silence. A binding gate that cannot go red is a paragraph
+      # about bindings; one that fires on anything is a paragraph about noise.
       - name: Every scenario is bound to a finding that can go red
         run: ./scripts/features-are-bound.sh --prove
 

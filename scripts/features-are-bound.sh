@@ -29,6 +29,18 @@
 # same way selftest.py discovers them, and a new finding merged without a
 # scenario is red.
 #
+# SCOPE. It was C15-only for part of one day, because the other fourteen gates
+# had no feature file and a gate red for work nobody has started is noise. Every
+# gate has one now, so the scope is gone and every finding in the repository is
+# subject to it.
+#
+# WHOSE WORDS. A feature opens with @yurii and a verbatim quote where a decision
+# of his is what put the gate there. Where none is, it opens with @measured and
+# the dated defect that did, because most of these gates come from something the
+# estate got wrong rather than from an instruction. An absent @yurii is that
+# statement and not an omission: inventing one would be permanent and
+# unchallengeable, which is the worst failure the provenance scheme has.
+#
 # WHY NOT A BDD RUNNER
 #
 # godog, cucumber-rs and pytest-bdd are three runners with three step-definition
@@ -131,14 +143,12 @@ def check(root: pathlib.Path) -> list[str]:
                     f"DANGLING  {path}:{line}\n"
                     f"          @fires:{b} names a finding no gate can print")
 
-    # Third direction, over this feature file's own subject only: C15 is the
-    # manifest check and features/component-manifests.feature is its account.
-    # Scoped rather than estate-wide because the other fourteen gates have no
-    # feature file yet, and a gate that goes red for work nobody has started is
-    # noise rather than a finding.
+    # Third direction, over EVERY gate. It was scoped to C15 on 2026-08-28
+    # because the other fourteen had no feature file and a gate red for work
+    # nobody had started is noise rather than a finding. They have one now, so
+    # the scope is gone: 107 findings, 107 scenarios, and a new finding merged
+    # without one is red wherever it lands.
     for ident, gate in sorted(declared.items()):
-        if not ident.startswith("c15."):
-            continue
         if ident not in bound:
             problems.append(
                 f"UNWRITTEN {gate}\n"
@@ -150,27 +160,51 @@ def check(root: pathlib.Path) -> list[str]:
 root = HERE
 
 if sys.argv[1:] and sys.argv[1] == "--prove":
+    # Each fault takes the WORK TREE, not one file, because the third direction
+    # stopped being C15-shaped when the other fourteen gates got their feature
+    # files. A harness that can only edit one file proves the scope this check
+    # used to have rather than the one it has.
+    MANIFESTS = "features/component-manifests.feature"
+    CAP = "features/c13-delegation-cap.feature"
+
+    def swap(work, rel, old, new_text):
+        f = work / rel
+        before = f.read_text(encoding="utf-8")
+        after = before.replace(old, new_text, 1)
+        if after == before:
+            return False
+        f.write_text(after, encoding="utf-8")
+        return True
+
     faults = [
         ("a scenario with no binding",
-         lambda p: p.write_text(p.read_text().replace(
-             "  @fires:c15.nothing-installs-it\n", "", 1), encoding="utf-8"),
+         lambda w: swap(w, MANIFESTS, "  @fires:c15.nothing-installs-it\n", ""),
          "UNBOUND"),
         ("a binding pointing at nothing",
-         lambda p: p.write_text(p.read_text().replace(
-             "@fires:c15.nothing-installs-it",
-             "@fires:c15.was-renamed-yesterday", 1), encoding="utf-8"),
+         lambda w: swap(w, MANIFESTS, "@fires:c15.nothing-installs-it",
+                        "@fires:c15.was-renamed-yesterday"),
          "DANGLING"),
         ("a finding with no scenario",
-         lambda p: p.write_text(p.read_text().replace(
-             "  @fires:c15.probe-disagrees\n", "  ", 1), encoding="utf-8"),
+         lambda w: swap(w, MANIFESTS, "  @fires:c15.probe-disagrees\n", "  "),
          "UNWRITTEN"),
+        ("a finding with no scenario, in another gate's file",
+         lambda w: swap(w, CAP, "  @fires:c13.actor-cap-retyped\n", "  "),
+         "UNWRITTEN"),
+        # Not a fault: a scenario whose prose changes is still bound. Required
+        # NOT to fire, because a harness that only ever demands red proves the
+        # check is noisy rather than that it is right.
+        ("a scenario reworded, which is not a fault",
+         lambda w: swap(w, MANIFESTS, "Scenario: A manifest that is not JSON",
+                        "Scenario: A manifest that does not parse as JSON"),
+         None),
     ]
+
     clean = check(root)
     if clean:
         print("FAIL: this repository is not clean, so --prove cannot tell its")
         print("      own planted faults from the ones already here:")
-        for p in clean:
-            print("      " + p.replace("\n", "\n      "))
+        for pr in clean:
+            print("      " + pr.replace("\n", "\n      "))
         raise SystemExit(1)
 
     bad = 0
@@ -179,26 +213,33 @@ if sys.argv[1:] and sys.argv[1] == "--prove":
             work = pathlib.Path(d) / "estate-gates"
             shutil.copytree(root, work, ignore=shutil.ignore_patterns(
                 ".git", ".clones", "__pycache__"))
-            target = work / "features" / "component-manifests.feature"
-            before = target.read_text(encoding="utf-8")
-            plant(target)
-            if target.read_text(encoding="utf-8") == before:
+            if not plant(work):
                 print(f"FAIL: the fault {name!r} changed nothing, so this case")
                 print("      proved the check runs, not that it checks.")
                 bad += 1
                 continue
             got = check(work)
-            if not any(p.startswith(expect) for p in got):
+            if expect is None:
+                if got:
+                    print(f"FAIL: {name} was reported as a problem.")
+                    for pr in got:
+                        print("      " + pr.replace("\n", "\n      "))
+                    bad += 1
+                else:
+                    print(f"ok  {'quiet':9} {name}")
+                continue
+            if not any(pr.startswith(expect) for pr in got):
                 print(f"FAIL: with {name}, this script stayed silent about it.")
-                for p in got:
-                    print("      " + p.replace("\n", "\n      "))
+                for pr in got:
+                    print("      " + pr.replace("\n", "\n      "))
                 bad += 1
             else:
                 print(f"ok  {expect:9} {name}")
     if bad:
         raise SystemExit(1)
     print()
-    print("OK: 3 cases. Every direction of the binding fails on its own fault.")
+    print("OK: 5 cases. Every direction fails on its own fault, and a reworded")
+    print("    scenario that is still bound does not.")
     raise SystemExit(0)
 
 problems = check(root)
@@ -212,7 +253,7 @@ if problems:
 
 found = scenarios(root)
 declared = declared_ids(root)
-c15 = sum(1 for i in declared if i.startswith("c15."))
+gates = len(set(declared.values()))
 print(f"ok  {len(found)} scenario(s), every one bound to a finding a gate can")
-print(f"    print, and all {c15} of C15's findings described.")
+print(f"    print, and all {len(declared)} findings across {gates} gates described.")
 PY
