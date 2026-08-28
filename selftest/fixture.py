@@ -1511,6 +1511,22 @@ EXPECTATIONS = {
                 },
             },
         },
+        # The coverage family's SECOND direction: a component a deployment
+        # installs that no repository claims. Upstream software and one-shots
+        # belong to nobody's `runs`, here as in the real estate, and the fixture
+        # records them for the same reason the estate does rather than the check
+        # filtering them out in code.
+        "coverage": {
+            "what": "fixture: both directions of the coverage question",
+            "divergences": {
+                f"coverage:{kind}:claimed-by-no-repository": {
+                    "recorded": "2026-08-28",
+                    "provenance": "@claude",
+                    "why": "fixture: upstream or a one-shot, owned by no repository",
+                }
+                for kind in ("caddy", "dashboard", "init-volumes", "policy-db", "wg")
+            },
+        },
     },
 }
 

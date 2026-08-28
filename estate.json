@@ -46,7 +46,7 @@
       "github": "TAIPANBOX/verdryx",
       "local": "verdryx",
       "role": "the quality plane. Holds hand-copied mirrors of three tokenfuse constants.",
-      "runs": ["verdryx-drift"]
+      "runs": ["verdryx-drift", "verdryx"]
     },
     "engram": {
       "github": "TAIPANBOX/engram",

@@ -474,9 +474,24 @@ Stop and tell the user, then wait:
     check trusts, so C5 reads installed tools as a third observation. The first
     draft did call it a service, and the finding it produced read like a gap in
     two deployments that was really a misclassification in this repository.
-    *(gate: `gates/c5-deployment-parity.py`, coverage family. Two mutations: a
-    repository claiming a component no deployment installs, and a registry
-    entry with no `runs` field at all. The second needed a harness change: the
+    **And the question is asked in BOTH directions, because one of them is free
+    to silence.** Forwards it asks whether everything a repository claims is
+    installed somewhere; a repository that claims nothing then has nothing to
+    answer for, and `runs: []` is a valid, common and completely unverified
+    answer, so declaring yourself inert removes you from the check whose subject
+    is components nobody installs. Backwards it asks whether everything
+    installed is claimed by somebody. A component now has to be wrong in both
+    places at once to stay invisible. Running it the second way found `verdryx`:
+    stack-up installs that repository's Python console script as a tool, and the
+    repository claimed only its routine. Five more are upstream software or
+    one-shots that belong to no repository here (`policy-db`, `dashboard`, `wg`,
+    `caddy`, `init-volumes`), recorded as decisions rather than filtered out in
+    code, because "this one does not count" is a judgement and judgements belong
+    where somebody can disagree with them.
+    *(gate: `gates/c5-deployment-parity.py`, coverage family. Three mutations: a
+    repository claiming a component no deployment installs, a repository that
+    stops claiming one it still ships, and a registry entry with no `runs` field
+    at all. The second needed a harness change: the
     fixture registry was one file shared by every case, so a mutation to it
     would have leaked into every case after it, and a case may now carry its
     own `estate.json`)*

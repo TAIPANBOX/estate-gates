@@ -656,6 +656,37 @@ def run(estate: E.Estate) -> E.Check:
                 installable.add(kind)
         installable.update(obs["tools"])
 
+    # AND THE SAME QUESTION THE OTHER WAY ROUND.
+    #
+    # The loop below asks whether everything a repository CLAIMS is installed
+    # somewhere. That leaves the cheapest possible way to silence this family:
+    # claim nothing. `runs: []` is a valid and common answer, nothing reads a
+    # repository to confirm it, and a component whose owner declares itself
+    # inert disappears from the check that exists to find components nobody
+    # installs.
+    #
+    # So every installed component must also be CLAIMED by some repository, and
+    # one that is not is recorded like any other divergence. That is not the
+    # same as reading the repositories, which this check cannot do and does not
+    # pretend to: it is the second of the two directions, and between them a
+    # component has to be wrong in both places at once to stay invisible.
+    claimed: dict[str, str] = {}
+    for repo in sorted(estate.repos):
+        for kind in estate.repos[repo].get("runs", []):
+            claimed.setdefault(kind, repo)
+
+    for kind in sorted(installable):
+        if kind in claimed:
+            c.ok(
+                "c5.component-claimed",
+                f"`{kind}` is installed, and {claimed[kind]} says it contributes it.",
+            )
+        else:
+            divergences[f"coverage:{kind}:claimed-by-no-repository"] = (
+                f"a deployment installs `{kind}` and no repository's `runs` "
+                f"claims it"
+            )
+
     for repo in sorted(estate.repos):
         entry = estate.repos[repo]
         if "runs" not in entry:
