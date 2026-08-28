@@ -495,3 +495,50 @@ Stop and tell the user, then wait:
     fixture registry was one file shared by every case, so a mutation to it
     would have leaked into every case after it, and a case may now carry its
     own `estate.json`)*
+
+19. **A component that was FORGOTTEN cannot be seen from here, so the repository
+    declares and this repository only reads across.** Invariant 18 gave every
+    registry entry a `runs` field and says in its own words that nothing reads a
+    repository to confirm it. That is structural rather than unfinished work:
+    the only thing that knows which binaries a repository builds is the
+    repository, so `runs: []` is a valid answer no central file can contradict.
+    vouchryx was installable by nothing for nineteen hours on 2026-08-26 for
+    exactly that reason.
+
+    Nor can the checks that matter most happen here. What separates vouchryx,
+    which exits 2 without any of three variables, from wardryx, which starts
+    happily with an empty environment and installs a built-in `devkey` admin
+    key, is invisible to every source-reading check and obvious to one that
+    STARTS the binary. This repository has no Go, Rust or Python toolchain, and
+    building twenty-two repositories in its CI is a matrix it does not have.
+
+    So a component repository may carry `components.json`, two buckets:
+    `checked`, asserted by that repository's own suite in its own CI, and
+    `declared`, which nobody can verify and which must carry its own `why`.
+    A richer declaration that were equally unverified would be WORSE than the
+    field it supplements, because it looks like more assurance and is not.
+
+    **What C15 owns is three things and it is modest about them**: that a
+    manifest and the registry name the same components, that no `declared`
+    entry lacks a reason, and the one comparison a single repository could
+    never make, which is the health path a component declares against the path
+    each deployment actually polls. Those were two facts in two repositories
+    and nothing compared them until now. The first run found the pair
+    disagreeing and read the reason out of the component's own `declared`
+    bucket, which is where a reason belongs: kept here it would go stale
+    separately from the thing it explains.
+
+    **Adoption is incremental and a repository without one is not a finding.**
+    One of twenty-two carries a manifest today, reported as a count. Finding
+    NONE is a finding, because then this check reports agreement over an empty
+    set. And a repository nothing could READ is neither: on an estate where
+    every checkout is missing, "not one carries a manifest" would be a
+    statement about content drawn from an absence of access, and it changes the
+    runner's exit code from 2 to 1. That distinction was found by the harness,
+    not by reading.
+    *(gate: `gates/c15-component-manifests.py`, nine mutations in
+    `selftest.py`: a manifest that is not JSON, no manifest anywhere, an
+    unknown schema, a manifest declaring nothing, the registry naming what the
+    repository denies, a declared entry with no why, the launcher gone, its
+    probe anchor matching nothing, and a probe that disagrees with nothing
+    recording why)*
