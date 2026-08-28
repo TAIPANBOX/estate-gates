@@ -1230,6 +1230,18 @@ MUTATIONS: dict[str, list[tuple[str, callable]]] = {
             ),
         ),
         (
+            # A routine whose deployment-local name this check has no mapping
+            # for is `c5.routine-unmapped`, one case up. This is the other
+            # half: a name it CAN map, mapped onto a kind the estate does not
+            # agree on, which is how a sixth routine would arrive dressed as
+            # one of the five.
+            "a deployment installs a routine the agreed set does not carry",
+            lambda r: edit(
+                r, "stack-k8s/manifests/40-routines.yaml",
+                "  name: crypto-trend", "  name: identity-sweep"
+            ),
+        ),
+        (
             "a deployment moves a component to another port",
             lambda r: edit(
                 r, "stack-k8s/manifests/10-planes.yaml",

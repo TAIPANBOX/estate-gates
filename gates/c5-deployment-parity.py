@@ -91,6 +91,7 @@ ROUTINE_KIND = {
     # an event that day.
     "trailryx-seal": "trailryx-seal",
     # stack-k8s (CronJob metadata.name)
+    "record-seal": "trailryx-seal",
     "crypto-trend": "qryx-trend",
     "identity-sweep": "idryx-detect",
     "quality-drift": "verdryx-drift",
