@@ -1360,6 +1360,23 @@ ESTATE: dict[str, dict] = {
     # and the test whose absence would turn the list back into somebody's
     # memory.
     "costcrew": {
+        # The second manifest in the fixture, because a check with exactly one
+        # subject cannot tell "they all agree" from "there is only one".
+        "components.json": """{
+  "schema": "taipanbox.dev/components/v1",
+  "repo": "TAIPANBOX/costcrew",
+  "components": [
+    {
+      "name": "costcrew",
+      "class": "service",
+      "checked": { "package": "github.com/TAIPANBOX/costcrew/cmd/costcrew", "health_path": "/healthz" },
+      "declared": {
+        "enforces_nothing": { "value": true, "why": "fixture: checkable only as an absence" }
+      }
+    }
+  ]
+}
+""",
         "internal/stack/stack.go": """package stack
 
 // Source is the `source` on every event this console writes.

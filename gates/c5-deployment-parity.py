@@ -111,6 +111,10 @@ SERVICE_KIND = {
     # of this dict is what tells the check a name is one it knows, so a plane
     # absent from here is refused rather than compared against nothing.
     "vouchryx": "vouchryx",
+    # Same shape as vouchryx: only stack-up registers it today, and only behind
+    # --with-finops. An estate APP rather than a plane, so its absence from the
+    # two server deployments is a profile decision and not a gap.
+    "costcrew": "costcrew",
     # stack-single (compose service keys)
     "tokenfuse-gateway": "tokenfuse-gateway",
     "tokenfuse-cloud": "tokenfuse-cloud",
