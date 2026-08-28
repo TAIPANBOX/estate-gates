@@ -41,34 +41,34 @@
           "why": "Same decision as stack-up, expressed as `suspend: true` on the `drills` CronJob. The operator unsuspends it when they want a drill."
         },
         "routines:stack-k8s:absent:focus-export": {
-          "recorded": "2026-08-06",
+          "recorded": "2026-08-28",
           "provenance": "@claude",
-          "why": "A GAP, not a decision. Four of the five governance routines have a CronJob and focus-export does not, so a Kubernetes install produces no focus export at all. stack-k8s's own manifest comment calls it a finding rather than an oversight, which records it without closing it. Recorded here so the day somebody closes it, this entry goes red as stale and gets removed."
+          "why": "CLOSED on 2026-08-28, and not by adding a CronJob, which was never possible. `tokenfuse-gateway focus-export --traces <dir>` reads the gateway's local Parquet directory off disk, and that directory is an emptyDir in 10-planes.yaml: mountable ONLY by containers inside its own pod, by Kubernetes' own design, so no Job could reach it whatever its affinity said.\\n\\nThe other way out was a PersistentVolumeClaim for the trace directory. That provisions a real disk billed from creation, which makes it a spending decision rather than a fix, so it was not taken.\\n\\nIt runs as a SIDECAR in the pod that already holds the volume, on an interval rather than a schedule, and prints rather than storing. That is what quality-drift does one file over: in this deployment a routine's artifact is its log. Recorded as a gap from 2026-08-06 and open for twenty-two days.\\n\\nThis entry stays as a DIVERGENCE rather than being deleted because it still is one: the other two deployments schedule this routine and this one does not. What changed is that it is now a decision with a reason instead of a hole."
         },
         "routines:stack-single:absent:focus-export": {
-          "recorded": "2026-08-06",
+          "recorded": "2026-08-28",
           "provenance": "@claude",
-          "why": "stack-single installs NO governance routine of any kind: no cron, no timer, no supervisor, no periodic compose service. Searched across compose.yaml, install.sh and the whole repo on 2026-08-06. It is the single-box deployment and it brings up the planes without the scheduled work that keeps them producing. This is the largest unrecorded difference of the three and it is a gap, not a decision."
+          "why": "CLOSED on 2026-08-28. This deployment installed NO scheduler of any kind and now runs four routines behind `--profile routines`, as LOOPS rather than timers, because compose has no cron. That is the same shape the `record` profile already used. focus-export, as `routine-focus-export`. This deployment's `traces` is a NAMED volume rather than the emptyDir stack-k8s has, so a separate service can read it, which is why the same routine needed a sidecar there and did not here.\\n\\nKept as a divergence rather than deleted because it still is one: the other two schedule these on a timer and this one runs them in a loop, which is a different thing to operate and to reason about."
         },
         "routines:stack-single:absent:qryx-trend": {
-          "recorded": "2026-08-06",
+          "recorded": "2026-08-28",
           "provenance": "@claude",
-          "why": "See routines:stack-single:absent:focus-export. stack-single schedules nothing."
+          "why": "STILL ABSENT, and now for a stated reason rather than because nothing was scheduled at all. qryx-trend scans a SOURCE TREE; stack-up points it at its own checkout of the estate's repositories and there is none inside these containers. Mounting the operator's disk into a governance plane to look for crypto is a bigger decision than a missing routine, and it is not one to make on the way past."
         },
         "routines:stack-single:absent:verdryx-drift": {
-          "recorded": "2026-08-06",
+          "recorded": "2026-08-28",
           "provenance": "@claude",
-          "why": "See routines:stack-single:absent:focus-export. stack-single schedules nothing."
+          "why": "CLOSED on 2026-08-28 as `routine-verdryx-drift`, reading verdryx.db off the console's own volume read-only, the same store stack-k8s's quality-drift reaches. It SKIPS with a printed reason when ROUTINE_VERDRYX_BASELINE is unset, which is the honest default: a drift check needs a baseline somebody chose, and inventing one would compare against a number nobody stands behind. stack-up's routine skips for the same reason."
         },
         "routines:stack-single:absent:idryx-detect": {
-          "recorded": "2026-08-06",
+          "recorded": "2026-08-28",
           "provenance": "@claude",
-          "why": "See routines:stack-single:absent:focus-export. stack-single schedules nothing."
+          "why": "CLOSED on 2026-08-28. This deployment installed NO scheduler of any kind and now runs four routines behind `--profile routines`, as LOOPS rather than timers, because compose has no cron. That is the same shape the `record` profile already used. idryx-detect, as `routine-idryx-detect`, reading the shared bus read-only.\\n\\nKept as a divergence rather than deleted because it still is one: the other two schedule these on a timer and this one runs them in a loop, which is a different thing to operate and to reason about."
         },
         "routines:stack-single:absent:mockryx-drill": {
-          "recorded": "2026-08-06",
+          "recorded": "2026-08-28",
           "provenance": "@claude",
-          "why": "See routines:stack-single:absent:focus-export. stack-single schedules nothing. Unlike the other four this one is opt-in everywhere, so its absence here matters least."
+          "why": "STILL ABSENT. It needs the scenario files, which live in the mockryx repository and are not in this image, and it is opt-in in both other deployments anyway, which is why it matters least of the six."
         },
         "routines:stack-single:absent:trailryx-seal": {
           "recorded": "2026-08-28",
@@ -165,6 +165,21 @@
           "recorded": "2026-08-28",
           "provenance": "@claude",
           "why": "The `record` profile, step 3 of agent-market-research-2026-08/PLAN.md section 8, closing `@yurii 2026-08-25`'s decision that all three deployments seal the record. It replaces `routines:stack-single:absent:trailryx-seal`, removed the same day, which said stack-single did not mention trailryx anywhere. It now does.\n\nOff by default, like `egress`: `WITH_RECORD=1 ./install.sh` builds the image and `docker compose --profile record up -d record-seal` starts it. One container running one serial loop rather than a timer, because compose has no cron and the record store takes no cross-process lock, so a second writer would be two minters of one shard. stack-k8s gets the same property from `concurrencyPolicy: Forbid`.\n\nREAD THIS ALONGSIDE the note on `services:stack-up:extra:vouchryx`: this file's model has no notion of a PROFILE, only agreed/extra/absent, so this is the second profile to land as an `extra` entry rather than as one decision spanning deployments. The limit is now costing two entries instead of one.\n\nNOT a routine entry, deliberately. stack-single still installs no scheduler of any kind, so the four `routines:stack-single:absent:*` entries stand unchanged and true; this is a long-running service that seals on its own interval, which is a different shape from the cron the other two use."
+        },
+        "services:stack-single:extra:focus-export": {
+          "recorded": "2026-08-28",
+          "provenance": "@claude",
+          "why": "A ROUTINE that runs as a compose SERVICE, which is why it shows up in this family at all: the FinOps export, reading the gateway's own `traces` volume. compose has no cron, so the `routines` profile runs each as a long-lived loop, exactly as the `record` profile already ran trailryx-seal.\\n\\nSo the same work is a CronJob in stack-k8s, a timer entry in stack-up, and a service here. It is recorded in BOTH families on purpose: as a service because compose starts it, and in the routines family because that is the question somebody actually asks. This file's model has no notion of a routine that is also a service, which is the third time its shape has cost an extra entry, after the two profiles."
+        },
+        "services:stack-single:extra:idryx-detect": {
+          "recorded": "2026-08-28",
+          "provenance": "@claude",
+          "why": "A ROUTINE that runs as a compose SERVICE, which is why it shows up in this family at all: the identity sweep, reading the shared bus read-only. compose has no cron, so the `routines` profile runs each as a long-lived loop, exactly as the `record` profile already ran trailryx-seal.\\n\\nSo the same work is a CronJob in stack-k8s, a timer entry in stack-up, and a service here. It is recorded in BOTH families on purpose: as a service because compose starts it, and in the routines family because that is the question somebody actually asks. This file's model has no notion of a routine that is also a service, which is the third time its shape has cost an extra entry, after the two profiles."
+        },
+        "services:stack-single:extra:verdryx-drift": {
+          "recorded": "2026-08-28",
+          "provenance": "@claude",
+          "why": "A ROUTINE that runs as a compose SERVICE, which is why it shows up in this family at all: the quality drift check, reading verdryx.db off the console's volume read-only. compose has no cron, so the `routines` profile runs each as a long-lived loop, exactly as the `record` profile already ran trailryx-seal.\\n\\nSo the same work is a CronJob in stack-k8s, a timer entry in stack-up, and a service here. It is recorded in BOTH families on purpose: as a service because compose starts it, and in the routines family because that is the question somebody actually asks. This file's model has no notion of a routine that is also a service, which is the third time its shape has cost an extra entry, after the two profiles."
         }
       }
     },

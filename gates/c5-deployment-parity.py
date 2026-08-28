@@ -115,6 +115,16 @@ SERVICE_KIND = {
     # --with-finops. An estate APP rather than a plane, so its absence from the
     # two server deployments is a profile decision and not a gap.
     "costcrew": "costcrew",
+    # stack-single, behind `--profile routines`, added 2026-08-28. Three
+    # routines that run as long-lived compose SERVICES rather than on a timer,
+    # for the same reason record-seal does: compose has no cron. So the same
+    # work appears in two families of this check here and in one everywhere
+    # else, and each keeps its own name rather than being folded into the
+    # routine's: a service and a routine are compared against different things,
+    # and calling one the other would make both comparisons wrong.
+    "focus-export": "focus-export",
+    "idryx-detect": "idryx-detect",
+    "verdryx-drift": "verdryx-drift",
     # stack-single, behind `--profile record`. It is a long-running
     # SERVICE here and a CronJob in the cluster, which is why the same
     # work shows up in two families of this check: compose has no cron,
