@@ -1244,6 +1244,15 @@ MUTATIONS: dict[str, list[tuple[str, callable]]] = {
             ),
         ),
         (
+            # The cheapest way to silence the coverage family, which is why the
+            # check asks its question in both directions: a repository that
+            # claims nothing disappears from a check whose subject is components
+            # nobody installs. Here wardryx keeps its service running in the
+            # deployments and stops admitting it contributes one.
+            "a repository stops claiming a component it still ships",
+            lambda r: registry_runs(r, "wardryx", []),
+        ),
+        (
             # The fifth family, and the one the other four cannot express: a
             # component absent from EVERY deployment at once. The four above
             # all compare deployments with each other, so a thing nobody

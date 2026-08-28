@@ -164,8 +164,34 @@
       }
     },
     "coverage": {
-      "what": "Components the registry says a repository runs, that no deployment installs. Subjects are DISCOVERED from estate.json's `runs` field, not listed here. Empty is the state this family is meant to be in: its one entry, vouchryx, was recorded on 2026-08-27 and closed the same day by stack-up's --with-delegation profile, which is exactly the lifecycle the entry described for itself.",
-      "divergences": {}
+      "what": "Both directions of the same question. Forwards: a component a repository's `runs` claims that no deployment installs. Backwards: a component a deployment installs that no repository claims. Subjects are DISCOVERED from estate.json's `runs` field and from what the deployments were read to install, never listed here. The second direction exists because `runs: []` is otherwise a way to leave this family with nothing to say: a repository that declares itself inert disappears from the check meant to find components nobody installs.",
+      "divergences": {
+        "coverage:policy-db:claimed-by-no-repository": {
+          "recorded": "2026-08-28",
+          "provenance": "@claude",
+          "why": "A DECISION and not a gap: postgres, upstream. stack-single and stack-k8s run wardryx's store as a database server; no repository in this estate builds or owns it, so no `runs` can claim it. The check asks the coverage question in both directions, and upstream software installed beside our own is the honest exception to the second one. It is recorded rather than filtered out in code, because 'this one does not count' is a judgement and judgements belong in this file where somebody can disagree with them."
+        },
+        "coverage:dashboard:claimed-by-no-repository": {
+          "recorded": "2026-08-28",
+          "provenance": "@claude",
+          "why": "A DECISION and not a gap: a static page stack-up serves with `python3 -m http.server`, and the other half of `services:stack-up:absent:console`. It is files in stack-up's own tree rather than a component any repository contributes. The check asks the coverage question in both directions, and upstream software installed beside our own is the honest exception to the second one. It is recorded rather than filtered out in code, because 'this one does not count' is a judgement and judgements belong in this file where somebody can disagree with them."
+        },
+        "coverage:wg:claimed-by-no-repository": {
+          "recorded": "2026-08-28",
+          "provenance": "@claude",
+          "why": "A DECISION and not a gap: WireGuard, upstream. stack-single is the one deployment meant to be reached from outside the box; see `services:stack-single:extra:wg`. The check asks the coverage question in both directions, and upstream software installed beside our own is the honest exception to the second one. It is recorded rather than filtered out in code, because 'this one does not count' is a judgement and judgements belong in this file where somebody can disagree with them."
+        },
+        "coverage:caddy:claimed-by-no-repository": {
+          "recorded": "2026-08-28",
+          "provenance": "@claude",
+          "why": "A DECISION and not a gap: Caddy, upstream. TLS termination in front of the console; see `services:stack-single:extra:caddy`. The check asks the coverage question in both directions, and upstream software installed beside our own is the honest exception to the second one. It is recorded rather than filtered out in code, because 'this one does not count' is a judgement and judgements belong in this file where somebody can disagree with them."
+        },
+        "coverage:init-volumes:claimed-by-no-repository": {
+          "recorded": "2026-08-28",
+          "provenance": "@claude",
+          "why": "A DECISION and not a gap: a one-shot busybox container that creates stack-single's shared volume layout. Not a running component and not anybody's product; see `services:stack-single:extra:init-volumes`. The check asks the coverage question in both directions, and upstream software installed beside our own is the honest exception to the second one. It is recorded rather than filtered out in code, because 'this one does not count' is a judgement and judgements belong in this file where somebody can disagree with them."
+        }
+      }
     }
   }
 }
