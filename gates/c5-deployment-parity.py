@@ -115,6 +115,14 @@ SERVICE_KIND = {
     # --with-finops. An estate APP rather than a plane, so its absence from the
     # two server deployments is a profile decision and not a gap.
     "costcrew": "costcrew",
+    # stack-single, behind `--profile record`. It is a long-running
+    # SERVICE here and a CronJob in the cluster, which is why the same
+    # work shows up in two families of this check: compose has no cron,
+    # so the seal loops in a container instead of being scheduled. Mapped
+    # under its own name rather than folded into `trailryx-seal`, because
+    # a service and a routine are compared against different things here
+    # and calling one the other would make both comparisons wrong.
+    "record-seal": "record-seal",
     # stack-single (compose service keys)
     "tokenfuse-gateway": "tokenfuse-gateway",
     "tokenfuse-cloud": "tokenfuse-cloud",

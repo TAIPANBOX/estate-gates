@@ -40,11 +40,6 @@
           "provenance": "@claude",
           "why": "Same decision as stack-up, expressed as `suspend: true` on the `drills` CronJob. The operator unsuspends it when they want a drill."
         },
-        "routines:stack-single:absent:trailryx-seal": {
-          "recorded": "2026-08-25",
-          "provenance": "@yurii 2026-08-25",
-          "why": "The same gap, on the deployment that already installs no governance routine of any kind. Measured 2026-08-25: stack-single does not mention trailryx anywhere. It is the single-box install, which is the one most likely to be somebody's first look at the estate, and it produces no sealed record of anything it did."
-        },
         "routines:stack-k8s:absent:focus-export": {
           "recorded": "2026-08-06",
           "provenance": "@claude",
@@ -74,6 +69,11 @@
           "recorded": "2026-08-06",
           "provenance": "@claude",
           "why": "See routines:stack-single:absent:focus-export. stack-single schedules nothing. Unlike the other four this one is opt-in everywhere, so its absence here matters least."
+        },
+        "routines:stack-single:absent:trailryx-seal": {
+          "recorded": "2026-08-28",
+          "provenance": "@claude",
+          "why": "A DECISION since 2026-08-28, and no longer the gap this entry recorded on 2026-08-25. stack-single now seals the record; it just does not SCHEDULE it, which is what this family measures.\n\ncompose has no cron. So the `record` profile runs `record-seal` as a long-running service that seals on its own interval (`RECORD_SEAL_INTERVAL`, daily by default) rather than as a timer, and it is recorded in the services family as `services:stack-single:extra:record-seal`. The other two deployments schedule it: stack-up at 06:57 and stack-k8s at 05:27.\n\nThe four other `routines:stack-single:absent:*` entries stand and are still gaps: stack-single installs no scheduler of any kind, and this profile did not give it one."
         }
       }
     },
@@ -154,12 +154,17 @@
         "services:stack-up:extra:vouchryx": {
           "recorded": "2026-08-27",
           "provenance": "@yurii 2026-08-27",
-          "why": "A DECISION, and his: the estate is one product installed by function (\u00ab\u0437 \u043c\u043e\u0436\u043b\u0438\u0432\u0456\u0441\u0442\u044e \u0432\u0441\u0442\u0430\u043d\u043e\u0432\u043b\u0435\u043d\u043d\u044f \u0437\u0430 \u043e\u043a\u0440\u0435\u043c\u0438\u043c\u0438 \u0444\u0443\u043d\u043a\u0446\u0456\u043e\u043d\u0430\u043b\u0430\u043c\u0438\u00bb), and `delegate` is one of those functions rather than part of the base stack. stack-up gained it first because it is the sandbox; stack-single and stack-k8s are step 3 of agent-market-research-2026-08/PLAN.md section 8 and will follow. Recorded as `extra` rather than by adding vouchryx to `agreed` on purpose: `agreed` is what every deployment brings up, and an opt-in profile is not that. Measured 2026-08-27 on a real ./up.sh --with-delegation: the gateway reports `delegation door: ON` and refuses a revoked token with HTTP 401, while the same launcher without the flag returns 200 to that same revoked token because the door never examines it. NOTE for whoever adds the other two: this file's model has no notion of a PROFILE, only of agreed/extra/absent, so a second and third deployment installing vouchryx will read here as two more `extra` entries rather than as one decision. That is a limit of C5 worth fixing when it bites, not a reason to write the wrong thing now."
+          "why": "A DECISION, and his: the estate is one product installed by function («з можливістю встановлення за окремими функціоналами»), and `delegate` is one of those functions rather than part of the base stack. stack-up gained it first because it is the sandbox; stack-single and stack-k8s are step 3 of agent-market-research-2026-08/PLAN.md section 8 and will follow. Recorded as `extra` rather than by adding vouchryx to `agreed` on purpose: `agreed` is what every deployment brings up, and an opt-in profile is not that. Measured 2026-08-27 on a real ./up.sh --with-delegation: the gateway reports `delegation door: ON` and refuses a revoked token with HTTP 401, while the same launcher without the flag returns 200 to that same revoked token because the door never examines it. NOTE for whoever adds the other two: this file's model has no notion of a PROFILE, only of agreed/extra/absent, so a second and third deployment installing vouchryx will read here as two more `extra` entries rather than as one decision. That is a limit of C5 worth fixing when it bites, not a reason to write the wrong thing now."
         },
         "services:stack-up:extra:costcrew": {
           "recorded": "2026-08-28",
           "provenance": "@yurii 2026-08-28",
           "why": "A DECISION, the `finops` profile from agent-market-research-2026-08/PLAN.md section 8 step 5, and the second of its kind after `delegate`. costcrew is an estate APP rather than a plane: a guest producer that writes the shared bus and calls nobody, and it enforces nothing. stack-up gained it first because it is the sandbox. Whether the two server deployments should carry it is his call and has not been asked. Measured 2026-08-28 on a real ./up.sh --with-finops: the console answers /healthz, puts 26 events on the bus, all 26 under the launcher's own trust domain rather than the console's default, and the seal in the same run recorded 9 of them. Under the console's default not one would have been recorded, which is why the profile sets -stack-host from the same variable the seal is given."
+        },
+        "services:stack-single:extra:record-seal": {
+          "recorded": "2026-08-28",
+          "provenance": "@claude",
+          "why": "The `record` profile, step 3 of agent-market-research-2026-08/PLAN.md section 8, closing `@yurii 2026-08-25`'s decision that all three deployments seal the record. It replaces `routines:stack-single:absent:trailryx-seal`, removed the same day, which said stack-single did not mention trailryx anywhere. It now does.\n\nOff by default, like `egress`: `WITH_RECORD=1 ./install.sh` builds the image and `docker compose --profile record up -d record-seal` starts it. One container running one serial loop rather than a timer, because compose has no cron and the record store takes no cross-process lock, so a second writer would be two minters of one shard. stack-k8s gets the same property from `concurrencyPolicy: Forbid`.\n\nREAD THIS ALONGSIDE the note on `services:stack-up:extra:vouchryx`: this file's model has no notion of a PROFILE, only agreed/extra/absent, so this is the second profile to land as an `extra` entry rather than as one decision spanning deployments. The limit is now costing two entries instead of one.\n\nNOT a routine entry, deliberately. stack-single still installs no scheduler of any kind, so the four `routines:stack-single:absent:*` entries stand unchanged and true; this is a long-running service that seals on its own interval, which is a different shape from the cron the other two use."
         }
       }
     },

@@ -40,61 +40,85 @@
       "github": "TAIPANBOX/tokenfuse",
       "local": "tokenfuse",
       "role": "the money plane. Owns the Breaker wire strings, the price book and the trace Parquet schema.",
-      "runs": ["tokenfuse-gateway", "tokenfuse-cloud", "focus-export"]
+      "runs": [
+        "tokenfuse-gateway",
+        "tokenfuse-cloud",
+        "focus-export"
+      ]
     },
     "verdryx": {
       "github": "TAIPANBOX/verdryx",
       "local": "verdryx",
       "role": "the quality plane. Holds hand-copied mirrors of three tokenfuse constants.",
-      "runs": ["verdryx-drift", "verdryx"]
+      "runs": [
+        "verdryx-drift",
+        "verdryx"
+      ]
     },
     "engram": {
       "github": "TAIPANBOX/engram",
       "local": "Engram",
       "role": "the memory plane. Vendors the event schema as a test fixture and pins the chain vectors.",
-      "runs": ["engram-mcp"]
+      "runs": [
+        "engram-mcp"
+      ]
     },
     "idryx": {
       "github": "TAIPANBOX/idryx",
       "local": "Idryx",
       "role": "the identity plane. Consumes the envelope; the registry says it emits nothing into it.",
-      "runs": ["idryx", "idryx-detect"]
+      "runs": [
+        "idryx",
+        "idryx-detect"
+      ]
     },
     "qryx": {
       "github": "TAIPANBOX/qryx",
       "local": "Qryx",
       "role": "the crypto plane. Emits four event types.",
-      "runs": ["qryx-trend"]
+      "runs": [
+        "qryx-trend"
+      ]
     },
     "wardryx": {
       "github": "TAIPANBOX/wardryx",
       "local": "wardryx",
       "role": "the policy plane. Emits seven event types.",
-      "runs": ["wardryx"]
+      "runs": [
+        "wardryx"
+      ]
     },
     "mockryx": {
       "github": "TAIPANBOX/mockryx",
       "local": "mockryx",
       "role": "the simulation plane. Emits three event types.",
-      "runs": ["mockryx-drill"]
+      "runs": [
+        "mockryx-drill"
+      ]
     },
     "heraldyx": {
       "github": "TAIPANBOX/heraldyx",
       "local": "heraldyx",
       "role": "the notifier. Reads the shared log and writes its own dispatch journal in the same envelope.",
-      "runs": ["heraldyx"]
+      "runs": [
+        "heraldyx"
+      ]
     },
     "scopyx": {
       "github": "TAIPANBOX/scopyx",
       "local": "scopyx",
       "role": "the web-egress enforcement point. Decides each destination against the policy plane before a backend fetches it, and writes its own journal in the same envelope.",
-      "runs": ["scopyx"]
+      "runs": [
+        "scopyx"
+      ]
     },
     "genaryx": {
       "github": "TAIPANBOX/genaryx",
       "local": "genaryx",
       "role": "the console. Vendors both event schemas and appends console_command lines to the bus.",
-      "runs": ["console"]
+      "runs": [
+        "console"
+      ]
     },
     "terraform-provider-taipan": {
       "github": "TAIPANBOX/terraform-provider-taipan",
@@ -105,20 +129,27 @@
     "trailryx": {
       "github": "TAIPANBOX/trailryx",
       "local": "trailryx",
-      "role": "the record plane. No check reads it today; see README, uncovered surfaces.",
-      "runs": ["trailryx-seal"]
+      "role": "the record plane. Runs under two names because the deployments schedule it differently: `trailryx-seal` is the timer in stack-up and the CronJob in stack-k8s, `record-seal` is the long-running compose service in stack-single, which has no cron. Same binary, same command, two shapes.",
+      "runs": [
+        "trailryx-seal",
+        "record-seal"
+      ]
     },
     "vouchryx": {
       "github": "TAIPANBOX/vouchryx",
       "local": "vouchryx",
       "role": "the delegation-token service. Issues RFC 8693 tokens sender-constrained by DPoP, and the revocation list every enforcement point polls, so a delegation can be proved and ended rather than only recorded.",
-      "runs": ["vouchryx"]
+      "runs": [
+        "vouchryx"
+      ]
     },
     "costcrew": {
       "github": "TAIPANBOX/costcrew",
       "local": "costcrew",
       "role": "the FinOps console. A guest producer: it writes the shared envelope and calls nobody, and two of its types are translated into estate vocabulary before they go out.",
-      "runs": ["costcrew"]
+      "runs": [
+        "costcrew"
+      ]
     },
     "catalog": {
       "github": "TAIPANBOX/catalog",
