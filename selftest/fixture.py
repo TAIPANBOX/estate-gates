@@ -1450,7 +1450,32 @@ func TestWireTypesIsExactlyWhatTheCallSitesProduce(t *testing.T) {}
     },
     "terraform-provider-taipan": {"go.mod": gomod("terraform-provider-taipan", "v0.5.1")},
     "taipan": {"src/commands/demo.rs": TAIPAN_DEMO_RS},
-    "stack-up": {"routines.sh": STACK_UP_ROUTINES, "up.sh": STACK_UP_UP},
+    "stack-up": {
+        "routines.sh": STACK_UP_ROUTINES,
+        "up.sh": STACK_UP_UP,
+        # A launcher manifest, so C15 can ask whether anything installs a given
+        # component. Without one the check reports that it measured nothing,
+        # which is correct and makes the fixture red: an estate with no launcher
+        # declaration cannot answer the question at all.
+        "components.json": """{
+  "schema": "taipanbox.dev/components/v1",
+  "repo": "TAIPANBOX/stack-up",
+  "kind": "launcher",
+  "components": [
+    {
+      "name": "stack-up",
+      "class": "launcher",
+      "checked": {
+        "installs_services": ["costcrew", "vouchryx"],
+        "installs_python_tools": [],
+        "schedules_routines": ["mockryx-drill"]
+      },
+      "declared": {}
+    }
+  ]
+}
+""",
+    },
     "stack-single": {
         "compose.yaml": STACK_SINGLE_COMPOSE,
         "install.sh": STACK_SINGLE_INSTALL,

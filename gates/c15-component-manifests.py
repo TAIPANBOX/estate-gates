@@ -303,4 +303,139 @@ def run(estate: E.Estate) -> E.Check:
                         ],
                     )
 
+    _nothing_installs_it(c, estate, found)
+
     return c
+
+
+# The classes a manifest may put on a component, and what each one PROMISES
+# about deployments. This is the whole reason `dev-tool` exists: without a way
+# to say "nothing should install this", the check below would report seven right
+# answers in trailryx alone and be switched off before it reached a real one.
+RUNS_SOMEWHERE = {"service", "daemon"}
+RUNS_NOWHERE = {"dev-tool"}
+# `tool` is neither. Some are installed by a launcher (verdryx, engram-mcp) and
+# some are a command a person types (taipan, engram, the six costcrew tools) or
+# are distributed by somebody else's registry entirely (the Terraform provider,
+# `pip install engdbram`). A tool nobody installs is not news, so it is not
+# judged here rather than being judged wrongly.
+
+
+def _installed_by_launchers(found: dict[str, dict]) -> tuple[set[str], list[str]]:
+    """Everything the launcher manifests say they bring up, and who said so."""
+    installed: set[str] = set()
+    launchers: list[str] = []
+    for repo, m in sorted(found.items()):
+        components = m.get("components") or []
+        if m.get("kind") != "launcher" and not any(
+            comp.get("class") == "launcher" for comp in components
+        ):
+            continue
+        launchers.append(repo)
+        for comp in components:
+            checked = comp.get("checked") or {}
+            for key in ("installs", "installs_services", "installs_python_tools"):
+                installed.update(checked.get(key) or [])
+            scheduled = checked.get("schedules_routines")
+            if isinstance(scheduled, dict):
+                # stack-k8s names its CronJobs locally and maps each to the
+                # routine the estate means. Both sides count as installed: the
+                # local name is what exists there, the routine is what it is.
+                installed.update(scheduled)
+                installed.update(scheduled.values())
+            else:
+                installed.update(scheduled or [])
+    return installed, launchers
+
+
+def _nothing_installs_it(c: E.Check, estate: E.Estate, found: dict[str, dict]) -> None:
+    """A service or daemon that no launcher in this estate can install.
+
+    THIS IS THE QUESTION THE WHOLE PER-REPO DECLARATION WAS FOR, and until every
+    repository carried one it could not be asked: a central registry cannot see a
+    component nobody told it about, which is invariant 18's own admission.
+
+    It was asked by hand on 2026-08-28 and found `tokenfuse-cluster`: a
+    raft-replicated budget ledger, added 2026-07-02, with three integration
+    suites and its own CI job, installable by nothing for fifty-seven days. The
+    point of this function is that the next one is found by a run rather than by
+    somebody looking.
+
+    A `declared` entry that says so IS the answer, the same way it is for a probe
+    path above: the fact belongs to the component, and a reason kept in this
+    repository would go stale separately from the thing it explains.
+    """
+    installed, launchers = _installed_by_launchers(found)
+    if not launchers:
+        c.missing(
+            "c15.no-launcher-manifest",
+            "no repository carries a launcher manifest, so whether anything can "
+            "install a given component is unknown rather than answered. This "
+            "measured NOTHING.",
+        )
+        return
+    if not installed:
+        c.missing(
+            "c15.launchers-install-nothing",
+            f"the launcher manifests ({', '.join(launchers)}) name nothing they "
+            f"install, so every component would read as an orphan. That is a "
+            f"broken reading, not a finding about the estate.",
+        )
+        return
+
+    judged = 0
+    for repo, m in sorted(found.items()):
+        for comp in m.get("components") or []:
+            name, klass = comp.get("name"), comp.get("class")
+            if klass not in RUNS_SOMEWHERE:
+                continue
+            judged += 1
+            if name in installed:
+                continue
+            excuse = None
+            for key, body in (comp.get("declared") or {}).items():
+                if isinstance(body, dict) and (
+                    "install" in key or "install" in str(body.get("value", ""))
+                ):
+                    excuse = (key, str(body.get("why", "")))
+                    break
+            if excuse is not None:
+                c.ok(
+                    "c15.uninstallable-is-a-recorded-decision",
+                    f"{repo} declares `{name}` as a {klass} and no launcher installs "
+                    f"it, and {repo} says why under `declared.{excuse[0]}`: "
+                    f"{excuse[1][:200]}",
+                )
+                continue
+            c.drift(
+                "c15.nothing-installs-it",
+                f"{repo} declares `{name}` as a {klass} and not one of the "
+                f"{len(launchers)} launchers installs it.",
+                [
+                    "  manifest:  " + estate.where(repo, MANIFEST),
+                    "  launchers: " + ", ".join(launchers),
+                    "A service exists to be run by something. If nothing can install",
+                    "it, either a launcher is missing an entry or the component is",
+                    "built, tested and reachable by nobody, which is what",
+                    "tokenfuse-cluster was for fifty-seven days.",
+                    "If it is deliberate, the component's own `declared` bucket is",
+                    "where the reason goes, and this check then reads a decision",
+                    "instead of a finding. `dev-tool` is the class for something",
+                    "nothing should ever install.",
+                ],
+            )
+
+    if judged == 0:
+        c.missing(
+            "c15.no-service-to-judge",
+            f"not one component across {len(found)} manifest(s) is a "
+            f"{' or '.join(sorted(RUNS_SOMEWHERE))}, so this measured NOTHING "
+            f"about what can be installed.",
+        )
+        return
+
+    c.ok(
+        "c15.every-service-has-an-installer",
+        f"{judged} component(s) of class {' or '.join(sorted(RUNS_SOMEWHERE))} "
+        f"judged against what {len(launchers)} launcher(s) install.",
+    )

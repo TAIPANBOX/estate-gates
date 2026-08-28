@@ -1304,8 +1304,15 @@ MUTATIONS: dict[str, list[tuple[str, callable]]] = {
         # BOTH, and the count matters: this case went stale the moment a
         # second repository adopted a manifest, because dropping one left the
         # check with something to read and nothing to complain about.
+        # And stale again on 2026-08-28, when stack-up gained a LAUNCHER
+        # manifest. The count keeps mattering: every adoption leaves one more
+        # thing for this check to read and nothing to complain about.
         "not one repository carries a manifest",
-        lambda r: [drop(r, "vouchryx/components.json"), drop(r, "costcrew/components.json")],
+        lambda r: [
+            drop(r, "vouchryx/components.json"),
+            drop(r, "costcrew/components.json"),
+            drop(r, "stack-up/components.json"),
+        ],
     )],
     "c15.unknown-schema": [(
         "a manifest written to a contract this reader does not have",
@@ -1337,6 +1344,59 @@ MUTATIONS: dict[str, list[tuple[str, callable]]] = {
         # deployment's probes were simply not read.
         "the launcher stops calling the function this check reads",
         lambda r: edit(r, "stack-up/up.sh", "wait_health vouchryx", "await_ready vouchryx", every=True),
+    )],
+    # The check the whole per-repo declaration was for. It could not be asked
+    # until every repository carried one: a central registry cannot see a
+    # component nobody told it about, which is invariant 18's own admission.
+    "c15.nothing-installs-it": [(
+        # tokenfuse-cluster is the case this was written from: a service the
+        # real estate builds, tests and cannot install. The fixture reproduces
+        # the SHAPE rather than the repository, by taking a service out of the
+        # launcher's list while nothing records why.
+        "a service nothing installs and nothing records why",
+        lambda r: manifest_edit(
+            r, "stack-up",
+            lambda m: m["components"][0]["checked"].__setitem__(
+                "installs_services",
+                [s for s in m["components"][0]["checked"]["installs_services"] if s != "costcrew"],
+            ),
+        ),
+    )],
+    "c15.no-service-to-judge": [(
+        # Every component a dev-tool or a tool, and the question "can anything
+        # install this" no longer applies to anything. Reporting a clean run
+        # then would be agreement about an empty set.
+        "not one component in the estate is a service or a daemon",
+        lambda r: [
+            manifest_edit(
+                r, repo,
+                lambda m: [comp.__setitem__("class", "dev-tool") for comp in m["components"]],
+            )
+            for repo in ("costcrew", "vouchryx")
+        ],
+    )],
+    "c15.no-launcher-manifest": [(
+        # Without one, "nothing installs it" is a statement about an absence of
+        # readers rather than about the estate.
+        # stack-up is the fixture's only launcher manifest. Dropping it leaves
+        # the check with no reader, which is the state this line reports.
+        "not one launcher declares what it installs",
+        lambda r: drop(r, "stack-up/components.json"),
+    )],
+    "c15.launchers-install-nothing": [(
+        # A launcher manifest that names nothing would make every service in the
+        # estate read as an orphan. That is a broken reading, not a finding.
+        "the launcher declares itself and installs nothing",
+        lambda r: manifest_edit(
+            r, "stack-up",
+            lambda m: m["components"][0]["checked"].update(
+                {
+                    "installs_services": [],
+                    "installs_python_tools": [],
+                    "schedules_routines": [],
+                }
+            ),
+        ),
     )],
     "c15.probe-disagrees": [(
         # The recorded reason is what makes this a decision. Remove the reason
