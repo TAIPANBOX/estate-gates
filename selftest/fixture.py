@@ -849,6 +849,13 @@ start_heraldyx() {
     "$HERALDYX_BIN" --from-now=false &
   register heraldyx "$!" TERM
 }
+
+# The health probes a launcher makes, which C15 compares against what each
+# component's own repository declares. The path is the fourth argument and
+# defaults to /healthz when absent.
+register vouchryx "$!" TERM
+wait_health vouchryx 4310 "$!" "/.well-known/jwks.json"
+wait_health wardryx 8090 "$!"
 """
 
 STACK_SINGLE_COMPOSE = """name: agent-stack
@@ -1380,6 +1387,34 @@ func TestWireTypesIsExactlyWhatTheCallSitesProduce(t *testing.T) {}
 """,
     },
     "vouchryx": {
+        # The first component manifest in the estate, and the fixture carries
+        # one so C15 has a subject. Two components, because the split between a
+        # service a deployment installs and a tool it does not is the thing the
+        # containment rule rests on.
+        "components.json": """{
+  "schema": "taipanbox.dev/components/v1",
+  "repo": "TAIPANBOX/vouchryx",
+  "components": [
+    {
+      "name": "vouchryx",
+      "class": "service",
+      "checked": { "package": "github.com/TAIPANBOX/vouchryx/cmd/vouchryx", "health_path": "/healthz" },
+      "declared": {
+        "a_launcher_may_probe_something_else": {
+          "value": "/.well-known/jwks.json",
+          "why": "fixture: the better probe, and recorded so a check reads a decision"
+        }
+      }
+    },
+    {
+      "name": "vouchryx-demo",
+      "class": "tool",
+      "checked": { "package": "github.com/TAIPANBOX/vouchryx/cmd/vouchryx-demo" },
+      "declared": {}
+    }
+  ]
+}
+""",
         "internal/api/api.go": VOUCHRYX_API_GO,
         "cmd/vouchryx/main.go": VOUCHRYX_MAIN_GO,
     },
@@ -1538,6 +1573,11 @@ EXPECTATIONS = {
                     "provenance": "@claude",
                     "why": "TLS in front of the console",
                 },
+                "services:stack-up:extra:vouchryx": {
+                    "recorded": "2026-08-28",
+                    "provenance": "@claude",
+                    "why": "fixture: the delegate profile is opt-in, so only one deployment brings it up",
+                },
                 "services:stack-single:extra:init-volumes": {
                     "recorded": "2026-08-06",
                     "provenance": "@claude",
@@ -1580,6 +1620,7 @@ FIXTURE_RUNS: dict[str, list[str]] = {
     "verdryx": ["verdryx-drift"],
     "mockryx": ["mockryx-drill"],
     "genaryx": ["console"],
+    "vouchryx": ["vouchryx"],
 }
 
 REGISTRY = {

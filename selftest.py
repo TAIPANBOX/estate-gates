@@ -312,6 +312,14 @@ def _case_registry(root: pathlib.Path) -> tuple[pathlib.Path, dict]:
     return path, reg
 
 
+def manifest_edit(root: pathlib.Path, repo: str, fn) -> None:
+    """Rewrite a fixture repository's components.json through `fn`."""
+    path = root / repo / "components.json"
+    m = json.loads(path.read_text())
+    fn(m)
+    path.write_text(json.dumps(m, indent=2) + "\n")
+
+
 def registry_runs(root: pathlib.Path, repo: str, kinds: list[str]) -> None:
     """Make the registry claim `repo` contributes `kinds`."""
     path, reg = _case_registry(root)
@@ -1270,8 +1278,10 @@ MUTATIONS: dict[str, list[tuple[str, callable]]] = {
             # all compare deployments with each other, so a thing nobody
             # installs is not a divergence between them. This is what vouchryx
             # was between 2026-08-26 and this check.
+            # trailryx, not vouchryx: the fixture's stack-up now installs
+            # vouchryx, so claiming it would be claiming something true.
             "a repository runs a component no deployment installs",
-            lambda r: registry_runs(r, "vouchryx", ["vouchryx"]),
+            lambda r: registry_runs(r, "trailryx", ["trailryx-seal"]),
         ),
     ],
     "c5.runs-undeclared": [(
@@ -1281,6 +1291,58 @@ MUTATIONS: dict[str, list[tuple[str, callable]]] = {
     "c5.stale-expectation": [(
         "a recorded divergence stops being one",
         lambda r: edit(r, "stack-single/compose.yaml", "  wg:\n    image: stack/wg:dev\n", ""),
+    )],
+    # ---- C15
+    "c15.manifest-unreadable": [(
+        "a manifest that is not JSON",
+        lambda r: (r / "vouchryx" / "components.json").write_text("{ this is not json\n"),
+    )],
+    "c15.no-manifest-anywhere": [(
+        # The estate has one manifest today. Take it away and this check is
+        # reporting agreement over an empty set, which is the shape this whole
+        # harness exists to refuse.
+        "not one repository carries a manifest",
+        lambda r: drop(r, "vouchryx/components.json"),
+    )],
+    "c15.unknown-schema": [(
+        "a manifest written to a contract this reader does not have",
+        lambda r: manifest_edit(r, "vouchryx", lambda m: m.__setitem__("schema", "taipanbox.dev/components/v9")),
+    )],
+    "c15.manifest-declares-nothing": [(
+        "a manifest with an empty component list",
+        lambda r: manifest_edit(r, "vouchryx", lambda m: m.__setitem__("components", [])),
+    )],
+    "c15.registry-names-what-the-repo-does-not": [(
+        # The direction that catches drift: the central file claims a component
+        # and the repository that would build it denies it.
+        "the registry names a component the repository does not declare",
+        lambda r: manifest_edit(r, "vouchryx", lambda m: m["components"][0].__setitem__("name", "vouchryx-renamed")),
+    )],
+    "c15.declared-without-a-reason": [(
+        "a declared entry with no why",
+        lambda r: manifest_edit(
+            r, "vouchryx",
+            lambda m: m["components"][0]["declared"]["a_launcher_may_probe_something_else"].__setitem__("why", "  "),
+        ),
+    )],
+    "c15.probe-unreadable": [(
+        "the launcher whose probes are read is gone",
+        lambda r: drop(r, "stack-up/up.sh"),
+    )],
+    "c15.probe-anchor-matched-nothing": [(
+        # An anchor that matches nothing is a finding and not a clean run: the
+        # deployment's probes were simply not read.
+        "the launcher stops calling the function this check reads",
+        lambda r: edit(r, "stack-up/up.sh", "wait_health vouchryx", "await_ready vouchryx", every=True),
+    )],
+    "c15.probe-disagrees": [(
+        # The recorded reason is what makes this a decision. Remove the reason
+        # and the same two facts are a disagreement again.
+        "a launcher probes elsewhere and nothing records why",
+        lambda r: manifest_edit(
+            r, "vouchryx",
+            lambda m: m["components"][0].__setitem__("declared", {}),
+        ),
     )],
     # ---- C6
     "c6.copy-unreadable": [(
