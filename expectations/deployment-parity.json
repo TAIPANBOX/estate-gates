@@ -155,6 +155,11 @@
           "recorded": "2026-08-27",
           "provenance": "@yurii 2026-08-27",
           "why": "A DECISION, and his: the estate is one product installed by function (\u00ab\u0437 \u043c\u043e\u0436\u043b\u0438\u0432\u0456\u0441\u0442\u044e \u0432\u0441\u0442\u0430\u043d\u043e\u0432\u043b\u0435\u043d\u043d\u044f \u0437\u0430 \u043e\u043a\u0440\u0435\u043c\u0438\u043c\u0438 \u0444\u0443\u043d\u043a\u0446\u0456\u043e\u043d\u0430\u043b\u0430\u043c\u0438\u00bb), and `delegate` is one of those functions rather than part of the base stack. stack-up gained it first because it is the sandbox; stack-single and stack-k8s are step 3 of agent-market-research-2026-08/PLAN.md section 8 and will follow. Recorded as `extra` rather than by adding vouchryx to `agreed` on purpose: `agreed` is what every deployment brings up, and an opt-in profile is not that. Measured 2026-08-27 on a real ./up.sh --with-delegation: the gateway reports `delegation door: ON` and refuses a revoked token with HTTP 401, while the same launcher without the flag returns 200 to that same revoked token because the door never examines it. NOTE for whoever adds the other two: this file's model has no notion of a PROFILE, only of agreed/extra/absent, so a second and third deployment installing vouchryx will read here as two more `extra` entries rather than as one decision. That is a limit of C5 worth fixing when it bites, not a reason to write the wrong thing now."
+        },
+        "services:stack-up:extra:costcrew": {
+          "recorded": "2026-08-28",
+          "provenance": "@yurii 2026-08-28",
+          "why": "A DECISION, the `finops` profile from agent-market-research-2026-08/PLAN.md section 8 step 5, and the second of its kind after `delegate`. costcrew is an estate APP rather than a plane: a guest producer that writes the shared bus and calls nobody, and it enforces nothing. stack-up gained it first because it is the sandbox. Whether the two server deployments should carry it is his call and has not been asked. Measured 2026-08-28 on a real ./up.sh --with-finops: the console answers /healthz, puts 26 events on the bus, all 26 under the launcher's own trust domain rather than the console's default, and the seal in the same run recorded 9 of them. Under the console's default not one would have been recorded, which is why the profile sets -stack-host from the same variable the seal is given."
         }
       }
     },
@@ -185,11 +190,6 @@
           "recorded": "2026-08-28",
           "provenance": "@claude",
           "why": "A DECISION and not a gap: a one-shot busybox container that creates stack-single's shared volume layout. Not a running component and not anybody's product; see `services:stack-single:extra:init-volumes`. The check asks the coverage question in both directions, and upstream software installed beside our own is the honest exception to the second one. It is recorded rather than filtered out in code, because 'this one does not count' is a judgement and judgements belong in this file where somebody can disagree with them."
-        },
-        "coverage:costcrew:installable-by-nothing": {
-          "recorded": "2026-08-28",
-          "provenance": "@yurii 2026-08-28",
-          "why": "A GAP with a decision behind the word: he asked for costcrew to be made public and registered, and it is both, but no deployment installs it yet. It is the `finops` profile in agent-market-research-2026-08/PLAN.md section 8, step 5, which comes after the `record` profile. Registering it before installing it is the right order and not an oversight: the registry is what makes the estate able to SEE a producer, and this entry is the estate saying out loud that it can see one it cannot yet install. Measured 2026-08-28: costcrew appears in no launcher, and the word costcrew does not occur in stack-up, stack-single, stack-k8s or taipan at all. Recorded here so the day the profile lands, this entry goes red as stale and is removed."
         }
       }
     }

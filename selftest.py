@@ -1301,8 +1301,11 @@ MUTATIONS: dict[str, list[tuple[str, callable]]] = {
         # The estate has one manifest today. Take it away and this check is
         # reporting agreement over an empty set, which is the shape this whole
         # harness exists to refuse.
+        # BOTH, and the count matters: this case went stale the moment a
+        # second repository adopted a manifest, because dropping one left the
+        # check with something to read and nothing to complain about.
         "not one repository carries a manifest",
-        lambda r: drop(r, "vouchryx/components.json"),
+        lambda r: [drop(r, "vouchryx/components.json"), drop(r, "costcrew/components.json")],
     )],
     "c15.unknown-schema": [(
         "a manifest written to a contract this reader does not have",
