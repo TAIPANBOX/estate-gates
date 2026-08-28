@@ -114,6 +114,12 @@
       "role": "the delegation-token service. Issues RFC 8693 tokens sender-constrained by DPoP, and the revocation list every enforcement point polls, so a delegation can be proved and ended rather than only recorded.",
       "runs": ["vouchryx"]
     },
+    "costcrew": {
+      "github": "TAIPANBOX/costcrew",
+      "local": "costcrew",
+      "role": "the FinOps console. A guest producer: it writes the shared envelope and calls nobody, and two of its types are translated into estate vocabulary before they go out.",
+      "runs": ["costcrew"]
+    },
     "catalog": {
       "github": "TAIPANBOX/catalog",
       "local": "catalog",

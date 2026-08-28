@@ -233,6 +233,7 @@ depth is 32 entries.
 | `heraldyx` | `alert_sent` |
 | `vouchryx` | `delegation_issued` (info) · `delegation_denied` (high) · `delegation_revoked` (high) |
 | `scopyx` | `web_fetch` . `web_blocked` |
+| `costcrew` | `anomaly_triaged` |
 
 A row here is a CLAIM that the source writes those types into this envelope
 today.
@@ -1169,7 +1170,7 @@ TRAILRYX_AGENTEVENT = """//! The estate's shared agent-event envelope, mapped in
 //!
 //! Refused today, each because the record vocabulary has no honest home for it
 //! rather than because nobody got to it: `crypto_finding`, `eval_run`,
-//! `sim_run` and `console_command`. Each is a finding or an observation about
+//! `sim_run`, `console_command` and `anomaly_triaged`. Each is a finding or an observation about
 //! infrastructure rather than a decision an agent took.
 //!
 //! # The one that got a type of its own, and what that cost
@@ -1344,6 +1345,39 @@ ESTATE: dict[str, dict] = {
     "scopyx": {
         "go.mod": gomod("scopyx", "v0.5.1"),
         "internal/record/record.go": SCOPYX_RECORD_GO,
+    },
+    # costcrew DECLARES its wire types and its own suite holds the declaration
+    # to its call sites, which is why C4 reads a list here rather than trying to
+    # resolve nine handlers, a kind built from a state value and two renames.
+    # The fixture carries both halves, because the check reads both: the list,
+    # and the test whose absence would turn the list back into somebody's
+    # memory.
+    "costcrew": {
+        "internal/stack/stack.go": """package stack
+
+// Source is the `source` on every event this console writes.
+const Source = "costcrew"
+
+func (e *Emitter) Emit(kind, actor, severity string, data map[string]any) error {
+	wire, payload := translate(kind, data)
+	_ = wire
+	_ = payload
+	return e.w.Write(event.NewChainedWriter(nil))
+}
+""",
+        "internal/stack/types.go": """package stack
+
+// WireTypes is every `type` this console can put on the shared bus.
+func WireTypes() []string { return append([]string(nil), wireTypes...) }
+
+var wireTypes = []string{
+	"anomaly_triaged",
+}
+""",
+        "internal/stack/wiretypes_test.go": """package stack_test
+
+func TestWireTypesIsExactlyWhatTheCallSitesProduce(t *testing.T) {}
+""",
     },
     "vouchryx": {
         "internal/api/api.go": VOUCHRYX_API_GO,
