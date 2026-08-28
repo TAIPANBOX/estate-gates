@@ -190,6 +190,11 @@
           "recorded": "2026-08-28",
           "provenance": "@claude",
           "why": "A DECISION and not a gap: a one-shot busybox container that creates stack-single's shared volume layout. Not a running component and not anybody's product; see `services:stack-single:extra:init-volumes`. The check asks the coverage question in both directions, and upstream software installed beside our own is the honest exception to the second one. It is recorded rather than filtered out in code, because 'this one does not count' is a judgement and judgements belong in this file where somebody can disagree with them."
+        },
+        "coverage:costcrew:installable-by-nothing": {
+          "recorded": "2026-08-28",
+          "provenance": "@yurii 2026-08-28",
+          "why": "A GAP with a decision behind the word: he asked for costcrew to be made public and registered, and it is both, but no deployment installs it yet. It is the `finops` profile in agent-market-research-2026-08/PLAN.md section 8, step 5, which comes after the `record` profile. Registering it before installing it is the right order and not an oversight: the registry is what makes the estate able to SEE a producer, and this entry is the estate saying out loud that it can see one it cannot yet install. Measured 2026-08-28: costcrew appears in no launcher, and the word costcrew does not occur in stack-up, stack-single, stack-k8s or taipan at all. Recorded here so the day the profile lands, this entry goes red as stale and is removed."
         }
       }
     }

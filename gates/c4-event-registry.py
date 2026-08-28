@@ -330,6 +330,67 @@ def _vouchryx(estate: E.Estate) -> dict[str, set[str]]:
     return {m.group(1): types}
 
 
+def _costcrew(estate: E.Estate) -> dict[str, set[str]]:
+    """costcrew DECLARES its wire types, and its own suite holds the declaration.
+
+    Every other producer here names its types somewhere a reader can resolve: a
+    composite literal, or one `emit` helper taking a string literal. costcrew
+    has neither shape. Its kinds are literals at nine HTTP handlers and two
+    background paths, ONE of them built as `"anomaly_" + string(to)` from a
+    state value, and TWO of them renamed on the way out by `internal/stack/
+    vocabulary.go` before they reach the envelope.
+
+    A regular expression over that would be inference, and inference is the
+    thing this gate's own history warns about: seven names were reserved for
+    idryx that were wrong in both directions, in both directions, because
+    somebody wrote down what a producer looked like it did.
+
+    So this reads a list the producer states, `stack.WireTypes`, and the
+    producer's own test (`TestWireTypesIsExactlyWhatTheCallSitesProduce`) is
+    what holds that list equal to its call sites with the translation applied.
+    The division is SPEC 6.2's own, which says of idryx's detector count that
+    "what knows is idryx's own `scripts/detectors-complete.sh`".
+
+    What this check still owns is the comparison against the registry. What it
+    delegates is reading Go it cannot read without guessing.
+    """
+    text = estate.read_text("costcrew", "internal/stack/types.go")
+    if "func WireTypes()" not in text:
+        raise E.Missing(
+            "costcrew internal/stack/types.go: no `func WireTypes()`, so the "
+            "declaration this check reads is gone and nothing was compared"
+        )
+    block = re.search(r"var wireTypes = \[\]string\{(.*?)\n\}", text, re.S)
+    if not block:
+        raise E.Missing(
+            "costcrew internal/stack/types.go: `var wireTypes = []string{...}` "
+            "did not parse, so this producer's types could not be read"
+        )
+    types = set(re.findall(r'"([a-z][a-z0-9_]*)"', block.group(1)))
+    if not types:
+        raise E.Missing(
+            "costcrew internal/stack/types.go: `wireTypes` holds no type, so "
+            "the registry was compared against nothing"
+        )
+
+    # The list is a claim, and the producer's own test is what makes it one
+    # worth reading. A gate that trusted the list without checking the test is
+    # still there would keep passing after somebody deleted the test.
+    held = estate.read_text("costcrew", "internal/stack/wiretypes_test.go")
+    if "TestWireTypesIsExactlyWhatTheCallSitesProduce" not in held:
+        raise E.Missing(
+            "costcrew declares its wire types and the test that held that "
+            "declaration to its call sites is gone, so the list is now "
+            "somebody's memory rather than a reading of the code"
+        )
+
+    source = estate.read_text("costcrew", "internal/stack/stack.go")
+    m = re.search(r'const\s+Source\s*=\s*"([a-z0-9-]+)"', source)
+    if not m:
+        raise E.Missing('costcrew internal/stack/stack.go: no `const Source = "..."`')
+    return {m.group(1): types}
+
+
 def _heraldyx(estate: E.Estate) -> dict[str, set[str]]:
     text = estate.read_text("heraldyx", "internal/record/record.go")
     m = re.search(r"const\s+Source\s*=\s*\"([a-z0-9-]+)\"", text)
@@ -429,6 +490,11 @@ PRODUCERS: dict[str, dict] = {
         "writer": ("internal/record/record.go", "event.NewChainedWriter"),
         "extract": _heraldyx,
         "owns": ["heraldyx"],
+    },
+    "costcrew": {
+        "writer": ("internal/stack/stack.go", "const Source"),
+        "extract": _costcrew,
+        "owns": ["costcrew"],
     },
     "genaryx": {
         "writer": ("crates/core/src/command.rs", "\"source\""),
