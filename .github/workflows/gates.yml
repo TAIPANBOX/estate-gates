@@ -60,6 +60,12 @@ jobs:
       - name: No long dashes anywhere
         run: ./scripts/no-long-dashes.sh --prove
 
+      # --prove, not a bare run: the gate plants each of its own three faults
+      # in a copy and requires itself to find them. A binding gate that cannot
+      # go red is a paragraph about bindings.
+      - name: Every scenario is bound to a finding that can go red
+        run: ./scripts/features-are-bound.sh --prove
+
       - name: Every check can go red
         run: ./selftest.py
 

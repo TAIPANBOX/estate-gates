@@ -51,10 +51,15 @@ It does not read source. It cannot tell a manifest that is complete from one
 that is missing a component, which is the whole reason the proving happens in
 the component's own repository rather than here.
 
-ADOPTION IS INCREMENTAL AND A REPOSITORY WITHOUT ONE IS NOT A FAILURE. Twenty
-one of twenty-two have no manifest today. That is reported as a count, not as
-drift. What IS a failure is finding none at all, because then this check is
-reporting agreement about nothing.
+ADOPTION IS INCREMENTAL AND A REPOSITORY WITHOUT ONE IS NOT A FAILURE. It is
+reported as a count, not as drift. What IS a failure is finding none at all,
+because then this check is reporting agreement about nothing.
+
+The count is deliberately not written here. This line said twenty-one of
+twenty-two had no manifest, which was true for one day: the sweep of
+2026-08-28 took it to nineteen of twenty-two carrying one, and the sentence
+stayed. A number in a docstring is a claim with no owner, and this repository
+exists to find exactly that shape somewhere else.
 """
 
 from __future__ import annotations
