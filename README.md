@@ -204,6 +204,49 @@ off. Run against the estate as it stood on the morning of 2026-08-27 it names
 `agent-stack-go/delegation/chain.go` and `tokenfuse/crates/delegation/src/lib.rs`,
 which is the defect, from the only place in the estate that could have seen it.
 
+**C16, a launcher's environment reaches a reader**
+(`gates/c16-launcher-env-has-a-reader.py`). C5 compares the three launchers
+against each other, so it has no opinion about whether the thing all three
+agree on is wired to anything. This asks the other question, between a launcher
+and a binary: every environment variable a launcher hands to a process must be
+one some repository declares reading.
+
+Two live instances the day it was written, both the same shape.
+`stack-single/compose.yaml` passed `WARDRYX_DSN`; wardryx reads `WARDRYX_DB`
+and has never read the other name, so the launcher generated a correct DSN,
+declared `depends_on: policy-db` with `condition: service_healthy`, waited for
+that database to come up, and handed the value over under a name the process
+ignores. The database was provisioned, waited on and never used, which left
+policy and approvals in memory: a restart dropped every console-written policy
+and unfroze the fleet while the console still showed it stopped. And `stack-k8s`
+sets `TOKENFUSE_CLOUD_EVENTS_PATH` into a container by `configMapKeyRef`; that
+name appears nowhere in tokenfuse, whose cloud reads
+`TOKENFUSE_CLOUD_REPLAY_EVENTS`, which no launcher sets at all.
+
+A key with no reader is the quiet kind of wrong. Nothing is misspelled, nothing
+errors, the value is correct, the dependency is healthy and the service starts
+and answers. It is a wire that was never connected while every signal around it
+says the opposite. Neither instance is visible from inside a repository: the
+launcher's gates cannot read the binary and the binary's gates cannot read the
+launcher.
+
+Both sides come from the repositories. The answer is every name under an `env`
+block in any `components.json`, and those declarations are not this suite's
+word for it: each declaring repository proves its own manifest against its own
+source in its own CI, per C15's argument about why that division is structural.
+The subjects are what the launchers DELIVER, by four forms read off the
+launchers themselves, with comments stripped first so that prose about a
+variable, including the comment recording the `WARDRYX_DSN` fix, is not a
+delivery. `install.sh` holds shell variables like `WARDRYX_ADMIN_SECRET` that
+reach no process, and flagging those would bury the real finding.
+
+Its limit is stated in the gate: a ConfigMap key counts as delivered without
+proving a container mounts it with `envFrom`, and a shell command prefix is
+recognised by its line continuation. Both can over-count, which produces a
+finding a human dismisses rather than a silence nobody sees. What it cannot see
+is a delivery by a form not listed, and the mitigation is that the forms are
+read from the launchers rather than imagined.
+
 ## Running it
 
 Locally, against the sibling checkouts in the parent directory:

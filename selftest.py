@@ -1335,6 +1335,50 @@ MUTATIONS: dict[str, list[tuple[str, callable]]] = {
             lambda m: m["components"][0]["declared"]["a_launcher_may_probe_something_else"].__setitem__("why", "  "),
         ),
     )],
+    # ---- C16
+    #
+    # Both sides are mutated, because both sides can be wrong. A launcher that
+    # hands over a name nobody reads is the defect this check was written for;
+    # a repository that stops declaring what it reads makes the same comparison
+    # come out clean for the opposite reason.
+    "c16.no-reader": [(
+        # The WARDRYX_DSN shape: a correct value under a name no binary reads.
+        "a launcher hands over a variable nobody declares reading",
+        lambda r: edit(r, "stack-up/up.sh", "VOUCHRYX_ADDR=", "VOUCHRYX_DSN="),
+    ), (
+        # And the same finding from the other direction: the delivery is
+        # unchanged and the declaration is what moved. A check comparing only
+        # one side would stay green through this.
+        "the repository stops declaring the variable the launcher hands it",
+        lambda r: manifest_edit(
+            r, "vouchryx",
+            lambda m: m["components"][0]["checked"]["env"].pop("VOUCHRYX_ADDR"),
+        ),
+    )],
+    "c16.declarations": [(
+        "not one repository declares what it reads",
+        lambda r: [
+            manifest_edit(r, "vouchryx", lambda m: m["components"][0]["checked"].pop("env")),
+            manifest_edit(r, "costcrew", lambda m: m["components"][0]["checked"].pop("env")),
+        ],
+    )],
+    "c16.manifest-unreadable": [(
+        # One manifest unreadable while another still declares: the finding has
+        # to be about THAT repository, not swallowed by the empty-answer case.
+        "a declaring manifest that is not JSON",
+        lambda r: (r / "costcrew" / "components.json").write_text("{ not json\n"),
+    )],
+    "c16.nothing-delivered": [(
+        # Three launchers install this estate. If none of them hands over a
+        # single service-prefixed variable, the delivery forms have stopped
+        # matching and the check is comparing an empty set.
+        "no launcher hands over anything the estate declares",
+        lambda r: edit(r, "stack-up/up.sh", 'VOUCHRYX_ADDR="127.0.0.1:4310" \\\n', ""),
+    )],
+    "c16.launcher-unreadable": [(
+        "the launcher whose environment is read is gone",
+        lambda r: drop(r, "stack-up/up.sh"),
+    )],
     "c15.probe-unreadable": [(
         "the launcher whose probes are read is gone",
         lambda r: drop(r, "stack-up/up.sh"),

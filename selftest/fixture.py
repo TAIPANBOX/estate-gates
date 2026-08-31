@@ -853,6 +853,8 @@ start_heraldyx() {
 # The health probes a launcher makes, which C15 compares against what each
 # component's own repository declares. The path is the fourth argument and
 # defaults to /healthz when absent.
+VOUCHRYX_ADDR="127.0.0.1:4310" \\
+  "$VOUCHRYX_BIN" serve &
 register vouchryx "$!" TERM
 wait_health vouchryx 4310 "$!" "/.well-known/jwks.json"
 wait_health wardryx 8090 "$!"
@@ -1369,7 +1371,11 @@ ESTATE: dict[str, dict] = {
     {
       "name": "costcrew",
       "class": "service",
-      "checked": { "package": "github.com/TAIPANBOX/costcrew/cmd/costcrew", "health_path": "/healthz" },
+      "checked": {
+        "package": "github.com/TAIPANBOX/costcrew/cmd/costcrew",
+        "health_path": "/healthz",
+        "env": { "COSTCREW_ADDR": { "required": false } }
+      },
       "declared": {
         "enforces_nothing": { "value": true, "why": "fixture: checkable only as an absence" }
       }
@@ -1415,7 +1421,11 @@ func TestWireTypesIsExactlyWhatTheCallSitesProduce(t *testing.T) {}
     {
       "name": "vouchryx",
       "class": "service",
-      "checked": { "package": "github.com/TAIPANBOX/vouchryx/cmd/vouchryx", "health_path": "/healthz" },
+      "checked": {
+        "package": "github.com/TAIPANBOX/vouchryx/cmd/vouchryx",
+        "health_path": "/healthz",
+        "env": { "VOUCHRYX_ADDR": { "required": false }, "VOUCHRYX_ISSUER": { "required": true } }
+      },
       "declared": {
         "a_launcher_may_probe_something_else": {
           "value": "/.well-known/jwks.json",
