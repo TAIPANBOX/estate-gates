@@ -164,7 +164,7 @@ def strip_comments(text: str) -> str:
     return _COMMENT.sub("", text)
 
 
-def declarations(estate: E.Estate) -> tuple[dict[str, set[str]], list[str], list[str]]:
+def declarations(estate: E.Estate) -> tuple[dict[str, set[str]], dict[str, set[str]], list[str], list[str]]:
     """Every env name any repository declares, who declared it, and what could not be read.
 
     `unreachable` is kept apart from `unreadable` on purpose. A repository this
@@ -173,6 +173,7 @@ def declarations(estate: E.Estate) -> tuple[dict[str, set[str]], list[str], list
     how a partial run comes to look like a finding.
     """
     names: dict[str, set[str]] = {}
+    accounted: dict[str, set[str]] = {}
     unreadable: list[str] = []
     unreachable: list[str] = []
     for repo in sorted(estate.repos):
@@ -190,7 +191,9 @@ def declarations(estate: E.Estate) -> tuple[dict[str, set[str]], list[str], list
             continue
         for name in env_names(doc):
             names.setdefault(name, set()).add(repo)
-    return names, unreadable, unreachable
+        for name in named_in_a_declared_reason(doc):
+            accounted.setdefault(name, set()).add(repo)
+    return names, accounted, unreadable, unreachable
 
 
 def env_names(node) -> set[str]:
@@ -205,6 +208,36 @@ def env_names(node) -> set[str]:
     elif isinstance(node, list):
         for value in node:
             out |= env_names(value)
+    return out
+
+
+def named_in_a_declared_reason(doc) -> set[str]:
+    """Names a manifest's `declared` prose accounts for.
+
+    C15's vocabulary already separates what a repository can prove from what it
+    can only state with a reason, and a variable read INDIRECTLY is the second
+    kind. genaryx reads `GENARYX_COPILOT_API_KEY_REF=env:<NAME>` and then
+    whatever variable that reference points at, so the name is the deployment's
+    choice and no check inside genaryx can see it. Its manifest says exactly
+    that, under a `why`, and naming `GENARYX_COPILOT_KEY` in the sentence.
+
+    Reading those sentences is the same move C12 makes when it accepts a member
+    the record plane's own prose argues belongs in the payload plane: the rule
+    is that an ANSWER exists, never which answer it is.
+    """
+    out: set[str] = set()
+    if isinstance(doc, dict):
+        for key, value in doc.items():
+            if key == "declared" and isinstance(value, dict):
+                for entry in value.values():
+                    if isinstance(entry, dict):
+                        text = f"{entry.get('value', '')} {entry.get('why', '')}"
+                        out.update(re.findall(r"\b[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+\b", text))
+            else:
+                out |= named_in_a_declared_reason(value)
+    elif isinstance(doc, list):
+        for value in doc:
+            out |= named_in_a_declared_reason(value)
     return out
 
 
@@ -230,7 +263,7 @@ def delivered(estate: E.Estate, repo: str) -> dict[str, set[str]]:
 def run(estate: E.Estate) -> E.Check:
     c = E.Check("C16", "a launcher's environment reaches a reader", estate)
 
-    declared, unreadable, unreachable = declarations(estate)
+    declared, accounted, unreadable, unreachable = declarations(estate)
     for repo in unreadable:
         c.missing(
             f"c16.manifest-unreadable:{repo}",
@@ -289,6 +322,12 @@ def run(estate: E.Estate) -> E.Check:
         where = ", ".join(sorted(subjects[name]))
         if name in declared:
             c.ok(f"c16.reaches:{name}", f"read by {', '.join(sorted(declared[name]))}")
+        elif name in accounted:
+            c.ok(
+                f"c16.reaches:{name}",
+                f"read indirectly, and {', '.join(sorted(accounted[name]))} says so "
+                "under a declared reason",
+            )
         else:
             c.drift(
                 f"c16.no-reader:{name}",
