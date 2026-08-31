@@ -60,15 +60,39 @@ would bury the real finding. Comments are stripped first, so prose ABOUT a
 variable, including the comment recording the `WARDRYX_DSN` fix, is not a
 delivery.
 
+WHY A SHARED ConfigMap's KEYS ARE NOT SUBJECTS
+
+The first version of this check counted every key of `stack-wiring` as
+delivered and reported seven findings. Three were wrong, and all three for the
+same reason: a shared ConfigMap is not a service's environment.
+
+`TOKENFUSE_CLOUD_EVENTS_PATH` is the clearest. It is a KEY, and the container
+receives its value under a different NAME:
+
+    - name: TOKENFUSE_EVENTS_PATH
+      valueFrom: { configMapKeyRef: { name: stack-wiring, key: TOKENFUSE_CLOUD_EVENTS_PATH } }
+
+tokenfuse declares and reads `TOKENFUSE_EVENTS_PATH`. Nothing was wrong, and a
+check that called it dead would have argued for breaking a working deployment.
+`IDRYX_URL` is the same shape, and `TRAILRYX_TRUST_DOMAIN` is a third: stack-k8s
+interpolates it into a `--trust-domain` argument in a CronJob it writes itself,
+and trailryx's own suite deliberately keeps it OUT of its manifest, saying so in
+as many words. Three repositories were right and the check was wrong.
+
+So the subject is delivery to ONE service: a container's own `env:` entry, a
+compose service's own `environment:` mapping, a shell command prefix. A key
+that lands in ten containers by `envFrom` and is read by one of them is not a
+finding, it is how a shared wiring map works.
+
+That is also the shape the defect this check exists for actually had.
+`WARDRYX_DSN` was in the wardryx service's own `environment:` block.
+
 THE LIMIT, AND IT IS A REAL ONE
 
-A ConfigMap key counts as delivered without proving some container mounts it
-with `envFrom`, and a shell command prefix is recognised by its line
-continuation. Both can over-count, and over-counting here produces a finding
-that a human dismisses rather than a silence nobody sees, which is the
-direction this suite errs in on purpose. What it cannot do is see a variable a
-launcher delivers by a form not listed below; that is a false negative, and the
-mitigation is that the forms are read from the launchers rather than imagined.
+A variable delivered by a form not listed below is invisible here, and nothing
+would say so. The mitigation is that the forms are read from the launchers
+rather than imagined, and the narrowing above cost coverage on purpose: three
+false findings buy a check somebody still reads at the tenth run.
 
 A run that finds no declarations, or no delivered variables, says it measured
 nothing and fails. That is not a pass.
@@ -95,18 +119,42 @@ LAUNCHERS = {
     "stack-up": ("up.sh", ""),
 }
 
-#: The four forms a launcher in this estate uses to hand a variable to a
-#: process. Read off the launchers themselves, not invented here.
+#: The forms by which a launcher hands a variable to ONE service. Read off the
+#: launchers themselves, not invented here.
 DELIVERY = [
     # k8s block env entry:      - name: WARDRYX_KEYS
     (re.compile(r"^\s*-\s*name:\s*([A-Z][A-Z0-9_]+)\s*$", re.M), "a container env entry"),
     # k8s flow env entry:       - { name: TOKENFUSE_ADDR, value: "..." }
     (re.compile(r"\{\s*name:\s*([A-Z][A-Z0-9_]+)\s*,", re.M), "a container env entry"),
-    # yaml mapping key:         WARDRYX_DB: ${POLICY_DB_DSN}   (compose, ConfigMap)
-    (re.compile(r"^\s{2,}([A-Z][A-Z0-9_]+):\s*\S", re.M), "a compose or ConfigMap key"),
     # shell command prefix:     WARDRYX_KEYS="" \
     (re.compile(r"^\s*([A-Z][A-Z0-9_]+)=\S.*\\\s*$", re.M), "a shell command prefix"),
 ]
+
+#: A compose service's own `environment:` mapping, which is the fourth form and
+#: needs the block's indentation rather than a single line to recognise.
+_ENVIRONMENT = re.compile(r"^(\s*)environment:\s*$", re.M)
+_ENV_KEY = re.compile(r"^(\s*)([A-Z][A-Z0-9_]+):")
+
+
+def compose_environment(text: str) -> set[str]:
+    """Keys under a service's `environment:`, and nothing else in the file."""
+    out: set[str] = set()
+    inside = 0
+    for line in text.splitlines():
+        opened = _ENVIRONMENT.match(line)
+        if opened:
+            inside = len(opened.group(1)) + 1
+            continue
+        if not inside:
+            continue
+        key = _ENV_KEY.match(line)
+        if key and len(key.group(1)) >= inside:
+            out.add(key.group(2))
+            continue
+        if line.strip() and not line.startswith(" " * inside):
+            inside = 0
+    return out
+
 
 _COMMENT = re.compile(r"(^|\s)#.*$", re.M)
 
@@ -174,6 +222,8 @@ def delivered(estate: E.Estate, repo: str) -> dict[str, set[str]]:
         for pattern, _form in DELIVERY:
             for match in pattern.finditer(text):
                 out.setdefault(match.group(1), set()).add(path)
+        for name in compose_environment(text):
+            out.setdefault(name, set()).add(path)
     return out
 
 
