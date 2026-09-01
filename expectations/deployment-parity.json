@@ -105,6 +105,11 @@
           "recorded": "2026-08-06",
           "provenance": "@claude",
           "why": "Not a component port: `genaryx-console-lb` is a LoadBalancer Service in front of the console, so 443 is an ingress port and the console itself is still on the agreed 7420 in the same repo. It is deliberately EXCLUDED from stack-k8s's default kustomization because a cloud load balancer is metered, so a default install never creates it. stack-single reaches the same place with caddy. Recorded rather than filtered out in code, because 'Services of this type do not count' is a decision and decisions belong in this file where somebody can disagree with them."
+        },
+        "ports:stack-k8s:unagreed:costcrew=8321": {
+          "recorded": "2026-09-01",
+          "provenance": "@claude",
+          "why": "The port of the opt-in plane recorded one entry above, and it moves with it: 8321 is what 49-costcrew.yaml publishes and what costcrew's own components.json declares as its `listen_default`, so the two agree and the only thing missing was this file's word for it. Nothing metered and nothing exposed: the Service is cluster-internal, exactly like the four planes in the agreed map."
         }
       }
     },
@@ -154,7 +159,7 @@
         "services:stack-up:extra:vouchryx": {
           "recorded": "2026-08-27",
           "provenance": "@yurii 2026-08-27",
-          "why": "A DECISION, and his: the estate is one product installed by function («з можливістю встановлення за окремими функціоналами»), and `delegate` is one of those functions rather than part of the base stack. stack-up gained it first because it is the sandbox; stack-single and stack-k8s are step 3 of agent-market-research-2026-08/PLAN.md section 8 and will follow. Recorded as `extra` rather than by adding vouchryx to `agreed` on purpose: `agreed` is what every deployment brings up, and an opt-in profile is not that. Measured 2026-08-27 on a real ./up.sh --with-delegation: the gateway reports `delegation door: ON` and refuses a revoked token with HTTP 401, while the same launcher without the flag returns 200 to that same revoked token because the door never examines it. NOTE for whoever adds the other two: this file's model has no notion of a PROFILE, only of agreed/extra/absent, so a second and third deployment installing vouchryx will read here as two more `extra` entries rather than as one decision. That is a limit of C5 worth fixing when it bites, not a reason to write the wrong thing now."
+          "why": "A DECISION, and his: the estate is one product installed by function (\u00ab\u0437 \u043c\u043e\u0436\u043b\u0438\u0432\u0456\u0441\u0442\u044e \u0432\u0441\u0442\u0430\u043d\u043e\u0432\u043b\u0435\u043d\u043d\u044f \u0437\u0430 \u043e\u043a\u0440\u0435\u043c\u0438\u043c\u0438 \u0444\u0443\u043d\u043a\u0446\u0456\u043e\u043d\u0430\u043b\u0430\u043c\u0438\u00bb), and `delegate` is one of those functions rather than part of the base stack. stack-up gained it first because it is the sandbox; stack-single and stack-k8s are step 3 of agent-market-research-2026-08/PLAN.md section 8 and will follow. Recorded as `extra` rather than by adding vouchryx to `agreed` on purpose: `agreed` is what every deployment brings up, and an opt-in profile is not that. Measured 2026-08-27 on a real ./up.sh --with-delegation: the gateway reports `delegation door: ON` and refuses a revoked token with HTTP 401, while the same launcher without the flag returns 200 to that same revoked token because the door never examines it. NOTE for whoever adds the other two: this file's model has no notion of a PROFILE, only of agreed/extra/absent, so a second and third deployment installing vouchryx will read here as two more `extra` entries rather than as one decision. That is a limit of C5 worth fixing when it bites, not a reason to write the wrong thing now."
         },
         "services:stack-up:extra:costcrew": {
           "recorded": "2026-08-28",
@@ -180,6 +185,11 @@
           "recorded": "2026-08-28",
           "provenance": "@claude",
           "why": "A ROUTINE that runs as a compose SERVICE, which is why it shows up in this family at all: the quality drift check, reading verdryx.db off the console's volume read-only. compose has no cron, so the `routines` profile runs each as a long-lived loop, exactly as the `record` profile already ran trailryx-seal.\\n\\nSo the same work is a CronJob in stack-k8s, a timer entry in stack-up, and a service here. It is recorded in BOTH families on purpose: as a service because compose starts it, and in the routines family because that is the question somebody actually asks. This file's model has no notion of a routine that is also a service, which is the third time its shape has cost an extra entry, after the two profiles."
+        },
+        "services:stack-k8s:extra:costcrew": {
+          "recorded": "2026-09-01",
+          "provenance": "@claude",
+          "why": "An OPT-IN plane, and the manifest says so itself: 49-costcrew.yaml is deliberately not in kustomization.yaml, verified on origin/main, so a default `kubectl apply -k manifests/` never brings it up. Its own header gives the reason and separates it from the other opt-ins: \"The console below grants nothing and calls nobody. It is opt-in because it is a whole plane somebody may simply not want, and because the half of it that CAN spend money is in this file too, suspended.\"\n\nRecorded as `extra` rather than by adding costcrew to `agreed`, for the same reason vouchryx was: `agreed` is what EVERY deployment brings up, and an opt-in plane is not that. It is the second entry of this shape under the standing decision that the estate installs by function (@yurii 2026-08-27), and the same NOTE applies: this file's model has no notion of a profile, so stack-single and stack-up gaining the finops plane will read here as two more `extra` entries rather than as one decision.\n\nThis entry is @claude. Yurii said to close C5 on 2026-09-01; he did not say anything about costcrew's deployment shape, and the sentence above is read off the manifest and the kustomization rather than quoted from him."
         }
       }
     },

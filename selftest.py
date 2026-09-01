@@ -1203,9 +1203,31 @@ MUTATIONS: dict[str, list[tuple[str, callable]]] = {
         lambda r: (drop(r, "stack-up/routines.sh"), drop(r, "stack-single/compose.yaml")),
     )],
     "c5.routine-unmapped": [(
+        # The needle moved when the fixture gained `costcrew-crew`, and `edit`
+        # would have refused a stale one rather than mutating nothing. It is the
+        # last name on the line either way.
         "a deployment installs a routine with an unknown name",
         lambda r: edit(
-            r, "stack-up/routines.sh", "mockryx-drill)", "mockryx-drill weekly-sweep)"
+            r, "stack-up/routines.sh", "costcrew-crew)", "costcrew-crew weekly-sweep)"
+        ),
+    ), (
+        # The other direction, and the one the manual-job reader could have
+        # switched off in silence. `costcrew-crew` is in the launcher's routine
+        # list and out of the routine QUESTION, because the launcher declares it
+        # a manual job. Take that declaration away and the finding must come
+        # back: a check that drops a CronJob from its subject set on nobody's
+        # word has stopped asking rather than been answered.
+        #
+        # This is the mutation that pays for reading `manual_jobs` at all.
+        # Mapping `costcrew-crew` into ROUTINE_KIND was the easy way to make C5
+        # green on 2026-09-01, and stack-k8s's own manifest says in as many
+        # words why that would have been a falsehood: it would put a schedule
+        # nobody keeps into the record of what runs where, on the one job in
+        # that namespace that spends outside the cluster.
+        "the launcher stops declaring its manual job",
+        lambda r: manifest_edit(
+            r, "stack-up",
+            lambda m: m["components"][0]["checked"].pop("manual_jobs"),
         ),
     )],
     "c5.unread-scheduler": [(

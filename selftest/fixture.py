@@ -806,7 +806,7 @@ pub fn run(args: DemoArgs) -> Result<()> {
 STACK_UP_ROUTINES = """#!/usr/bin/env bash
 # The five governance routines.
 
-ROUTINE_NAMES=(focus-export qryx-trend verdryx-drift idryx-detect mockryx-drill)
+ROUTINE_NAMES=(focus-export qryx-trend verdryx-drift idryx-detect mockryx-drill costcrew-crew)
 DEFAULT_ROUTINES=(focus-export qryx-trend verdryx-drift idryx-detect)
 """
 
@@ -1506,7 +1506,10 @@ func TestWireTypesIsExactlyWhatTheCallSitesProduce(t *testing.T) {}
       "checked": {
         "installs_services": ["costcrew", "vouchryx"],
         "installs_python_tools": [],
-        "schedules_routines": ["mockryx-drill"]
+        "schedules_routines": ["mockryx-drill"],
+        "manual_jobs": {
+          "costcrew-crew": "A template a person runs, not a schedule. The baseline case for the manual-job reader: a launcher installs something that looks like a routine from outside, and only the launcher can say it is not one. Take this line away and C5 must go back to reporting it unmapped, which is the mutation that pays for this."
+        }
       },
       "declared": {}
     }
