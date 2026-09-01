@@ -87,12 +87,56 @@ finding, it is how a shared wiring map works.
 That is also the shape the defect this check exists for actually had.
 `WARDRYX_DSN` was in the wardryx service's own `environment:` block.
 
+WHEN THE READER IS A FLAG AND NOT THE ENVIRONMENT
+
+Kubernetes expands `$(NAME)` inside a container's `command` and `args` from that
+container's own `env`, and the launchers use it deliberately, so that one
+ConfigMap key reaches an argument without being written twice:
+
+    args:
+      - "-stack-host"
+      - "$(TRAILRYX_TRUST_DOMAIN)"
+    env:
+      - name: TRAILRYX_TRUST_DOMAIN
+        valueFrom: { configMapKeyRef: { name: stack-wiring, key: TRAILRYX_TRUST_DOMAIN } }
+
+The variable really is in that container's own `env`, so it is a subject by the
+rule above, and the process really does read it, as `-stack-host`. Asking
+whether any repository declares an ENVIRONMENT variable of that name is then the
+wrong question, and it has no right answer: the reading repository declares a
+FLAG, because a flag is what its binary defines.
+
+The prose above already recorded this shape once, about
+`TRAILRYX_TRUST_DOMAIN`, and called the check wrong for firing on it. It came
+back on 2026-09-01 when the finops plane put the same value in a container's own
+`env` block rather than in a CronJob's, which is the form this check does watch.
+
+So a subject whose value is substituted into an argument is answered by the
+FLAG it lands on, and BOTH questions are asked: a repository may declare the
+environment name, or the flag, and either is a reader. Asking only the flag
+would drop the case where a process genuinely reads the variable as well.
+
+**This narrows nothing.** A variable substituted into a flag NOBODY declares is
+still a finding, and that is not hypothetical: `COSTCREW_CEILING` reached
+`costcrew-run`'s `-ceiling`, the flag existed, and costcrew's manifest declared
+no flags for that binary at all. The `-live` run refuses to start without it, so
+the one figure between a crew of agents and a provider account had no declared
+reader anywhere in the estate. That is the finding this change keeps and the
+false pair it drops.
+
 THE LIMIT, AND IT IS A REAL ONE
 
 A variable delivered by a form not listed below is invisible here, and nothing
 would say so. The mitigation is that the forms are read from the launchers
 rather than imagined, and the narrowing above cost coverage on purpose: three
 false findings buy a check somebody still reads at the tenth run.
+
+The substitution reader is read the same narrow way: a `$(NAME)` is attributed
+to a flag only when a flag token immediately precedes it, as the next list item
+or on the same line. Anything looser would let any nearby hyphenated word answer
+for a variable, which is how a `why` field nearly became a place findings could
+be dismissed by accident. Where no flag precedes it, nothing is attributed and
+the subject is judged exactly as before.
 
 A run that finds no declarations, or no delivered variables, says it measured
 nothing and fails. That is not a pass.
@@ -164,8 +208,8 @@ def strip_comments(text: str) -> str:
     return _COMMENT.sub("", text)
 
 
-def declarations(estate: E.Estate) -> tuple[dict[str, set[str]], dict[str, set[str]], list[str], list[str]]:
-    """Every env name any repository declares, who declared it, and what could not be read.
+def declarations(estate: E.Estate) -> tuple[dict[str, set[str]], dict[str, set[str]], dict[str, set[str]], list[str], list[str]]:
+    """Every env name and flag any repository declares, who declared it, and what could not be read.
 
     `unreachable` is kept apart from `unreadable` on purpose. A repository this
     run could not fetch makes the answer INCOMPLETE, which is a different
@@ -173,6 +217,7 @@ def declarations(estate: E.Estate) -> tuple[dict[str, set[str]], dict[str, set[s
     how a partial run comes to look like a finding.
     """
     names: dict[str, set[str]] = {}
+    flags: dict[str, set[str]] = {}
     accounted: dict[str, set[str]] = {}
     unreadable: list[str] = []
     unreachable: list[str] = []
@@ -191,9 +236,11 @@ def declarations(estate: E.Estate) -> tuple[dict[str, set[str]], dict[str, set[s
             continue
         for name in env_names(doc):
             names.setdefault(name, set()).add(repo)
+        for name in flag_names(doc):
+            flags.setdefault(name, set()).add(repo)
         for name in named_in_a_declared_reason(doc):
             accounted.setdefault(name, set()).add(repo)
-    return names, accounted, unreadable, unreachable
+    return names, flags, accounted, unreadable, unreachable
 
 
 def env_names(node) -> set[str]:
@@ -208,6 +255,65 @@ def env_names(node) -> set[str]:
     elif isinstance(node, list):
         for value in node:
             out |= env_names(value)
+    return out
+
+
+def flag_names(node) -> set[str]:
+    """Every key under any `flags` block, at any depth of the manifest.
+
+    The mirror of `env_names`. A repository configured by flags rather than by
+    the environment declares them here, proved against its own `flag.String`
+    call sites by its own suite, exactly as the env block is.
+    """
+    out: set[str] = set()
+    if isinstance(node, dict):
+        for key, value in node.items():
+            if key == "flags" and isinstance(value, dict):
+                out.update(value)
+            else:
+                out |= flag_names(value)
+    elif isinstance(node, list):
+        for value in node:
+            out |= flag_names(value)
+    return out
+
+
+#: `$(NAME)`, which is how Kubernetes reaches a container's own env from its
+#: args. The launchers write it in two shapes and only two.
+_SUBST = re.compile(r"\$\(([A-Z][A-Z0-9_]+)\)")
+#: A flag token, quoted or bare, at the end of what precedes a substitution.
+#: Anchored at the end on purpose: a flag three tokens back is not this
+#: variable's flag, and guessing one would answer for a finding by accident.
+_FLAG_BEFORE = re.compile(
+    r"(?:^|[\s\[\{,])[\"\']?(-{1,2}([a-z][a-z0-9-]*))[\"\']?"
+    r"(?:[\s,\]\}]*|=)\s*$"
+)
+
+
+def substituted_into_flags(text: str) -> dict[str, set[str]]:
+    """Variables whose value is substituted into a command-line flag, and which.
+
+    Two shapes, both read off the launchers rather than imagined:
+
+        - "-stack-host"          a YAML list item, the flag on the line before
+        - "$(TRAILRYX_TRUST_DOMAIN)"
+
+        --trust-domain "$(TRAILRYX_TRUST_DOMAIN)"     one line, and the `=` form
+
+    Attribution requires the flag to be the LAST thing before the substitution,
+    so a hyphenated word earlier in the file cannot answer for a variable.
+    """
+    out: dict[str, set[str]] = {}
+    for m in _SUBST.finditer(text):
+        before = text[max(0, m.start() - 200):m.start()]
+        # The previous list item counts as adjacent: strip one line break and
+        # the indentation, dash and opening quote of a YAML sequence entry.
+        # The quote is not optional to handle: every arg list in this estate is
+        # quoted, and without it nothing matched at all.
+        candidate = re.sub(r"\n\s*-\s*[\"\']?$", " ", before)
+        hit = _FLAG_BEFORE.search(candidate)
+        if hit:
+            out.setdefault(m.group(1), set()).add(hit.group(2))
     return out
 
 
@@ -261,8 +367,12 @@ def named_in_a_declared_reason(doc) -> set[str]:
     return out
 
 
-def delivered(estate: E.Estate, repo: str) -> dict[str, set[str]]:
-    """Every variable this launcher hands to a process, and where."""
+def delivered(estate: E.Estate, repo: str) -> tuple[dict[str, set[str]], dict[str, set[str]]]:
+    """Every variable this launcher hands to a process, where, and any flag it feeds.
+
+    Both come off the same comment-stripped text, so prose showing a
+    substitution is no more a delivery than prose naming a variable is.
+    """
     where, suffix = LAUNCHERS[repo]
     paths = (
         [p for p in estate.list_files(repo, suffix) if p.startswith(where)]
@@ -270,6 +380,7 @@ def delivered(estate: E.Estate, repo: str) -> dict[str, set[str]]:
         else [where]
     )
     out: dict[str, set[str]] = {}
+    subst: dict[str, set[str]] = {}
     for path in paths:
         text = strip_comments(estate.read_text(repo, path))
         for pattern, _form in DELIVERY:
@@ -277,13 +388,15 @@ def delivered(estate: E.Estate, repo: str) -> dict[str, set[str]]:
                 out.setdefault(match.group(1), set()).add(path)
         for name in compose_environment(text):
             out.setdefault(name, set()).add(path)
-    return out
+        for name, flags in substituted_into_flags(text).items():
+            subst.setdefault(name, set()).update(flags)
+    return out, subst
 
 
 def run(estate: E.Estate) -> E.Check:
     c = E.Check("C16", "a launcher's environment reaches a reader", estate)
 
-    declared, accounted, unreadable, unreachable = declarations(estate)
+    declared, declared_flags, accounted, unreadable, unreachable = declarations(estate)
     for repo in unreadable:
         c.missing(
             f"c16.manifest-unreadable:{repo}",
@@ -310,9 +423,10 @@ def run(estate: E.Estate) -> E.Check:
     subjects: dict[str, set[str]] = {}
 
     launchers_unreachable = False
+    feeds: dict[str, set[str]] = {}
     for repo in LAUNCHERS:
         try:
-            found = delivered(estate, repo)
+            found, subst = delivered(estate, repo)
         except E.Unavailable as u:
             c.unavailable(f"c16.launcher-unavailable:{repo}", str(u))
             launchers_unreachable = True
@@ -320,6 +434,8 @@ def run(estate: E.Estate) -> E.Check:
         except E.Missing as m:
             c.missing(f"c16.launcher-unreadable:{repo}", str(m))
             continue
+        for name, flags in subst.items():
+            feeds.setdefault(name, set()).update(flags)
         for name, paths in found.items():
             if any(name.startswith(p + "_") for p in prefixes):
                 subjects.setdefault(name, set()).update(f"{repo}/{p}" for p in paths)
@@ -342,6 +458,13 @@ def run(estate: E.Estate) -> E.Check:
         where = ", ".join(sorted(subjects[name]))
         if name in declared:
             c.ok(f"c16.reaches:{name}", f"read by {', '.join(sorted(declared[name]))}")
+        elif feeds.get(name, set()) & set(declared_flags):
+            reached = sorted(feeds[name] & set(declared_flags))
+            who = sorted({r for f in reached for r in declared_flags[f]})
+            c.ok(
+                f"c16.reaches:{name}",
+                f"substituted into -{', -'.join(reached)}, declared by {', '.join(who)}",
+            )
         elif name in accounted:
             c.ok(
                 f"c16.reaches:{name}",
@@ -354,6 +477,10 @@ def run(estate: E.Estate) -> E.Check:
                 f"`{name}` is handed to a process and no repository declares reading it",
                 [
                     f"Set in {where}.",
+                    (f"Its value is substituted into -{', -'.join(sorted(feeds[name]))}, "
+                     "and no repository declares that flag either."
+                     if feeds.get(name) else
+                     "No argument substitutes it either, so a flag is not the reader."),
                     "Either the launcher is wiring nothing, which is silent because "
                     "the value is correct and the service starts and answers, or a "
                     "repository reads it and its own components.json does not say so.",
