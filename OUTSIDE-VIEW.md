@@ -1,6 +1,6 @@
 # The estate from outside
 
-**Taken 2026-09-01 19:07 UTC.** Regenerated, never edited by hand:
+**Taken 2026-09-01 21:02 UTC.** Regenerated, never edited by hand:
 
 ```
 ./scripts/outside-view.py --write OUTSIDE-VIEW.md
