@@ -230,9 +230,19 @@ def named_in_a_declared_reason(doc) -> set[str]:
         for key, value in doc.items():
             if key == "declared" and isinstance(value, dict):
                 for entry in value.values():
-                    if isinstance(entry, dict):
-                        text = f"{entry.get('value', '')} {entry.get('why', '')}"
-                        out.update(re.findall(r"\b[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+\b", text))
+                    if not isinstance(entry, dict):
+                        continue
+                    text = f"{entry.get('value', '')} {entry.get('why', '')}"
+                    # Only an entry documenting an environment INDIRECTION can
+                    # answer for a name. Without this the rule was any prose
+                    # mentioning any uppercase token, which today masks exactly
+                    # one finding and tomorrow masks whichever one somebody
+                    # happens to name in a sentence. A `why` is written to be
+                    # read by a person; it must not become a place a finding
+                    # can be dismissed by accident.
+                    if "env:" not in text:
+                        continue
+                    out.update(re.findall(r"\b[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+\b", text))
             else:
                 out |= named_in_a_declared_reason(value)
     elif isinstance(doc, list):
