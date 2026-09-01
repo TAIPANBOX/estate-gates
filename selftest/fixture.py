@@ -1054,6 +1054,33 @@ metadata:
   namespace: agent-stack
 spec:
   schedule: "42 4 * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+            # The flag reader's baseline. `COSTCREW_HOST` is in this
+            # container's own `env`, which is what makes it a subject, and the
+            # process reads it as `-stack-host`, which is what costcrew's
+            # manifest declares. Asking whether any repository declares an
+            # ENVIRONMENT variable of that name has no right answer, and C16
+            # asked exactly that until 2026-09-01.
+            #
+            # It lives here rather than in a new Deployment because C5's
+            # subject is which SERVICES come up: a new one would have made the
+            # flag reader's proof cost an unrecorded divergence in a different
+            # gate, which is a fixture teaching two things at once.
+            #
+            # And it belongs in the baseline rather than in a mutation, because
+            # an overeager check is not a red path. The proof that the flag
+            # reader works is that this passes; the proof that it did not turn
+            # into an excuse is the mutation that takes the declaration away.
+            - name: sweep
+              args:
+                - "-stack-host"
+                - "$(COSTCREW_HOST)"
+              env:
+                - name: COSTCREW_HOST
 ---
 apiVersion: batch/v1
 kind: CronJob
@@ -1374,7 +1401,8 @@ ESTATE: dict[str, dict] = {
       "checked": {
         "package": "github.com/TAIPANBOX/costcrew/cmd/costcrew",
         "health_path": "/healthz",
-        "env": { "COSTCREW_ADDR": { "required": false } }
+        "env": { "COSTCREW_ADDR": { "required": false } },
+        "flags": { "stack-host": { "required": false } }
       },
       "declared": {
         "enforces_nothing": { "value": true, "why": "fixture: checkable only as an absence" }

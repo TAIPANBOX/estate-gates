@@ -1354,6 +1354,24 @@ MUTATIONS: dict[str, list[tuple[str, callable]]] = {
             r, "vouchryx",
             lambda m: m["components"][0]["checked"]["env"].pop("VOUCHRYX_ADDR"),
         ),
+    ), (
+        # The third direction, and the one the substitution reader could have
+        # switched off in silence. `COSTCREW_HOST` is delivered only so an
+        # argument can substitute it, so its reader is the FLAG. Take that flag
+        # out of the declaration and the finding must come back: a check that
+        # follows a substitution into a flag NOBODY declares has stopped
+        # checking and started excusing.
+        #
+        # This is the mutation that pays for the fixture case above. Without
+        # it, "C16 now passes more things" would be indistinguishable from
+        # "C16 now passes everything of this shape", and the real finding it
+        # kept on the live estate, costcrew-run's undeclared `-ceiling`, would
+        # have no counterpart here.
+        "the flag a substituted variable lands on stops being declared",
+        lambda r: manifest_edit(
+            r, "costcrew",
+            lambda m: m["components"][0]["checked"]["flags"].pop("stack-host"),
+        ),
     )],
     "c16.declarations": [(
         "not one repository declares what it reads",
@@ -1372,8 +1390,20 @@ MUTATIONS: dict[str, list[tuple[str, callable]]] = {
         # Three launchers install this estate. If none of them hands over a
         # single service-prefixed variable, the delivery forms have stopped
         # matching and the check is comparing an empty set.
+        #
+        # TWO edits, and the second is the price of the flag reader's baseline.
+        # Adding `COSTCREW_HOST` to the routines manifest gave this fixture a
+        # second delivery, so removing only stack-up's left one standing and
+        # this FAIL path could no longer fire at all. The self-test caught it
+        # on the first run, which is the entire argument for having it: a
+        # fixture case added for one check had quietly turned another check's
+        # red path into a label.
         "no launcher hands over anything the estate declares",
-        lambda r: edit(r, "stack-up/up.sh", 'VOUCHRYX_ADDR="127.0.0.1:4310" \\\n', ""),
+        lambda r: [
+            edit(r, "stack-up/up.sh", 'VOUCHRYX_ADDR="127.0.0.1:4310" \\\n', ""),
+            edit(r, "stack-k8s/manifests/40-routines.yaml",
+                 "              env:\n                - name: COSTCREW_HOST\n", ""),
+        ],
     )],
     "c16.launcher-unreadable": [(
         "the launcher whose environment is read is gone",
