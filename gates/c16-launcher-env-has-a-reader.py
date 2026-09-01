@@ -232,8 +232,18 @@ def named_in_a_declared_reason(doc) -> set[str]:
                 for entry in value.values():
                     if not isinstance(entry, dict):
                         continue
-                    text = f"{entry.get('value', '')} {entry.get('why', '')}"
-                    # Only an entry documenting an environment INDIRECTION can
+                    # An entry whose VALUE is exactly a variable name answers
+                    # for that name. This is the tight form: a repository saying
+                    # "I read this and my own suite cannot prove it" in the one
+                    # field that cannot be satisfied by accident. genaryx uses it
+                    # for three foreign-prefixed reads whose names its own
+                    # prefix-scoped scan structurally cannot see.
+                    value = str(entry.get("value", ""))
+                    if re.fullmatch(r"[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+", value):
+                        out.add(value)
+
+                    text = f"{value} {entry.get('why', '')}"
+                    # And only an entry documenting an environment INDIRECTION can
                     # answer for a name. Without this the rule was any prose
                     # mentioning any uppercase token, which today masks exactly
                     # one finding and tomorrow masks whichever one somebody
