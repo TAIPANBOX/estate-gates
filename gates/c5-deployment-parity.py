@@ -76,6 +76,60 @@ def expectations_path() -> pathlib.Path:
 # place that knowledge lives. A local name absent from a map is a FAIL, not a
 # skip: an unmapped routine is one this check silently would not compare.
 
+#: Where each launcher declares what it installs. C15 owns the manifest's shape;
+#: this check reads exactly one field of it, for exactly one reason below.
+MANIFEST = "components.json"
+
+
+def declared_manual_jobs(estate: E.Estate, repo: str) -> set[str]:
+    """CronJob names the launcher itself says are manual jobs, not routines.
+
+    WHY THIS READS THE LAUNCHER INSTEAD OF DECIDING HERE
+
+    A CronJob in a manifest looks like a routine from outside. Only the
+    repository that wrote it knows whether it is one, and stack-k8s says so in
+    its own manifest, in as many words, about the one CronJob in that namespace
+    that spends on an account outside the cluster:
+
+        Not a routine: mapping it into the estate's routine map would put a
+        schedule nobody keeps into the record of what runs where.
+
+    Mapping `costcrew-crew` into ROUTINE_KIND was the obvious way to make this
+    check green on 2026-09-01, and it would have written that exact falsehood
+    into the estate's record of what runs where, on a job that spends money.
+
+    The declaration is not taken on trust either. stack-k8s's own
+    `manifest-is-true.sh` requires a manifest calling a job manual to actually
+    set `suspend: true`, so a job declared manual and left running fails there,
+    in the repository that can see the manifest. This is the same division
+    invariant 19 draws: the repository declares and proves, this one reads
+    across.
+
+    A launcher with no manifest, or one this run cannot read, declares nothing
+    and every CronJob it installs stays a routine subject. The unmapped finding
+    is the honest answer there, not a skip.
+    """
+    try:
+        doc = json.loads(estate.read_text(repo, MANIFEST))
+    except (E.Missing, E.Unavailable, json.JSONDecodeError):
+        return set()
+
+    def walk(node) -> set[str]:
+        out: set[str] = set()
+        if isinstance(node, dict):
+            for key, value in node.items():
+                if key == "manual_jobs" and isinstance(value, dict):
+                    out.update(value)
+                else:
+                    out |= walk(value)
+        elif isinstance(node, list):
+            for value in node:
+                out |= walk(value)
+        return out
+
+    return walk(doc)
+
+
 ROUTINE_KIND = {
     # stack-up (routines.sh ROUTINE_NAMES)
     "focus-export": "focus-export",
@@ -550,7 +604,21 @@ def run(estate: E.Estate) -> E.Check:
     agreed_routines = set(expectations["families"]["routines"]["agreed"])
     for name, obs in sorted(observed.items()):
         kinds: dict[str, bool] = {}
+        manual = declared_manual_jobs(estate, name)
         for local, enabled in obs["routines"].items():
+            if local in manual:
+                # Said out loud rather than skipped. A CronJob dropped from the
+                # routine question in silence is indistinguishable from one this
+                # check never saw, and the whole reason it is dropped is that
+                # somebody wrote down why.
+                c.ok(
+                    f"c5.manual-not-a-routine:{name}:{local}",
+                    f"{name} installs `{local}` and declares it a manual job "
+                    "rather than a routine, so it is not a subject of the "
+                    "routine question. Its own manifest test requires the "
+                    "manifest to suspend it.",
+                )
+                continue
             kind = ROUTINE_KIND.get(local)
             if kind is None:
                 c.missing(
@@ -558,7 +626,10 @@ def run(estate: E.Estate) -> E.Check:
                     f"{name} installs a routine called `{local}` and this check has "
                     f"no mapping for that name, so it cannot say which of the five "
                     f"governance routines it is (or whether it is a sixth). Add it "
-                    f"to ROUTINE_KIND in this file.",
+                    f"to ROUTINE_KIND in this file, OR, if it is not a routine at "
+                    f"all, declare it under `manual_jobs` in that launcher's own "
+                    f"{MANIFEST}, where the reason lives beside the thing and its "
+                    f"suspension is checked.",
                 )
                 continue
             kinds[kind] = enabled
