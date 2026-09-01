@@ -1194,6 +1194,26 @@ Kept rather than deleted, so the next audit knows what was checked.
 Named so the shape of the unexamined is visible. This section is as important
 as section 3.
 
+- **A wiring key nothing anywhere consumes. C16 dropped this on purpose and it
+  is real.** `@measured 2026-09-01`: `stack-k8s/manifests/00-base.yaml:101`
+  sets `IDRYX_URL: "http://idryx:8081"` in `stack-wiring`. Nothing reads it, in
+  any form: no repository declares it, no `configMapKeyRef` names it, no
+  command interpolates it, and genaryx's copilot reads
+  `GENARYX_DEMO_IDRYX_URL`, a different name. It is delivered by `envFrom` into
+  every container that mounts that ConfigMap and read by none of them.
+
+  C16's first version reported it and two others like it. The two others were
+  wrong, so the check was narrowed to per-service delivery, and this one went
+  with them: a ConfigMap key is now out of scope because its keys are broadcast
+  and unread by most consumers by design. That trade is documented in the gate,
+  and this is what it cost.
+
+  The question that would catch it is a different and weaker one, worth a
+  second finding class rather than a widening: a wiring key consumed by nothing
+  at all, in none of the three ways. `@claude`: the reason it is not built yet
+  is that it is one class and one afternoon, and the check it belongs to was
+  written the same day.
+
 - ~~Six of the eight items in section 3 have not been re-verified.~~ **Done
   2026-08-09.** All seven open ones were opened against the code; six closed,
   one was a wrong finding and is corrected in place. The prior held: the audit

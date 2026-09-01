@@ -240,12 +240,23 @@ variable, including the comment recording the `WARDRYX_DSN` fix, is not a
 delivery. `install.sh` holds shell variables like `WARDRYX_ADMIN_SECRET` that
 reach no process, and flagging those would bury the real finding.
 
-Its limit is stated in the gate: a ConfigMap key counts as delivered without
-proving a container mounts it with `envFrom`, and a shell command prefix is
-recognised by its line continuation. Both can over-count, which produces a
-finding a human dismisses rather than a silence nobody sees. What it cannot see
-is a delivery by a form not listed, and the mitigation is that the forms are
-read from the launchers rather than imagined.
+The subject is delivery to ONE service: a container's own `env:` entry, a
+compose service's own `environment:` mapping, a shell command prefix. A shared
+ConfigMap's keys are not subjects. The first version counted them and reported
+seven findings, three of them wrong for the same reason. The clearest was
+`TOKENFUSE_CLOUD_EVENTS_PATH`, which is a KEY whose value reaches the container
+under a different NAME (`TOKENFUSE_EVENTS_PATH`, which tokenfuse declares and
+reads); `IDRYX_URL` is the same shape, and stack-k8s interpolates
+`TRAILRYX_TRUST_DOMAIN` into an argument in a CronJob it writes itself, which
+trailryx's own suite deliberately keeps out of its manifest and says so. Three
+repositories were right and the check was wrong. Narrowing cost coverage on
+purpose: three false findings buy a check somebody still reads at the tenth run.
+That is also the shape the original defect had, since `WARDRYX_DSN` was in the
+wardryx service's own `environment:` block.
+
+Its remaining limit: a variable delivered by a form not listed is invisible
+here and nothing would say so. The mitigation is that the forms are read from
+the launchers rather than imagined.
 
 ## Running it
 

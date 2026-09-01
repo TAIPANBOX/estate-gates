@@ -60,15 +60,39 @@ would bury the real finding. Comments are stripped first, so prose ABOUT a
 variable, including the comment recording the `WARDRYX_DSN` fix, is not a
 delivery.
 
+WHY A SHARED ConfigMap's KEYS ARE NOT SUBJECTS
+
+The first version of this check counted every key of `stack-wiring` as
+delivered and reported seven findings. Three were wrong, and all three for the
+same reason: a shared ConfigMap is not a service's environment.
+
+`TOKENFUSE_CLOUD_EVENTS_PATH` is the clearest. It is a KEY, and the container
+receives its value under a different NAME:
+
+    - name: TOKENFUSE_EVENTS_PATH
+      valueFrom: { configMapKeyRef: { name: stack-wiring, key: TOKENFUSE_CLOUD_EVENTS_PATH } }
+
+tokenfuse declares and reads `TOKENFUSE_EVENTS_PATH`. Nothing was wrong, and a
+check that called it dead would have argued for breaking a working deployment.
+`IDRYX_URL` is the same shape, and `TRAILRYX_TRUST_DOMAIN` is a third: stack-k8s
+interpolates it into a `--trust-domain` argument in a CronJob it writes itself,
+and trailryx's own suite deliberately keeps it OUT of its manifest, saying so in
+as many words. Three repositories were right and the check was wrong.
+
+So the subject is delivery to ONE service: a container's own `env:` entry, a
+compose service's own `environment:` mapping, a shell command prefix. A key
+that lands in ten containers by `envFrom` and is read by one of them is not a
+finding, it is how a shared wiring map works.
+
+That is also the shape the defect this check exists for actually had.
+`WARDRYX_DSN` was in the wardryx service's own `environment:` block.
+
 THE LIMIT, AND IT IS A REAL ONE
 
-A ConfigMap key counts as delivered without proving some container mounts it
-with `envFrom`, and a shell command prefix is recognised by its line
-continuation. Both can over-count, and over-counting here produces a finding
-that a human dismisses rather than a silence nobody sees, which is the
-direction this suite errs in on purpose. What it cannot do is see a variable a
-launcher delivers by a form not listed below; that is a false negative, and the
-mitigation is that the forms are read from the launchers rather than imagined.
+A variable delivered by a form not listed below is invisible here, and nothing
+would say so. The mitigation is that the forms are read from the launchers
+rather than imagined, and the narrowing above cost coverage on purpose: three
+false findings buy a check somebody still reads at the tenth run.
 
 A run that finds no declarations, or no delivered variables, says it measured
 nothing and fails. That is not a pass.
@@ -95,18 +119,42 @@ LAUNCHERS = {
     "stack-up": ("up.sh", ""),
 }
 
-#: The four forms a launcher in this estate uses to hand a variable to a
-#: process. Read off the launchers themselves, not invented here.
+#: The forms by which a launcher hands a variable to ONE service. Read off the
+#: launchers themselves, not invented here.
 DELIVERY = [
     # k8s block env entry:      - name: WARDRYX_KEYS
     (re.compile(r"^\s*-\s*name:\s*([A-Z][A-Z0-9_]+)\s*$", re.M), "a container env entry"),
     # k8s flow env entry:       - { name: TOKENFUSE_ADDR, value: "..." }
     (re.compile(r"\{\s*name:\s*([A-Z][A-Z0-9_]+)\s*,", re.M), "a container env entry"),
-    # yaml mapping key:         WARDRYX_DB: ${POLICY_DB_DSN}   (compose, ConfigMap)
-    (re.compile(r"^\s{2,}([A-Z][A-Z0-9_]+):\s*\S", re.M), "a compose or ConfigMap key"),
     # shell command prefix:     WARDRYX_KEYS="" \
     (re.compile(r"^\s*([A-Z][A-Z0-9_]+)=\S.*\\\s*$", re.M), "a shell command prefix"),
 ]
+
+#: A compose service's own `environment:` mapping, which is the fourth form and
+#: needs the block's indentation rather than a single line to recognise.
+_ENVIRONMENT = re.compile(r"^(\s*)environment:\s*$", re.M)
+_ENV_KEY = re.compile(r"^(\s*)([A-Z][A-Z0-9_]+):")
+
+
+def compose_environment(text: str) -> set[str]:
+    """Keys under a service's `environment:`, and nothing else in the file."""
+    out: set[str] = set()
+    inside = 0
+    for line in text.splitlines():
+        opened = _ENVIRONMENT.match(line)
+        if opened:
+            inside = len(opened.group(1)) + 1
+            continue
+        if not inside:
+            continue
+        key = _ENV_KEY.match(line)
+        if key and len(key.group(1)) >= inside:
+            out.add(key.group(2))
+            continue
+        if line.strip() and not line.startswith(" " * inside):
+            inside = 0
+    return out
+
 
 _COMMENT = re.compile(r"(^|\s)#.*$", re.M)
 
@@ -116,7 +164,7 @@ def strip_comments(text: str) -> str:
     return _COMMENT.sub("", text)
 
 
-def declarations(estate: E.Estate) -> tuple[dict[str, set[str]], list[str], list[str]]:
+def declarations(estate: E.Estate) -> tuple[dict[str, set[str]], dict[str, set[str]], list[str], list[str]]:
     """Every env name any repository declares, who declared it, and what could not be read.
 
     `unreachable` is kept apart from `unreadable` on purpose. A repository this
@@ -125,6 +173,7 @@ def declarations(estate: E.Estate) -> tuple[dict[str, set[str]], list[str], list
     how a partial run comes to look like a finding.
     """
     names: dict[str, set[str]] = {}
+    accounted: dict[str, set[str]] = {}
     unreadable: list[str] = []
     unreachable: list[str] = []
     for repo in sorted(estate.repos):
@@ -142,7 +191,9 @@ def declarations(estate: E.Estate) -> tuple[dict[str, set[str]], list[str], list
             continue
         for name in env_names(doc):
             names.setdefault(name, set()).add(repo)
-    return names, unreadable, unreachable
+        for name in named_in_a_declared_reason(doc):
+            accounted.setdefault(name, set()).add(repo)
+    return names, accounted, unreadable, unreachable
 
 
 def env_names(node) -> set[str]:
@@ -160,6 +211,56 @@ def env_names(node) -> set[str]:
     return out
 
 
+def named_in_a_declared_reason(doc) -> set[str]:
+    """Names a manifest's `declared` prose accounts for.
+
+    C15's vocabulary already separates what a repository can prove from what it
+    can only state with a reason, and a variable read INDIRECTLY is the second
+    kind. genaryx reads `GENARYX_COPILOT_API_KEY_REF=env:<NAME>` and then
+    whatever variable that reference points at, so the name is the deployment's
+    choice and no check inside genaryx can see it. Its manifest says exactly
+    that, under a `why`, and naming `GENARYX_COPILOT_KEY` in the sentence.
+
+    Reading those sentences is the same move C12 makes when it accepts a member
+    the record plane's own prose argues belongs in the payload plane: the rule
+    is that an ANSWER exists, never which answer it is.
+    """
+    out: set[str] = set()
+    if isinstance(doc, dict):
+        for key, value in doc.items():
+            if key == "declared" and isinstance(value, dict):
+                for entry in value.values():
+                    if not isinstance(entry, dict):
+                        continue
+                    # An entry whose VALUE is exactly a variable name answers
+                    # for that name. This is the tight form: a repository saying
+                    # "I read this and my own suite cannot prove it" in the one
+                    # field that cannot be satisfied by accident. genaryx uses it
+                    # for three foreign-prefixed reads whose names its own
+                    # prefix-scoped scan structurally cannot see.
+                    value = str(entry.get("value", ""))
+                    if re.fullmatch(r"[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+", value):
+                        out.add(value)
+
+                    text = f"{value} {entry.get('why', '')}"
+                    # And only an entry documenting an environment INDIRECTION can
+                    # answer for a name. Without this the rule was any prose
+                    # mentioning any uppercase token, which today masks exactly
+                    # one finding and tomorrow masks whichever one somebody
+                    # happens to name in a sentence. A `why` is written to be
+                    # read by a person; it must not become a place a finding
+                    # can be dismissed by accident.
+                    if "env:" not in text:
+                        continue
+                    out.update(re.findall(r"\b[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+\b", text))
+            else:
+                out |= named_in_a_declared_reason(value)
+    elif isinstance(doc, list):
+        for value in doc:
+            out |= named_in_a_declared_reason(value)
+    return out
+
+
 def delivered(estate: E.Estate, repo: str) -> dict[str, set[str]]:
     """Every variable this launcher hands to a process, and where."""
     where, suffix = LAUNCHERS[repo]
@@ -174,13 +275,15 @@ def delivered(estate: E.Estate, repo: str) -> dict[str, set[str]]:
         for pattern, _form in DELIVERY:
             for match in pattern.finditer(text):
                 out.setdefault(match.group(1), set()).add(path)
+        for name in compose_environment(text):
+            out.setdefault(name, set()).add(path)
     return out
 
 
 def run(estate: E.Estate) -> E.Check:
     c = E.Check("C16", "a launcher's environment reaches a reader", estate)
 
-    declared, unreadable, unreachable = declarations(estate)
+    declared, accounted, unreadable, unreachable = declarations(estate)
     for repo in unreadable:
         c.missing(
             f"c16.manifest-unreadable:{repo}",
@@ -239,6 +342,12 @@ def run(estate: E.Estate) -> E.Check:
         where = ", ".join(sorted(subjects[name]))
         if name in declared:
             c.ok(f"c16.reaches:{name}", f"read by {', '.join(sorted(declared[name]))}")
+        elif name in accounted:
+            c.ok(
+                f"c16.reaches:{name}",
+                f"read indirectly, and {', '.join(sorted(accounted[name]))} says so "
+                "under a declared reason",
+            )
         else:
             c.drift(
                 f"c16.no-reader:{name}",
