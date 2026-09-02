@@ -1759,6 +1759,54 @@ MUTATIONS: dict[str, list[tuple[str, callable]]] = {
             ],
         )
     ],
+    # ---- C17
+    #
+    # One fixture file, `tokenfuse/.github/workflows/release.yml`, carries both
+    # halves clean: a pull_request trigger scoped to its own path, and a
+    # publish job guarded with `if: github.event_name != 'pull_request'`. The
+    # `binaries` job has no publish step, which is what proves the baseline is
+    # green because nothing flags it, not because nothing was checked.
+    "c17.no-pull-request-for-self": [
+        (
+            # The shape ten repositories actually have today: no escape hatch
+            # at all, so the file is first exercised by the tag that cuts it.
+            "the pull_request trigger is removed entirely",
+            lambda r: edit(
+                r,
+                "tokenfuse/.github/workflows/release.yml",
+                '  pull_request:\n    paths: [".github/workflows/release.yml"]\n',
+                "",
+            ),
+        ),
+        (
+            # A trigger that exists and watches the wrong file is a different
+            # cause of the same failure: the workflow is still untested by any
+            # pull request that changes IT.
+            "the pull_request trigger's paths name a different file",
+            lambda r: edit(
+                r,
+                "tokenfuse/.github/workflows/release.yml",
+                'paths: [".github/workflows/release.yml"]',
+                'paths: ["Dockerfile"]',
+            ),
+        ),
+    ],
+    "c17.publish-job-unguarded": [(
+        "the publish job's if: guard is removed, and its trigger stays clean",
+        lambda r: edit(
+            r,
+            "tokenfuse/.github/workflows/release.yml",
+            "  publish:\n    if: github.event_name != 'pull_request'\n",
+            "  publish:\n",
+        ),
+    )],
+    "c17.no-subjects": [(
+        # The only `v*`-tag-triggered workflow anywhere in the fixture is
+        # gone, so nothing is left to hold either requirement, and a run
+        # over zero subjects must refuse rather than report agreement.
+        "every tag-triggered workflow in the estate is removed",
+        lambda r: drop(r, "tokenfuse/.github/workflows/release.yml"),
+    )],
 }
 
 

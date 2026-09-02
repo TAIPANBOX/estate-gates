@@ -542,3 +542,59 @@ Stop and tell the user, then wait:
     repository denies, a declared entry with no why, the launcher gone, its
     probe anchor matching nothing, and a probe that disagrees with nothing
     recording why)*
+
+20. **A workflow that runs only on a tag is first exercised by the release
+    itself, unless a pull request exercises it first.** Measured 2026-09-02:
+    tokenfuse's binaries job, published in `.github/workflows/release.yml`,
+    failed on both Linux runners the first time tag `v0.4.2` ever reached a
+    step copied from `ci.yml` that had lost the line pinning the apt
+    snapshot on the way. `git blame` found nothing recent, because nothing
+    was recent: the step had been wrong since the day it was written and
+    every commit since had simply never run it. A workflow gated on
+    `push: tags: v*` and nothing else is tested by exactly one event in its
+    whole life, and that event is the one where a mistake is public.
+
+    The fix, TAIPANBOX/tokenfuse#251, is two things done together, because
+    either alone recreates the failure it closes. A `pull_request` trigger
+    scoped to the workflow file's own path makes an edit to the file the
+    thing that exercises its build jobs, on every edit rather than on the
+    one occasion that is public. Guarding every job that PUBLISHES off that
+    same event is what stops the pull request this adds from also pushing an
+    image or cutting a release page: add the trigger without the guard and a
+    fork's pull request publishes; add the guard without the trigger and the
+    workflow is exactly as untested as it was.
+
+    A hand survey of `~/Development/*/.github/workflows/*.yml` on
+    2026-09-02 found ten repositories with a tag trigger and no
+    `pull_request` trigger at all. This gate's own discovery, which reads
+    every workflow file in every repository `estate.json` names rather than
+    trusting that list, found twelve: engram and terraform-provider-taipan
+    both publish, to PyPI and to the Terraform Registry respectively, on a
+    bare `push: tags: v*` with no escape hatch anywhere, and neither was in
+    the hand survey. That gap is the argument for discovery over a list
+    repeated in every other invariant here, landing on its own subject one
+    more time.
+
+    **What counts as publishing is a named, closed list**, because a job's
+    `if:` guard is only worth checking on a job that actually pushes
+    something: `docker/build-push-action` with `push` or `push-by-digest`
+    true, `docker buildx imagetools create`, `softprops/action-gh-release`,
+    `actions/upload-release-asset`, `gh release`, `docker push`, `cosign`,
+    `crane`, `oras`. A job outside that list is not asked for a guard, which
+    is a stated limit rather than a silent one: engram's `pypi-publish` job
+    and terraform-provider-taipan's `goreleaser` job both plainly publish and
+    neither is on it, so this gate has no opinion on their guards and still
+    refuses both files under the trigger requirement, which does not depend
+    on what a job does. **Four expressions are accepted as an equivalent
+    guard**, because the estate's own clean files use more than one:
+    `github.event_name != 'pull_request'`, `startsWith(github.ref,
+    'refs/tags/')`, `github.event_name == 'push'`, `github.ref_type ==
+    'tag'`. All four are false on every pull_request event, which is the one
+    property this check needs from a guard, and this check reads the
+    guard's TEXT rather than the scheduler's actual decision, the same limit
+    C11 states about `chain_proven`.
+    *(gate: `gates/c17-tag-workflow-pr-guard.py`, four mutations in
+    `selftest.py`: the pull_request trigger removed entirely, its `paths`
+    naming a different file, a publishing job's `if:` guard removed with its
+    trigger left clean, and every tag-triggered workflow in the estate taken
+    away, which must read as measured nothing rather than as agreement)*

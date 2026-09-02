@@ -258,6 +258,33 @@ Its remaining limit: a variable delivered by a form not listed is invisible
 here and nothing would say so. The mitigation is that the forms are read from
 the launchers rather than imagined.
 
+**C17, a tag-only workflow is exercised by a pull request first**
+(`gates/c17-tag-workflow-pr-guard.py`). A workflow gated on `push: tags: v*`
+runs for the first time, on every commit that ever reached it, on the day
+somebody cuts a release. tokenfuse's `binaries` job failed on both Linux
+runners the first time `v0.4.2` exercised its musl leg, on a step that had
+been wrong since it was written and had simply never run before that tag. The
+fix, TAIPANBOX/tokenfuse#251, is two things done together: a `pull_request`
+trigger scoped to the workflow's own path, so an edit to the file is what
+exercises it, and every job that publishes guarded off that event, so the
+same pull request does not also push an image or cut a release. Subjects are
+found, never listed: every file under `.github/workflows/` in every
+repository `estate.json` names whose `on.push.tags` matches `v*`. A survey by
+hand found ten repositories with the shape and no escape hatch at all; this
+gate's own discovery finds twelve, naming engram and terraform-provider-taipan
+as well, both of which publish (to PyPI and to the Terraform Registry) on a
+bare tag push with no `pull_request` trigger anywhere. Four equivalent guard
+expressions are accepted (`github.event_name != 'pull_request'`,
+`startsWith(github.ref, 'refs/tags/')`, `github.event_name == 'push'`,
+`github.ref_type == 'tag'`), because the estate's own clean files use more
+than one of them. What counts as publishing is a fixed, named list:
+`docker/build-push-action` with `push` or `push-by-digest` true, `docker
+buildx imagetools create`, `softprops/action-gh-release`,
+`actions/upload-release-asset`, `gh release`, `docker push`, `cosign`,
+`crane`, `oras`. A marker outside that list, or a guard that is logically
+equivalent but spelled differently, is invisible to it, which is stated here
+rather than silently missed.
+
 ## Running it
 
 Locally, against the sibling checkouts in the parent directory:
