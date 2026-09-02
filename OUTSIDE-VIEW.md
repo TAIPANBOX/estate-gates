@@ -1,6 +1,6 @@
 # The estate from outside
 
-**Taken 2026-09-01 21:02 UTC.** Regenerated, never edited by hand:
+**Taken 2026-09-02 15:53 UTC.** Regenerated, never edited by hand:
 
 ```
 ./scripts/outside-view.py --write OUTSIDE-VIEW.md
@@ -27,7 +27,7 @@ Subjects come from `estate.json`. Image names come from the manifests that pin t
 | stack-single | public | 0 | 0 | True | 0 | True | none | 0 |
 | stack-up | public | 0 | 0 | True | 0 | True | none | 0 |
 | terraform-provider-taipan | public | 1 | 0 | True | 0 | True | v0.1.1 | 16 |
-| tokenfuse | public | 1 | 1 | True | 0 | True | v0.4.0 | 0 |
+| tokenfuse | public | 1 | 1 | True | 0 | True | v0.4.3 | 13 |
 | trailryx | public | 0 | 0 | True | 0 | True | v0.1.2 | 15 |
 | verdryx | public | 2 | 1 | True | 0 | True | none | 0 |
 | vouchryx | public | 0 | 0 | True | 0 | True | none | 0 |
@@ -52,9 +52,9 @@ Names are taken from every `ghcr.io/` reference pinned in the estate's own manif
 | `scopyx` | stack-k8s:47-scopyx.yaml, stack-k8s:48-scopyx-browser.yaml, stack-single:compose.yaml | yes, 10 tag(s), latest sha-867cf47-chromium |
 | `stack-caddy` | stack-single:compose.yaml | yes, 1 tag(s), latest v0.1.2 |
 | `stack-wg` | stack-single:compose.yaml | yes, 1 tag(s), latest v0.1.2 |
-| `tokenfuse` | stack-k8s:10-planes.yaml, stack-single:compose.yaml, tokenfuse:docker-compose.yml | yes, 32 tag(s), latest sha-93103e9 |
-| `tokenfuse-control-plane` | stack-k8s:10-planes.yaml, stack-single:compose.yaml, tokenfuse:docker-compose.yml | yes, 15 tag(s), latest sha-93103e9 |
-| `tokenfuse-dashboard` | tokenfuse:docker-compose.yml | yes, 11 tag(s), latest sha-93103e9 |
+| `tokenfuse` | stack-k8s:10-planes.yaml, stack-single:compose.yaml, tokenfuse:docker-compose.yml | yes, 44 tag(s), latest cluster-9270fd4 |
+| `tokenfuse-control-plane` | stack-k8s:10-planes.yaml, stack-single:compose.yaml, tokenfuse:docker-compose.yml | yes, 21 tag(s), latest sha-9270fd4 |
+| `tokenfuse-dashboard` | tokenfuse:docker-compose.yml | yes, 17 tag(s), latest sha-9270fd4 |
 | `trailryx-node` | stack-k8s:40-routines-and-secrets.yaml, stack-single:compose.yaml | yes, 1 tag(s), latest v0.1.2 |
 | `wardryx` | stack-k8s:10-planes.yaml, stack-single:compose.yaml | yes, 2 tag(s), latest sha-a725f45 |
 
