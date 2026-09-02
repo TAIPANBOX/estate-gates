@@ -1276,6 +1276,35 @@ pub fn admit(req: &Request) -> DecideContext {
 }
 """
 
+# C17's baseline: a workflow gated on a `v*` tag with an escape hatch (a
+# pull_request trigger scoped to its own path) and one guarded publish job.
+# `binaries` has no publish step and needs no guard, which is what proves the
+# check does not flag every job in the file, only the one that publishes.
+RELEASE_WORKFLOW_YML = """name: release
+
+on:
+  push:
+    tags: ["v*"]
+  pull_request:
+    paths: [".github/workflows/release.yml"]
+
+jobs:
+  binaries:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: cargo build --release
+
+  publish:
+    if: github.event_name != 'pull_request'
+    needs: binaries
+    runs-on: ubuntu-latest
+    steps:
+      - uses: docker/build-push-action@v6
+        with:
+          push: true
+"""
+
 
 # vouchryx: the producer C4 did not know about until 2026-08-26, kept here so
 # the completeness pass has something real to find when it is taken away.
@@ -1348,6 +1377,7 @@ ESTATE: dict[str, dict] = {
         "crates/delegation/src/lib.rs": DELEGATION_RS,
         "crates/delegation/testdata/chain-verdict-vectors.json": CHAIN_VERDICT_VECTORS,
         "crates/gateway/src/chainproof.rs": CHAINPROOF_RS,
+        ".github/workflows/release.yml": RELEASE_WORKFLOW_YML,
     },
     "verdryx": {
         "verdryx/costper.py": COSTPER_PY,
