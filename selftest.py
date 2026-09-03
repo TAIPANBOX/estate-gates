@@ -1203,27 +1203,38 @@ MUTATIONS: dict[str, list[tuple[str, callable]]] = {
         lambda r: (drop(r, "stack-up/routines.sh"), drop(r, "stack-single/compose.yaml")),
     )],
     "c5.routine-unmapped": [(
-        # The needle moved when the fixture gained `costcrew-crew`, and `edit`
-        # would have refused a stale one rather than mutating nothing. It is the
-        # last name on the line either way.
+        # `template-run` is the last name on the array either way, so `edit`'s
+        # anchor stays stable whatever comes before it. Named that rather than
+        # `costcrew-crew` since 2026-09-03; see the other case below for why.
         "a deployment installs a routine with an unknown name",
         lambda r: edit(
-            r, "stack-up/routines.sh", "costcrew-crew)", "costcrew-crew weekly-sweep)"
+            r, "stack-up/routines.sh", "template-run)", "template-run weekly-sweep)"
         ),
     ), (
         # The other direction, and the one the manual-job reader could have
-        # switched off in silence. `costcrew-crew` is in the launcher's routine
+        # switched off in silence. `template-run` is in the launcher's routine
         # list and out of the routine QUESTION, because the launcher declares it
         # a manual job. Take that declaration away and the finding must come
         # back: a check that drops a CronJob from its subject set on nobody's
         # word has stopped asking rather than been answered.
         #
         # This is the mutation that pays for reading `manual_jobs` at all.
-        # Mapping `costcrew-crew` into ROUTINE_KIND was the easy way to make C5
-        # green on 2026-09-01, and stack-k8s's own manifest says in as many
-        # words why that would have been a falsehood: it would put a schedule
-        # nobody keeps into the record of what runs where, on the one job in
-        # that namespace that spends outside the cluster.
+        # Named `costcrew-crew` here until 2026-09-03: mapping it into
+        # ROUTINE_KIND would have been the easy way to make C5 green on
+        # 2026-09-01, and stack-k8s's own manifest said in as many words why
+        # that would have been a falsehood then, when the real CronJob of
+        # that name was suspended: it would put a schedule nobody keeps into
+        # the record of what runs where, on the one job in that namespace
+        # that spends outside the cluster.
+        #
+        # stack-k8s un-suspended it on 2026-09-03 and ROUTINE_KIND gained a
+        # real entry for it, which made the old name here a trap: `manual`
+        # is checked before ROUTINE_KIND, but popping `manual_jobs` would then
+        # have resolved `costcrew-crew` through the now-real mapping instead
+        # of falling out unmapped, and this case would have stopped proving
+        # what its name says without ever going red to announce it. Renamed
+        # to `template-run`, a name tied to nothing real, so no future entry
+        # in ROUTINE_KIND can retire this case by accident again.
         "the launcher stops declaring its manual job",
         lambda r: manifest_edit(
             r, "stack-up",

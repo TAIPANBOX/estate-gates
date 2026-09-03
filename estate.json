@@ -148,7 +148,8 @@
       "local": "costcrew",
       "role": "the FinOps console. A guest producer: it writes the shared envelope and calls nobody, and two of its types are translated into estate vocabulary before they go out.",
       "runs": [
-        "costcrew"
+        "costcrew",
+        "costcrew-run"
       ]
     },
     "catalog": {
