@@ -87,16 +87,31 @@ def declared_manual_jobs(estate: E.Estate, repo: str) -> set[str]:
     WHY THIS READS THE LAUNCHER INSTEAD OF DECIDING HERE
 
     A CronJob in a manifest looks like a routine from outside. Only the
-    repository that wrote it knows whether it is one, and stack-k8s says so in
-    its own manifest, in as many words, about the one CronJob in that namespace
-    that spends on an account outside the cluster:
+    repository that wrote it knows whether it is one, which is why this asks
+    the launcher rather than guessing from the object.
+
+    stack-k8s used exactly this path for `costcrew-crew` from 2026-09-01 to
+    2026-09-03. The CronJob shipped `suspend: true`, a Job TEMPLATE a person
+    ran by hand, and its own manifest said so about the one CronJob in that
+    namespace that spends on an account outside the cluster:
 
         Not a routine: mapping it into the estate's routine map would put a
         schedule nobody keeps into the record of what runs where.
 
-    Mapping `costcrew-crew` into ROUTINE_KIND was the obvious way to make this
-    check green on 2026-09-01, and it would have written that exact falsehood
-    into the estate's record of what runs where, on a job that spends money.
+    Mapping it into ROUTINE_KIND while that was true would have written that
+    exact falsehood into the estate's record of what runs where, on a job
+    that spends money.
+
+    On 2026-09-03 stack-k8s changed the object, not just its label:
+    `costcrew-crew` fires daily now (`suspend: false`), and what keeps it
+    from spending is `-due`, an application-level refusal rather than a
+    Kubernetes one. See the comment beside `costcrew-crew` in ROUTINE_KIND
+    below for what that mode does. The launcher's own manifest moved the
+    entry out of `manual_jobs` into `schedules_routines` the same day,
+    because leaving it declared manual would now be the false statement, and
+    GOTCHAS.md there carries entry 96 on the change. ROUTINE_KIND carries the
+    result: `costcrew-crew` is mapped, and this function no longer excuses it
+    from the routine question, because nothing excuses it any more.
 
     The declaration is not taken on trust either. stack-k8s's own
     `manifest-is-true.sh` requires a manifest calling a job manual to actually
@@ -150,6 +165,23 @@ ROUTINE_KIND = {
     "identity-sweep": "idryx-detect",
     "quality-drift": "verdryx-drift",
     "drills": "mockryx-drill",
+    # stack-k8s only, and not one of the six kinds above either: costcrew's own
+    # cadence run, mapped here since 2026-09-03, when `49-costcrew.yaml`
+    # un-suspended the CronJob (`suspend: false`). It fires daily, and what
+    # stops it from spending is `-due`, an application-level refusal (exit 2,
+    # "nothing to do, by design") rather than Kubernetes suspend: the runner
+    # does only cadence-due work, and refuses everything else unless a person
+    # has switched cadence on at the console's own /cadence page
+    # (`cadence.enabled`, default off), never past the smaller of the
+    # manifest's `-ceiling` and the console's own `cadence.ceiling_cents`.
+    # That is a routine's shape, not a manual job's, and stack-k8s's own
+    # manifest agrees: `components.json` maps it under `schedules_routines`
+    # now, not `manual_jobs` (see `declared_manual_jobs` above for what stood
+    # here before that date, and stack-k8s's GOTCHAS.md entry 96 for the full
+    # account). stack-up and stack-single ship no equivalent today, so this is
+    # recorded as a single-launcher divergence in
+    # expectations/deployment-parity.json rather than added to `agreed`.
+    "costcrew-crew": "costcrew-run",
 }
 
 SERVICE_KIND = {

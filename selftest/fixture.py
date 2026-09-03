@@ -804,9 +804,10 @@ pub fn run(args: DemoArgs) -> Result<()> {
 # -------------------------------------------------------------- deployments
 
 STACK_UP_ROUTINES = """#!/usr/bin/env bash
-# The five governance routines.
+# The five governance routines, plus `template-run`: a sixth name that looks
+# like a routine and is not one. See its `manual_jobs` entry below.
 
-ROUTINE_NAMES=(focus-export qryx-trend verdryx-drift idryx-detect mockryx-drill costcrew-crew)
+ROUTINE_NAMES=(focus-export qryx-trend verdryx-drift idryx-detect mockryx-drill template-run)
 DEFAULT_ROUTINES=(focus-export qryx-trend verdryx-drift idryx-detect)
 """
 
@@ -1538,7 +1539,7 @@ func TestWireTypesIsExactlyWhatTheCallSitesProduce(t *testing.T) {}
         "installs_python_tools": [],
         "schedules_routines": ["mockryx-drill"],
         "manual_jobs": {
-          "costcrew-crew": "A template a person runs, not a schedule. The baseline case for the manual-job reader: a launcher installs something that looks like a routine from outside, and only the launcher can say it is not one. Take this line away and C5 must go back to reporting it unmapped, which is the mutation that pays for this."
+          "template-run": "A template a person runs, not a schedule. The baseline case for the manual-job reader: a launcher installs something that looks like a routine from outside, and only the launcher can say it is not one. Take this line away and C5 must go back to reporting it unmapped, which is the mutation that pays for this. Named `template-run` rather than `costcrew-crew`: stack-k8s's real CronJob of that name stopped being manual on 2026-09-03 and gained a real entry in ROUTINE_KIND, so reusing the string here would resolve through that table before `manual_jobs` was ever consulted, and this case would stop proving what its name says."
         }
       },
       "declared": {}
