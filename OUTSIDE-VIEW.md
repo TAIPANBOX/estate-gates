@@ -1,6 +1,6 @@
 # The estate from outside
 
-**Taken 2026-09-02 15:53 UTC.** Regenerated, never edited by hand:
+**Taken 2026-09-07 13:52 UTC.** Regenerated, never edited by hand:
 
 ```
 ./scripts/outside-view.py --write OUTSIDE-VIEW.md
@@ -23,7 +23,7 @@ Subjects come from `estate.json`. Image names come from the manifests that pin t
 | mockryx | public | 2 | 1 | True | 1 | True | v0.2.1 | 6 |
 | qryx | public | 1 | 1 | True | 0 | True | v0.3.1 | 6 |
 | scopyx | public | 0 | 0 | True | 0 | True | none | 0 |
-| stack-k8s | public | 0 | 0 | True | 0 | True | none | 0 |
+| stack-k8s | public | 0 | 0 | True | 1 | True | none | 0 |
 | stack-single | public | 0 | 0 | True | 0 | True | none | 0 |
 | stack-up | public | 0 | 0 | True | 0 | True | none | 0 |
 | terraform-provider-taipan | public | 1 | 0 | True | 0 | True | v0.1.1 | 16 |
@@ -43,7 +43,7 @@ Names are taken from every `ghcr.io/` reference pinned in the estate's own manif
 
 | image | pinned by | anonymous pull |
 |---|---|---|
-| `costcrew` | stack-k8s:49-costcrew.yaml | yes, 1 tag(s), latest v0.1.0 |
+| `costcrew` | stack-k8s:49-costcrew.yaml | yes, 2 tag(s), latest v0.2.0 |
 | `genaryx-console` | stack-k8s:20-console.yaml, stack-k8s:40-routines-and-secrets.yaml, stack-single:compose.yaml | yes, 2 tag(s), latest v0.1.1 |
 | `heraldyx` | stack-k8s:45-heraldyx.yaml, stack-single:compose.yaml | yes, 8 tag(s), latest sha-0253656 |
 | `idryx` | stack-k8s:10-planes.yaml, stack-k8s:40-routines-and-secrets.yaml, stack-single:compose.yaml | yes, 4 tag(s), latest sha-379a78d |
