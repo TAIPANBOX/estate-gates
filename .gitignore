@@ -2,3 +2,6 @@ __pycache__/
 *.pyc
 .clones/
 .DS_Store
+
+# Traffic snapshots: our own numbers, kept locally rather than published.
+traffic/
