@@ -289,6 +289,30 @@ def plant(root: pathlib.Path, rel: str, contents: str) -> None:
     git(root / rel.split("/", 1)[0], "add", rel.split("/", 1)[1])
 
 
+def _commit_code(root: pathlib.Path, repo: str, rel: str, contents: str) -> None:
+    """A COMMITTED code change on the fixture repository's main. C18 counts
+    commits, so a planted-but-uncommitted file proves nothing about it."""
+    p = root / repo / rel
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(contents, encoding="utf-8")
+    git(root / repo, "add", rel)
+    git(root / repo, "commit", "--quiet", "-m", "code after verification")
+
+
+def _side_branch_sha(root: pathlib.Path, repo: str) -> str:
+    """Commit on a branch that main does not contain, point the service file
+    at it, and return to main."""
+    d = root / repo
+    git(d, "checkout", "--quiet", "-b", "side")
+    (d / "side.go").write_text("package side\n", encoding="utf-8")
+    git(d, "add", "side.go")
+    git(d, "commit", "--quiet", "-m", "side")
+    sha = subprocess.run(["git", "-C", str(d), "rev-parse", "HEAD"], capture_output=True, text=True, check=True).stdout.strip()
+    git(d, "checkout", "--quiet", "main")
+    edit(root, f"architecture/services/{repo}.md", fixture._head(root, repo), sha)
+    return sha
+
+
 #: Every fixture file that declares the member C13 bounds, found by reading the
 #: fixture rather than by being listed here. `c13.no-schema-bounds` renames the
 #: member out of all of them, and a list left behind by a new vendored copy
@@ -1820,6 +1844,50 @@ MUTATIONS: dict[str, list[tuple[str, callable]]] = {
         # over zero subjects must refuse rather than report agreement.
         "every tag-triggered workflow in the estate is removed",
         lambda r: drop(r, "tokenfuse/.github/workflows/release.yml"),
+    )],
+    # ---- C18
+    "c18.expectations-unreadable": [(
+        "the pending list cannot be read, so nothing may be called pending",
+        lambda r: (r / "_architecture-expectations.json").write_text("{not json"),
+    )],
+    "c18.no-files": [(
+        "the architecture record has no service file at all",
+        lambda r: [drop(r, f"architecture/services/{n}.md") for n in fixture.ESTATE
+                   if n != "architecture" and n not in fixture.PENDING],
+    )],
+    "c18.file-missing": [(
+        "a service with no file and no pending entry",
+        lambda r: drop(r, "architecture/services/wardryx.md"),
+    )],
+    "c18.stale-pending": [(
+        "a file exists for a service still recorded as pending",
+        lambda r: plant(r, "architecture/services/mockryx.md",
+                        fixture.SERVICE_FILE.format(name="mockryx", sha=fixture._head(r, "mockryx"))),
+    )],
+    "c18.frontmatter": [(
+        "the file lost its verified_at",
+        lambda r: edit(r, "architecture/services/wardryx.md", "verified_at: ", "checked_at: "),
+    )],
+    "c18.verified-at-unknown": [(
+        "verified_at names a commit the repository never had",
+        lambda r: edit(r, "architecture/services/wardryx.md",
+                       fixture._head(r, "wardryx"), "f" * 40),
+    )],
+    "c18.verified-at-unreachable": [(
+        "verified_at is a commit on a side branch, not on main",
+        lambda r: _side_branch_sha(r, "wardryx") and None,
+    )],
+    "c18.stale": [(
+        "a code commit landed on main after verified_at",
+        lambda r: _commit_code(r, "wardryx", "internal/new.go", "package internal\n"),
+    )],
+    "c18.dangling-gate": [(
+        "the decisions table names a gate script the repository does not have",
+        lambda r: edit(r, "architecture/services/wardryx.md", "prose only", "`scripts/not-there.sh`"),
+    )],
+    "c18.no-pointer": [(
+        "the repository's CLAUDE.md no longer points at its file",
+        lambda r: edit(r, "wardryx/CLAUDE.md", "Architecture: ~/Development/architecture/services/wardryx.md", "Architecture: nowhere"),
     )],
 }
 
