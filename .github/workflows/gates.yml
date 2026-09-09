@@ -83,8 +83,8 @@ jobs:
           echo "code=$code" >> "$GITHUB_OUTPUT"
           # 3 means: nothing disagreed, and the only repositories that went
           # unread are the ones estate.json records as having no public
-          # remote. taipan is private and bank-in-a-box has no remote at all,
-          # so CI can never see them. That is reported, never hidden, and the
+          # remote. bank-in-a-box has only a private remote and no CI, so the
+          # CI here can never see it. That is reported, never hidden, and the
           # run above names what went unmeasured.
           if [ "$code" -eq 3 ]; then
             echo "::notice title=Partial run::Some repositories have no public remote and were not measured. See the output above for which."

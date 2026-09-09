@@ -128,7 +128,9 @@ This section keeps only what is still open.
 private and `bank-in-a-box` has no remote, so C4 reports **partial, something
 went unmeasured** rather than clean. Both readings are true of their own mode.
 Anybody comparing this section against a badge should expect that one
-difference and no other.
+difference and no other. (Update 2026-09-09: taipan has been public since
+2026-08-28 and CI clones it, so only bank-in-a-box goes unmeasured now, and it
+has a private remote rather than none.)
 
 **A clean suite is not a clean estate, and this is the sentence most likely to
 be quoted wrongly.** The README's own list of what C1 to C6 deliberately do not

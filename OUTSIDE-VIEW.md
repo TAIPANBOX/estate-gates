@@ -1,6 +1,6 @@
 # The estate from outside
 
-**Taken 2026-09-07 13:52 UTC.** Regenerated, never edited by hand:
+**Taken 2026-09-09 09:58 UTC.** Regenerated, never edited by hand:
 
 ```
 ./scripts/outside-view.py --write OUTSIDE-VIEW.md
@@ -19,23 +19,23 @@ Subjects come from `estate.json`. Image names come from the manifests that pin t
 | engram | public | 2 | 1 | True | 0 | True | v2.4.1 | 0 |
 | genaryx | public | 1 | 0 | True | 0 | True | none | 0 |
 | heraldyx | public | 0 | 0 | True | 0 | True | none | 0 |
-| idryx | public | 1 | 1 | True | 0 | True | v0.3.1 | 6 |
+| idryx | public | 1 | 1 | True | 1 | True | v0.3.1 | 6 |
 | mockryx | public | 2 | 1 | True | 1 | True | v0.2.1 | 6 |
 | qryx | public | 1 | 1 | True | 0 | True | v0.3.1 | 6 |
 | scopyx | public | 0 | 0 | True | 0 | True | none | 0 |
 | stack-k8s | public | 0 | 0 | True | 1 | True | none | 0 |
 | stack-single | public | 0 | 0 | True | 0 | True | none | 0 |
 | stack-up | public | 0 | 0 | True | 0 | True | none | 0 |
+| taipan | public | 0 | 0 | True | 0 | True | none | 0 |
 | terraform-provider-taipan | public | 1 | 0 | True | 0 | True | v0.1.1 | 16 |
-| tokenfuse | public | 1 | 1 | True | 0 | True | v0.4.3 | 13 |
+| tokenfuse | public | 1 | 1 | True | 2 | True | v0.4.4 | 13 |
 | trailryx | public | 0 | 0 | True | 0 | True | v0.1.2 | 15 |
 | verdryx | public | 2 | 1 | True | 0 | True | none | 0 |
 | vouchryx | public | 0 | 0 | True | 0 | True | none | 0 |
 | wardryx | public | 2 | 1 | True | 0 | True | none | 0 |
 
 **Not measured** (and therefore not clean):
-- bank-in-a-box: Deliberately has no remote at all (its CLAUDE.md forbids adding one). Local only, by decision.
-- taipan: PRIVATE repository with no public remote. CI cannot clone it, so anything it contributes is measured only in a local run.
+- bank-in-a-box: PRIVATE remote (git@github.com:TAIPANBOX/bank-in-a-box.git, since 2026-08-28) and no CI. CI cannot clone it, so anything it contributes is measured only in a local run.
 
 ## Container images, as a stranger's docker sees them
 
@@ -44,7 +44,7 @@ Names are taken from every `ghcr.io/` reference pinned in the estate's own manif
 | image | pinned by | anonymous pull |
 |---|---|---|
 | `costcrew` | stack-k8s:49-costcrew.yaml | yes, 2 tag(s), latest v0.2.0 |
-| `genaryx-console` | stack-k8s:20-console.yaml, stack-k8s:40-routines-and-secrets.yaml, stack-single:compose.yaml | yes, 2 tag(s), latest v0.1.1 |
+| `genaryx-console` | stack-k8s:20-console.yaml, stack-k8s:40-routines-and-secrets.yaml, stack-single:compose.yaml | yes, 3 tag(s), latest v0.1.2 |
 | `heraldyx` | stack-k8s:45-heraldyx.yaml, stack-single:compose.yaml | yes, 8 tag(s), latest sha-0253656 |
 | `idryx` | stack-k8s:10-planes.yaml, stack-k8s:40-routines-and-secrets.yaml, stack-single:compose.yaml | yes, 4 tag(s), latest sha-379a78d |
 | `mockryx` | stack-k8s:40-routines-and-secrets.yaml | yes, 8 tag(s), latest sha-1c615c4 |
@@ -52,9 +52,9 @@ Names are taken from every `ghcr.io/` reference pinned in the estate's own manif
 | `scopyx` | stack-k8s:47-scopyx.yaml, stack-k8s:48-scopyx-browser.yaml, stack-single:compose.yaml | yes, 10 tag(s), latest sha-867cf47-chromium |
 | `stack-caddy` | stack-single:compose.yaml | yes, 1 tag(s), latest v0.1.2 |
 | `stack-wg` | stack-single:compose.yaml | yes, 1 tag(s), latest v0.1.2 |
-| `tokenfuse` | stack-k8s:10-planes.yaml, stack-single:compose.yaml, tokenfuse:docker-compose.yml | yes, 44 tag(s), latest cluster-9270fd4 |
-| `tokenfuse-control-plane` | stack-k8s:10-planes.yaml, stack-single:compose.yaml, tokenfuse:docker-compose.yml | yes, 21 tag(s), latest sha-9270fd4 |
-| `tokenfuse-dashboard` | tokenfuse:docker-compose.yml | yes, 17 tag(s), latest sha-9270fd4 |
+| `tokenfuse` | stack-k8s:10-planes.yaml, stack-single:compose.yaml, tokenfuse:docker-compose.yml | yes, 48 tag(s), latest sha-7b728af |
+| `tokenfuse-control-plane` | stack-k8s:10-planes.yaml, stack-single:compose.yaml, tokenfuse:docker-compose.yml | yes, 23 tag(s), latest sha-7b728af |
+| `tokenfuse-dashboard` | tokenfuse:docker-compose.yml | yes, 19 tag(s), latest sha-7b728af |
 | `trailryx-node` | stack-k8s:40-routines-and-secrets.yaml, stack-single:compose.yaml | yes, 1 tag(s), latest v0.1.2 |
 | `wardryx` | stack-k8s:10-planes.yaml, stack-single:compose.yaml | yes, 2 tag(s), latest sha-a725f45 |
 

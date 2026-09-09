@@ -1993,6 +1993,20 @@ def main() -> int:
                         )
 
         # -- 4. an unreadable repository is not a pass ----------------------
+        #
+        # Removes the FIXTURE's "taipan", which is not a claim about the real
+        # repository's remote status: taipan has been public since 2026-08-28
+        # and estate.json records a github slug for it. This fixture entry is
+        # picked because it is the one repo C4 actually reads
+        # (PRODUCERS["taipan"] in gates/c4-event-registry.py) while also being
+        # marked `github: None` in the fixture's own registry
+        # (selftest/fixture.py), so removing it demonstrates a producer going
+        # unreadable rather than a subject nothing was ever looking at.
+        # bank-in-a-box is the fixture's other no-remote entry and cannot
+        # substitute: its own estate.json role says "No check reads it
+        # today", so removing it would trip nothing and prove nothing. The
+        # fixture need not track estate.json's current facts, only exercise
+        # the mechanism; see CLAUDE.md's "the fixture is not the estate".
         unavailable_case = work / "unavailable"
         if not problems:
             case = unavailable_case

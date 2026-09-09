@@ -177,15 +177,14 @@
       "runs": []
     },
     "taipan": {
-      "github": null,
-      "why_no_remote": "PRIVATE repository with no public remote. CI cannot clone it, so anything it contributes is measured only in a local run.",
+      "github": "TAIPANBOX/taipan",
       "local": "taipan",
       "role": "the CLI. `taipan demo` writes synthetic envelopes attributed to other planes.",
       "runs": []
     },
     "bank-in-a-box": {
       "github": null,
-      "why_no_remote": "Deliberately has no remote at all (its CLAUDE.md forbids adding one). Local only, by decision.",
+      "why_no_remote": "PRIVATE remote (git@github.com:TAIPANBOX/bank-in-a-box.git, since 2026-08-28) and no CI. CI cannot clone it, so anything it contributes is measured only in a local run.",
       "local": "bank-in-a-box",
       "role": "the four-plane integration stand. No check reads it today; its selftest is the model this repo's own selftest follows.",
       "runs": []
