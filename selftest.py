@@ -131,7 +131,10 @@ def build_estate(root: pathlib.Path) -> None:
     for repo, files in fixture.ESTATE.items():
         d = root / repo
         d.mkdir(parents=True)
-        for relpath, contents in files.items():
+        rendered = dict(files)
+        if "_render" in files:
+            rendered.update(files["_render"](root))
+        for relpath, contents in rendered.items():
             if relpath.startswith("_"):
                 continue
             p = d / relpath
@@ -1907,6 +1910,9 @@ def main() -> int:
         registry.write_text(json.dumps(fixture.REGISTRY, indent=2), encoding="utf-8")
         expectations = work / "expectations.json"
         expectations.write_text(json.dumps(fixture.EXPECTATIONS, indent=2), encoding="utf-8")
+        arch_expectations = work / "architecture-expectations.json"
+        arch_expectations.write_text(json.dumps(fixture.ARCHITECTURE_EXPECTATIONS, indent=2), encoding="utf-8")
+        os.environ["ESTATE_GATES_ARCHITECTURE_EXPECTATIONS"] = str(arch_expectations)
 
         # -- 1. the baseline is green --------------------------------------
         seen, verdicts, text = run_checks(base, registry, expectations)
