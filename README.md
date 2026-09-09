@@ -318,10 +318,11 @@ everything else.
 Written down rather than left implied, because an unstated gap reads as a
 covered one.
 
-- **Repositories with no public remote.** taipan is private and bank-in-a-box
-  deliberately has no remote at all. In CI they are reported as unmeasured and
-  the run ends PARTIAL. `taipan demo` writes envelopes attributed to other
-  planes, so its attribution is checked in local runs only.
+- **Repositories with no public remote.** bank-in-a-box has only a private
+  remote and no CI. In CI here it is reported as unmeasured and the run ends
+  PARTIAL. taipan has been public since 2026-08-28 and is cloned and measured
+  like the rest, so C4 reads the attribution of what `taipan demo` writes in
+  CI as well, not only in local runs.
 - **`go.sum`, `replace` targets and vendored Go code.** C1 reads the version
   in `go.mod`. It reports the presence of a `replace` as a failure but does
   not follow it.

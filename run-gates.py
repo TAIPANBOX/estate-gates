@@ -14,7 +14,7 @@ EXIT CODES, and why there are four of them
      not. An unread repository is not a clean one, and this is the code that
      says so.
   3  nothing disagrees, and the only unread repositories are the ones
-     estate.json records as having no public remote (taipan, bank-in-a-box).
+     estate.json records as having no public remote (bank-in-a-box today).
      CI treats 3 as success and prints what went unmeasured. It is a separate
      code rather than a quiet 0 so that nobody can mistake a partial run for a
      complete one by reading the exit status alone.
