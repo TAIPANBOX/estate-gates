@@ -21,7 +21,12 @@
     "deployments against a hand-written list of eight service names, so a",
     "component that no deployment installed at all was invisible to the one",
     "gate whose subject is which components come up. vouchryx was added to",
-    "this file on 2026-08-26 and installable by nothing, and nothing went red."
+    "this file on 2026-08-26 and installable by nothing, and nothing went red.",
+    "",
+    "'private_remote' is the slug of a repository that exists on GitHub but is",
+    "PRIVATE by decision, so 'github' stays null (CI cannot clone it) and the",
+    "outside view checks that it has not been flipped public. Recorded here",
+    "because a visibility flip is silent everywhere else."
   ],
   "repos": {
     "agent-passport": {
@@ -184,9 +189,18 @@
     },
     "bank-in-a-box": {
       "github": null,
+      "private_remote": "TAIPANBOX/bank-in-a-box",
       "why_no_remote": "PRIVATE remote (git@github.com:TAIPANBOX/bank-in-a-box.git, since 2026-08-28) and no CI. CI cannot clone it, so anything it contributes is measured only in a local run.",
       "local": "bank-in-a-box",
       "role": "the four-plane integration stand. No check reads it today; its selftest is the model this repo's own selftest follows.",
+      "runs": []
+    },
+    "architecture": {
+      "github": null,
+      "private_remote": "TAIPANBOX/architecture",
+      "why_no_remote": "PRIVATE by decision (2026-09-09): one file per service saying how it is built and why, with the decisions behind it. Not for outsiders. CI cannot clone it, so C18 is measured only in a local run.",
+      "local": "architecture",
+      "role": "the architecture record. Read by C18; declares nothing and runs nothing.",
       "runs": []
     }
   }
