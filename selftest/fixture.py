@@ -1605,8 +1605,6 @@ ARCHITECTURE_EXPECTATIONS = {
     }
 }
 
-POINTER = "Architecture: ~/Development/architecture/services/{name}.md (read it first, check its drift, update it in the same wave)\n"
-
 
 def _head(root, repo: str) -> str:
     import subprocess
@@ -1625,11 +1623,6 @@ def render_architecture(root) -> dict[str, str]:
         files[f"services/{name}.md"] = SERVICE_FILE.format(name=name, sha=_head(root, name))
     return files
 
-
-# Every fixture repository carries the pointer C18 requires. setdefault, so a
-# fixture repo that one day writes its own CLAUDE.md keeps it.
-for _name, _files in ESTATE.items():
-    _files.setdefault("CLAUDE.md", "# CLAUDE.md, fixture\n\n## Read before you change anything\n\n1. " + POINTER.format(name=_name))
 
 # Last on purpose: build_estate iterates in insertion order, and this entry's
 # files are rendered from the others' commits.

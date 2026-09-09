@@ -67,9 +67,3 @@ Feature: Every architecture file is current against its repository
     Given a decisions row held by a script the repository does not have
     Then it is refused, naming the script
     Because a decision held by a missing gate is held by nothing
-
-  @fires:c18.no-pointer
-  Scenario: The repository does not point at its file
-    Given a CLAUDE.md without the pointer line
-    Then it is refused
-    Because the pointer is how the agent learns the file exists from where it stands

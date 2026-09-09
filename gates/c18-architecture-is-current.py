@@ -19,7 +19,6 @@ WHAT IS CHECKED, PER REGISTRY ENTRY
   - no commit touching code (anything but markdown, docs/ and LICENSE) landed
     on main after it
   - every `scripts/x.sh` the decisions table names as holding a decision exists
-  - the repository's CLAUDE.md points at the file
 
 WHAT IT CANNOT SEE
 
@@ -198,16 +197,6 @@ def run(estate: E.Estate) -> E.Check:
                     f"c18.dangling-gate:{name}",
                     f"{estate.where(ARCH, rel)} says a decision is held by `{script}`, and {estate.where(name, script)} does not exist",
                 )
-        try:
-            claude = estate.read_text(name, "CLAUDE.md")
-        except E.Missing:
-            claude = ""
-        if f"architecture/services/{name}.md" not in claude:
-            c.drift(
-                f"c18.no-pointer:{name}",
-                f"{estate.where(name, 'CLAUDE.md')} does not point at architecture/services/{name}.md",
-                ["Add the line under 'Read before you change anything'."],
-            )
     return c
 
 

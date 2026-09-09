@@ -292,11 +292,10 @@ why, with the commit of that service's main it was last checked against in its
 frontmatter. This gate reads the record and every service repository and asks:
 does the file exist, or is the gap recorded with a date; is `verified_at` a
 commit on main; did code land on main after it; does every gate the decisions
-table names exist; does the repository's `CLAUDE.md` point at the file. A
-pending entry whose file exists is red, so the pending list cannot become a
-graveyard. The record is private by decision, so in CI this gate reports NOT
-MEASURED and is measured in local runs, the same way taipan was before it went
-public.
+table names exist. A pending entry whose file exists is red, so the pending
+list cannot become a graveyard. The record is private by decision, so in CI
+this gate reports NOT MEASURED and is measured in local runs, the same way
+taipan was before it went public.
 
 ## Running it
 

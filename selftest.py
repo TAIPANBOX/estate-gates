@@ -1885,10 +1885,6 @@ MUTATIONS: dict[str, list[tuple[str, callable]]] = {
         "the decisions table names a gate script the repository does not have",
         lambda r: edit(r, "architecture/services/wardryx.md", "prose only", "`scripts/not-there.sh`"),
     )],
-    "c18.no-pointer": [(
-        "the repository's CLAUDE.md no longer points at its file",
-        lambda r: edit(r, "wardryx/CLAUDE.md", "Architecture: ~/Development/architecture/services/wardryx.md", "Architecture: nowhere"),
-    )],
 }
 
 

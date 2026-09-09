@@ -603,9 +603,9 @@ Stop and tell the user, then wait:
     the wiki again.** The architecture record names, per service, the commit
     of main it was checked against, and this gate turns "checked against" into
     a verdict: exists or recorded pending, commit on main, no code after it,
-    gates it names exist, pointer in the repository's CLAUDE.md. The hooks in
-    archguard count the same drift to advise; only this gate decides.
-    *(gate: `gates/c18-architecture-is-current.py`, ten mutations in
+    gates it names exist. The hooks in archguard count the same drift to
+    advise; only this gate decides.
+    *(gate: `gates/c18-architecture-is-current.py`, nine mutations in
     `selftest.py`, one per red path; the fixture's service files are rendered
     from the sibling fixtures' real commits at build time, so the baseline is
     current by construction)*
