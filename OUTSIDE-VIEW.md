@@ -1,6 +1,6 @@
 # The estate from outside
 
-**Taken 2026-09-09 09:58 UTC.** Regenerated, never edited by hand:
+**Taken 2026-09-09 19:22 UTC.** Regenerated, never edited by hand:
 
 ```
 ./scripts/outside-view.py --write OUTSIDE-VIEW.md
@@ -19,7 +19,7 @@ Subjects come from `estate.json`. Image names come from the manifests that pin t
 | engram | public | 2 | 1 | True | 0 | True | v2.4.1 | 0 |
 | genaryx | public | 1 | 0 | True | 0 | True | none | 0 |
 | heraldyx | public | 0 | 0 | True | 0 | True | none | 0 |
-| idryx | public | 1 | 1 | True | 1 | True | v0.3.1 | 6 |
+| idryx | public | 1 | 1 | True | 0 | True | v0.3.1 | 6 |
 | mockryx | public | 2 | 1 | True | 1 | True | v0.2.1 | 6 |
 | qryx | public | 1 | 1 | True | 0 | True | v0.3.1 | 6 |
 | scopyx | public | 0 | 0 | True | 0 | True | none | 0 |
@@ -35,7 +35,15 @@ Subjects come from `estate.json`. Image names come from the manifests that pin t
 | wardryx | public | 2 | 1 | True | 0 | True | none | 0 |
 
 **Not measured** (and therefore not clean):
+- architecture: PRIVATE by decision (2026-09-09): one file per service saying how it is built and why, with the decisions behind it. Not for outsiders. CI cannot clone it, so C18 is measured only in a local run.
 - bank-in-a-box: PRIVATE remote (git@github.com:TAIPANBOX/bank-in-a-box.git, since 2026-08-28) and no CI. CI cannot clone it, so anything it contributes is measured only in a local run.
+
+## Private by decision
+
+Repositories `estate.json` records as private on purpose (`private_remote`). A flip to public is silent everywhere else, so it is measured here and fails the run.
+
+- architecture (`TAIPANBOX/architecture`): private, as decided
+- bank-in-a-box (`TAIPANBOX/bank-in-a-box`): private, as decided
 
 ## Container images, as a stranger's docker sees them
 
@@ -64,5 +72,5 @@ Names are taken from every `ghcr.io/` reference pinned in the estate's own manif
 
 - **engram**: `engdbram`
 
-**Undeclared (21 of 22):** agent-passport, agent-stack-go, bank-in-a-box, catalog, costcrew, genaryx, heraldyx, idryx, mockryx, qryx, scopyx, stack-k8s, stack-single, stack-up, taipan, terraform-provider-taipan, tokenfuse, trailryx, verdryx, vouchryx, wardryx
+**Undeclared (22 of 23):** agent-passport, agent-stack-go, architecture, bank-in-a-box, catalog, costcrew, genaryx, heraldyx, idryx, mockryx, qryx, scopyx, stack-k8s, stack-single, stack-up, taipan, terraform-provider-taipan, tokenfuse, trailryx, verdryx, vouchryx, wardryx
 
