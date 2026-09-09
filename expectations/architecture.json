@@ -1,0 +1,15 @@
+{
+  "$comment": [
+    "Services whose architecture file is not written yet. An entry is a dated",
+    "gap, never a permission: the day the file exists the entry must go, or",
+    "C18 reports it as stale. Subjects are estate.json; this file only says",
+    "which of them are still pending and since when.",
+    "",
+    "Empty today: every registry entry already has a services/<name>.md file",
+    "in TAIPANBOX/architecture as of 2026-09-09, so there is nothing to record",
+    "as pending. Add an entry here only for a repository whose file has not",
+    "been written, with the date and a reason; do not add one to excuse a file",
+    "that exists."
+  ],
+  "pending": {}
+}

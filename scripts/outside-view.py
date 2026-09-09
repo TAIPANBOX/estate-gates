@@ -150,18 +150,8 @@ def declared_distribution(estate: dict) -> dict[str, str | None]:
     return out
 
 
-def main() -> int:
-    ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument(
-        "--write",
-        metavar="PATH",
-        help="also write the report here (default: print only)",
-    )
-    args = ap.parse_args()
-
-    estate = json.loads(REGISTRY.read_text())
+def render(estate: dict, gh=gh_json, ghcr=ghcr_public) -> tuple[str, bool]:
     stamp = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
-
     lines: list[str] = []
     w = lines.append
     w("# The estate from outside")
@@ -185,16 +175,22 @@ def main() -> int:
     w("|---|---|---|---|---|---|---|---|---|")
 
     unmeasured: list[str] = []
+    private_by_decision: list[tuple[str, str, str]] = []
     for repo, entry in sorted(estate["repos"].items()):
         slug = entry.get("github")
         if not slug:
+            priv = entry.get("private_remote")
+            if priv:
+                meta = gh(f"/repos/{priv}")
+                vis = meta.get("visibility", "unknown") if isinstance(meta, dict) else "unreachable"
+                private_by_decision.append((repo, priv, str(vis)))
             unmeasured.append(f"{repo}: {entry.get('why_no_remote', 'no public remote')}")
             continue
-        meta = gh_json(f"/repos/{slug}")
+        meta = gh(f"/repos/{slug}")
         if not isinstance(meta, dict):
             unmeasured.append(f"{repo}: GitHub API unreachable")
             continue
-        rel = gh_json(f"/repos/{slug}/releases/latest")
+        rel = gh(f"/repos/{slug}/releases/latest")
         if isinstance(rel, dict) and "tag_name" in rel:
             tag = rel["tag_name"]
             assets = len(rel.get("assets") or [])
@@ -214,6 +210,25 @@ def main() -> int:
             w(f"- {line}")
     w("")
 
+    # --- private by decision ---------------------------------------------
+    flipped = False
+    if private_by_decision:
+        w("## Private by decision")
+        w("")
+        w(
+            "Repositories `estate.json` records as private on purpose "
+            "(`private_remote`). A flip to public is silent everywhere else, so "
+            "it is measured here and fails the run."
+        )
+        w("")
+        for repo, slug, vis in private_by_decision:
+            if vis == "private":
+                w(f"- {repo} (`{slug}`): private, as decided")
+            else:
+                flipped = True
+                w(f"- **FLIP: {repo} (`{slug}`) measured {vis}, and it must be private**")
+        w("")
+
     # --- images -----------------------------------------------------------
     w("## Container images, as a stranger's docker sees them")
     w("")
@@ -226,7 +241,7 @@ def main() -> int:
     w("| image | pinned by | anonymous pull |")
     w("|---|---|---|")
     for image, sources in sorted(pinned_images(estate).items()):
-        ok, detail = ghcr_public(image)
+        ok, detail = ghcr(image)
         mark = "yes" if ok else "NO"
         src = ", ".join(sorted(set(sources))[:3])
         w(f"| `{image}` | {src} | {mark}, {detail} |")
@@ -249,12 +264,51 @@ def main() -> int:
     w("")
     w(f"**Undeclared ({len(silent)} of {len(dist)}):** {', '.join(silent)}")
     w("")
+    return "\n".join(lines), flipped
 
-    text = "\n".join(lines)
+
+def selftest(estate: dict) -> int:
+    """Plant a flip and require the report to catch it, and plant none and
+    require silence. No network: both GitHub and the registry are faked."""
+    subjects = [e["private_remote"] for e in estate["repos"].values() if e.get("private_remote")]
+    if not subjects:
+        print("selftest: measured nothing, no private_remote in estate.json")
+        return 2
+
+    def fake(vis: str):
+        return lambda path, jq=None: {"visibility": vis, "stargazers_count": 0, "forks_count": 0,
+                                      "has_issues": True, "open_issues_count": 0, "has_discussions": False}
+
+    no_pull = lambda image: (True, "selftest")  # noqa: E731
+    text, flipped = render(estate, gh=fake("public"), ghcr=no_pull)
+    if not flipped or "FLIP:" not in text:
+        print("selftest: FAIL, a private-by-decision repository measured public and nothing said so")
+        return 1
+    text, flipped = render(estate, gh=fake("private"), ghcr=no_pull)
+    if flipped or "FLIP:" in text:
+        print("selftest: FAIL, a private repository was reported as a flip")
+        return 1
+    print(f"selftest: OK, a flip of any of {len(subjects)} private-by-decision repositories is caught, and none is invented")
+    return 0
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--write", metavar="PATH", help="also write the report here (default: print only)")
+    ap.add_argument("--selftest", action="store_true", help="prove the private-by-decision check can fail, without the network")
+    args = ap.parse_args()
+
+    estate = json.loads(REGISTRY.read_text())
+    if args.selftest:
+        return selftest(estate)
+    text, flipped = render(estate)
     print(text)
     if args.write:
         pathlib.Path(args.write).write_text(text + "\n")
         print(f"\nwritten to {args.write}", file=sys.stderr)
+    if flipped:
+        print("\nFAIL: a repository that must be private is not. See 'Private by decision' above.", file=sys.stderr)
+        return 1
     return 0
 
 

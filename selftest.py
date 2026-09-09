@@ -131,7 +131,10 @@ def build_estate(root: pathlib.Path) -> None:
     for repo, files in fixture.ESTATE.items():
         d = root / repo
         d.mkdir(parents=True)
-        for relpath, contents in files.items():
+        rendered = dict(files)
+        if "_render" in files:
+            rendered.update(files["_render"](root))
+        for relpath, contents in rendered.items():
             if relpath.startswith("_"):
                 continue
             p = d / relpath
@@ -284,6 +287,30 @@ def plant(root: pathlib.Path, rel: str, contents: str) -> None:
     p.parent.mkdir(parents=True, exist_ok=True)
     p.write_text(contents, encoding="utf-8")
     git(root / rel.split("/", 1)[0], "add", rel.split("/", 1)[1])
+
+
+def _commit_code(root: pathlib.Path, repo: str, rel: str, contents: str) -> None:
+    """A COMMITTED code change on the fixture repository's main. C18 counts
+    commits, so a planted-but-uncommitted file proves nothing about it."""
+    p = root / repo / rel
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(contents, encoding="utf-8")
+    git(root / repo, "add", rel)
+    git(root / repo, "commit", "--quiet", "-m", "code after verification")
+
+
+def _side_branch_sha(root: pathlib.Path, repo: str) -> str:
+    """Commit on a branch that main does not contain, point the service file
+    at it, and return to main."""
+    d = root / repo
+    git(d, "checkout", "--quiet", "-b", "side")
+    (d / "side.go").write_text("package side\n", encoding="utf-8")
+    git(d, "add", "side.go")
+    git(d, "commit", "--quiet", "-m", "side")
+    sha = subprocess.run(["git", "-C", str(d), "rev-parse", "HEAD"], capture_output=True, text=True, check=True).stdout.strip()
+    git(d, "checkout", "--quiet", "main")
+    edit(root, f"architecture/services/{repo}.md", fixture._head(root, repo), sha)
+    return sha
 
 
 #: Every fixture file that declares the member C13 bounds, found by reading the
@@ -1818,6 +1845,46 @@ MUTATIONS: dict[str, list[tuple[str, callable]]] = {
         "every tag-triggered workflow in the estate is removed",
         lambda r: drop(r, "tokenfuse/.github/workflows/release.yml"),
     )],
+    # ---- C18
+    "c18.expectations-unreadable": [(
+        "the pending list cannot be read, so nothing may be called pending",
+        lambda r: (r / "_architecture-expectations.json").write_text("{not json"),
+    )],
+    "c18.no-files": [(
+        "the architecture record has no service file at all",
+        lambda r: [drop(r, f"architecture/services/{n}.md") for n in fixture.ESTATE
+                   if n != "architecture" and n not in fixture.PENDING],
+    )],
+    "c18.file-missing": [(
+        "a service with no file and no pending entry",
+        lambda r: drop(r, "architecture/services/wardryx.md"),
+    )],
+    "c18.stale-pending": [(
+        "a file exists for a service still recorded as pending",
+        lambda r: plant(r, "architecture/services/mockryx.md",
+                        fixture.SERVICE_FILE.format(name="mockryx", sha=fixture._head(r, "mockryx"))),
+    )],
+    "c18.frontmatter": [(
+        "the file lost its verified_at",
+        lambda r: edit(r, "architecture/services/wardryx.md", "verified_at: ", "checked_at: "),
+    )],
+    "c18.verified-at-unknown": [(
+        "verified_at names a commit the repository never had",
+        lambda r: edit(r, "architecture/services/wardryx.md",
+                       fixture._head(r, "wardryx"), "f" * 40),
+    )],
+    "c18.verified-at-unreachable": [(
+        "verified_at is a commit on a side branch, not on main",
+        lambda r: _side_branch_sha(r, "wardryx") and None,
+    )],
+    "c18.stale": [(
+        "a code commit landed on main after verified_at",
+        lambda r: _commit_code(r, "wardryx", "internal/new.go", "package internal\n"),
+    )],
+    "c18.dangling-gate": [(
+        "the decisions table names a gate script the repository does not have",
+        lambda r: edit(r, "architecture/services/wardryx.md", "prose only", "`scripts/not-there.sh`"),
+    )],
 }
 
 
@@ -1907,6 +1974,9 @@ def main() -> int:
         registry.write_text(json.dumps(fixture.REGISTRY, indent=2), encoding="utf-8")
         expectations = work / "expectations.json"
         expectations.write_text(json.dumps(fixture.EXPECTATIONS, indent=2), encoding="utf-8")
+        arch_expectations = work / "architecture-expectations.json"
+        arch_expectations.write_text(json.dumps(fixture.ARCHITECTURE_EXPECTATIONS, indent=2), encoding="utf-8")
+        os.environ["ESTATE_GATES_ARCHITECTURE_EXPECTATIONS"] = str(arch_expectations)
 
         # -- 1. the baseline is green --------------------------------------
         seen, verdicts, text = run_checks(base, registry, expectations)

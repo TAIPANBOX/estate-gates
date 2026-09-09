@@ -285,6 +285,18 @@ buildx imagetools create`, `softprops/action-gh-release`,
 equivalent but spelled differently, is invisible to it, which is stated here
 rather than silently missed.
 
+**C18, every architecture file is current against its repository**
+(`gates/c18-architecture-is-current.py`). The architecture record,
+TAIPANBOX/architecture, holds one file per service saying how it is built and
+why, with the commit of that service's main it was last checked against in its
+frontmatter. This gate reads the record and every service repository and asks:
+does the file exist, or is the gap recorded with a date; is `verified_at` a
+commit on main; did code land on main after it; does every gate the decisions
+table names exist. A pending entry whose file exists is red, so the pending
+list cannot become a graveyard. The record is private by decision, so in CI
+this gate reports NOT MEASURED and is measured in local runs, the same way
+taipan was before it went public.
+
 ## Running it
 
 Locally, against the sibling checkouts in the parent directory:

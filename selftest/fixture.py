@@ -1569,6 +1569,65 @@ func TestWireTypesIsExactlyWhatTheCallSitesProduce(t *testing.T) {}
     "bank-in-a-box": {"README.md": "# bank-in-a-box\n"},
 }
 
+# ------------------------------------------------------- the architecture record
+#
+# One service file per fixture repository, rendered at BUILD time because its
+# `verified_at` must be a real commit of the sibling fixture repository, which
+# does not exist until build_estate has committed it. mockryx is left pending
+# on purpose, so the "pending" path of C18 is green on the baseline and the
+# "stale-pending" mutation has something to plant.
+
+SERVICE_FILE = """---
+service: {name}
+repo: TAIPANBOX/{name}
+verified: 2026-09-09
+verified_at: {sha}
+status: active
+---
+# {name}
+
+## 1. What it is, and what it is not
+
+Fixture.
+
+## 5. Decisions
+
+| Date | Marker | Decision | Held by |
+|---|---|---|---|
+| 2026-09-09 | @decided 2026-09-09 | a fixture decision | prose only |
+"""
+
+PENDING = ("mockryx",)
+
+ARCHITECTURE_EXPECTATIONS = {
+    "pending": {
+        "mockryx": {"recorded": "2026-09-09", "why": "fixture: stands in for a service whose file is not written yet"}
+    }
+}
+
+
+def _head(root, repo: str) -> str:
+    import subprocess
+
+    return subprocess.run(
+        ["git", "-C", str(root / repo), "rev-parse", "HEAD"], capture_output=True, text=True, check=True
+    ).stdout.strip()
+
+
+def render_architecture(root) -> dict[str, str]:
+    """The architecture repository's files, once every sibling is committed."""
+    files: dict[str, str] = {}
+    for name in ESTATE:
+        if name == "architecture" or name in PENDING:
+            continue
+        files[f"services/{name}.md"] = SERVICE_FILE.format(name=name, sha=_head(root, name))
+    return files
+
+
+# Last on purpose: build_estate iterates in insertion order, and this entry's
+# files are rendered from the others' commits.
+ESTATE["architecture"] = {"_render": render_architecture}
+
 # The expectations file the fixture's C5 run measures against. The fixture
 # estate is built so that the divergences below are the only ones.
 EXPECTATIONS = {

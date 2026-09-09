@@ -598,3 +598,14 @@ Stop and tell the user, then wait:
     naming a different file, a publishing job's `if:` guard removed with its
     trigger left clean, and every tag-triggered workflow in the estate taken
     away, which must read as measured nothing rather than as agreement)*
+
+21. **A description of a service that nobody re-checks against the code is
+    the wiki again.** The architecture record names, per service, the commit
+    of main it was checked against, and this gate turns "checked against" into
+    a verdict: exists or recorded pending, commit on main, no code after it,
+    gates it names exist. The hooks in archguard count the same drift to
+    advise; only this gate decides.
+    *(gate: `gates/c18-architecture-is-current.py`, nine mutations in
+    `selftest.py`, one per red path; the fixture's service files are rendered
+    from the sibling fixtures' real commits at build time, so the baseline is
+    current by construction)*
