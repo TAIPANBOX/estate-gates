@@ -1,0 +1,16 @@
+[
+  {
+    "detector": "unmanaged_egress",
+    "identity": "proc:lookupprobe@cg6171",
+    "severity": "high",
+    "time": "2026-09-08T14:44:25Z",
+    "summary": "unattributed process reached an external LLM API directly (Google Gemini, OpenAI), observed via eBPF with no governed connector recording it"
+  },
+  {
+    "detector": "shadow_ai",
+    "identity": "proc:lookupprobe@cg6171",
+    "severity": "medium",
+    "time": "2026-09-08T14:44:25Z",
+    "summary": "egress to external LLM API (Google Gemini, OpenAI)"
+  }
+]

@@ -1,0 +1,22 @@
+{
+  "flows": [
+    {
+      "time": "2026-09-08T15:11:35.455872886Z",
+      "identity": "proc:wget@cg6867",
+      "destination": "104.20.23.154:443",
+      "bytes": 0
+    },
+    {
+      "time": "2026-09-08T15:11:35.518390594Z",
+      "identity": "claimed:agent://acme.example/probe",
+      "destination": "1.1.1.1:443",
+      "bytes": 0
+    },
+    {
+      "time": "2026-09-08T15:11:38.527049387Z",
+      "identity": "proc:nc@cg6867",
+      "destination": "1.1.1.1:53",
+      "bytes": 0
+    }
+  ]
+}

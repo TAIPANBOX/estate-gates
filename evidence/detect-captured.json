@@ -1,0 +1,30 @@
+[
+  {
+    "detector": "unmanaged_egress",
+    "identity": "proc:idryx@cg5736",
+    "severity": "high",
+    "time": "2026-09-08T14:44:26Z",
+    "summary": "unattributed process reached an external LLM API directly (Google Gemini, OpenAI), observed via eBPF with no governed connector recording it"
+  },
+  {
+    "detector": "shadow_ai",
+    "identity": "proc:idryx@cg5736",
+    "severity": "medium",
+    "time": "2026-09-08T14:44:26Z",
+    "summary": "egress to external LLM API (Google Gemini, OpenAI)"
+  },
+  {
+    "detector": "unmanaged_egress",
+    "identity": "proc:nc@cg5736",
+    "severity": "medium",
+    "time": "2026-09-08T14:44:26Z",
+    "summary": "network activity observed via eBPF, attributable only to process name (1 destination(s), e.g. 1.1.1.1:53) -- no IAM, agent-event, or Passport record for this identity"
+  },
+  {
+    "detector": "unmanaged_egress",
+    "identity": "proc:wget@cg5736",
+    "severity": "medium",
+    "time": "2026-09-08T14:44:26Z",
+    "summary": "network activity observed via eBPF, attributable only to process name (4 destination(s), e.g. 20.26.156.210:443) -- no IAM, agent-event, or Passport record for this identity"
+  }
+]

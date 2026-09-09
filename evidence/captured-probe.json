@@ -1,0 +1,100 @@
+{
+  "flows": [
+    {
+      "time": "2026-09-08T14:40:59.334737424Z",
+      "identity": "proc:lookupprobe@cg6171",
+      "destination": "192.168.65.7:53",
+      "bytes": 0
+    },
+    {
+      "time": "2026-09-08T14:40:59.334737507Z",
+      "identity": "proc:lookupprobe@cg6171",
+      "destination": "192.168.65.7:53",
+      "bytes": 0
+    },
+    {
+      "time": "2026-09-08T14:40:59.344566132Z",
+      "identity": "proc:lookupprobe@cg6171",
+      "destination": "generativelanguage.googleapis.com:53",
+      "bytes": 0
+    },
+    {
+      "time": "2026-09-08T14:40:59.34463334Z",
+      "identity": "proc:lookupprobe@cg6171",
+      "destination": "generativelanguage.googleapis.com:53",
+      "bytes": 0
+    },
+    {
+      "time": "2026-09-08T14:40:59.344647007Z",
+      "identity": "proc:lookupprobe@cg6171",
+      "destination": "generativelanguage.googleapis.com:53",
+      "bytes": 0
+    },
+    {
+      "time": "2026-09-08T14:40:59.344671465Z",
+      "identity": "proc:lookupprobe@cg6171",
+      "destination": "generativelanguage.googleapis.com:53",
+      "bytes": 0
+    },
+    {
+      "time": "2026-09-08T14:40:59.344681382Z",
+      "identity": "proc:lookupprobe@cg6171",
+      "destination": "generativelanguage.googleapis.com:53",
+      "bytes": 0
+    },
+    {
+      "time": "2026-09-08T14:40:59.344691382Z",
+      "identity": "proc:lookupprobe@cg6171",
+      "destination": "generativelanguage.googleapis.com:53",
+      "bytes": 0
+    },
+    {
+      "time": "2026-09-08T14:40:59.344701257Z",
+      "identity": "proc:lookupprobe@cg6171",
+      "destination": "generativelanguage.googleapis.com:53",
+      "bytes": 0
+    },
+    {
+      "time": "2026-09-08T14:40:59.34470934Z",
+      "identity": "proc:lookupprobe@cg6171",
+      "destination": "generativelanguage.googleapis.com:53",
+      "bytes": 0
+    },
+    {
+      "time": "2026-09-08T14:40:59.344798799Z",
+      "identity": "proc:lookupprobe@cg6171",
+      "destination": "192.168.65.7:53",
+      "bytes": 0
+    },
+    {
+      "time": "2026-09-08T14:40:59.344821715Z",
+      "identity": "proc:lookupprobe@cg6171",
+      "destination": "192.168.65.7:53",
+      "bytes": 0
+    },
+    {
+      "time": "2026-09-08T14:40:59.347288757Z",
+      "identity": "proc:lookupprobe@cg6171",
+      "destination": "api.openai.com:53",
+      "bytes": 0
+    },
+    {
+      "time": "2026-09-08T14:40:59.347358424Z",
+      "identity": "proc:lookupprobe@cg6171",
+      "destination": "api.openai.com:53",
+      "bytes": 0
+    },
+    {
+      "time": "2026-09-08T14:40:59.347403924Z",
+      "identity": "proc:lookupprobe@cg6171",
+      "destination": "192.168.65.7:53",
+      "bytes": 0
+    },
+    {
+      "time": "2026-09-08T14:40:59.347553549Z",
+      "identity": "proc:lookupprobe@cg6171",
+      "destination": "192.168.65.7:53",
+      "bytes": 0
+    }
+  ]
+}

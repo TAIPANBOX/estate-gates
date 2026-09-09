@@ -1,0 +1,130 @@
+{
+  "flows": [
+    {
+      "time": "2026-09-08T14:24:13.557032501Z",
+      "identity": "proc:idryx@cg5736",
+      "destination": "192.168.65.7:53",
+      "bytes": 0
+    },
+    {
+      "time": "2026-09-08T14:24:13.557032584Z",
+      "identity": "proc:idryx@cg5736",
+      "destination": "192.168.65.7:53",
+      "bytes": 0
+    },
+    {
+      "time": "2026-09-08T14:24:13.585588084Z",
+      "identity": "proc:idryx@cg5736",
+      "destination": "192.168.65.7:53",
+      "bytes": 0
+    },
+    {
+      "time": "2026-09-08T14:24:13.585608709Z",
+      "identity": "proc:idryx@cg5736",
+      "destination": "192.168.65.7:53",
+      "bytes": 0
+    },
+    {
+      "time": "2026-09-08T14:24:13.601723043Z",
+      "identity": "proc:idryx@cg5736",
+      "destination": "api.openai.com:53",
+      "bytes": 0
+    },
+    {
+      "time": "2026-09-08T14:24:13.601758084Z",
+      "identity": "proc:idryx@cg5736",
+      "destination": "api.openai.com:53",
+      "bytes": 0
+    },
+    {
+      "time": "2026-09-08T14:24:13.601833376Z",
+      "identity": "proc:idryx@cg5736",
+      "destination": "192.168.65.7:53",
+      "bytes": 0
+    },
+    {
+      "time": "2026-09-08T14:24:13.601843751Z",
+      "identity": "proc:idryx@cg5736",
+      "destination": "192.168.65.7:53",
+      "bytes": 0
+    },
+    {
+      "time": "2026-09-08T14:24:13.622184959Z",
+      "identity": "proc:idryx@cg5736",
+      "destination": "generativelanguage.googleapis.com:53",
+      "bytes": 0
+    },
+    {
+      "time": "2026-09-08T14:24:13.622222376Z",
+      "identity": "proc:idryx@cg5736",
+      "destination": "generativelanguage.googleapis.com:53",
+      "bytes": 0
+    },
+    {
+      "time": "2026-09-08T14:24:13.622329084Z",
+      "identity": "proc:idryx@cg5736",
+      "destination": "generativelanguage.googleapis.com:53",
+      "bytes": 0
+    },
+    {
+      "time": "2026-09-08T14:24:13.622353126Z",
+      "identity": "proc:idryx@cg5736",
+      "destination": "generativelanguage.googleapis.com:53",
+      "bytes": 0
+    },
+    {
+      "time": "2026-09-08T14:24:13.622360834Z",
+      "identity": "proc:idryx@cg5736",
+      "destination": "generativelanguage.googleapis.com:53",
+      "bytes": 0
+    },
+    {
+      "time": "2026-09-08T14:24:13.622369001Z",
+      "identity": "proc:idryx@cg5736",
+      "destination": "generativelanguage.googleapis.com:53",
+      "bytes": 0
+    },
+    {
+      "time": "2026-09-08T14:24:13.622377084Z",
+      "identity": "proc:idryx@cg5736",
+      "destination": "generativelanguage.googleapis.com:53",
+      "bytes": 0
+    },
+    {
+      "time": "2026-09-08T14:24:13.622394584Z",
+      "identity": "proc:idryx@cg5736",
+      "destination": "generativelanguage.googleapis.com:53",
+      "bytes": 0
+    },
+    {
+      "time": "2026-09-08T14:24:15.543419377Z",
+      "identity": "proc:wget@cg5736",
+      "destination": "20.26.156.210:443",
+      "bytes": 0
+    },
+    {
+      "time": "2026-09-08T14:24:15.646109252Z",
+      "identity": "proc:wget@cg5736",
+      "destination": "104.20.23.154:443",
+      "bytes": 0
+    },
+    {
+      "time": "2026-09-08T14:24:15.748711752Z",
+      "identity": "proc:wget@cg5736",
+      "destination": "104.16.133.229:443",
+      "bytes": 0
+    },
+    {
+      "time": "2026-09-08T14:24:15.838279419Z",
+      "identity": "proc:wget@cg5736",
+      "destination": "104.16.124.96:443",
+      "bytes": 0
+    },
+    {
+      "time": "2026-09-08T14:24:15.965550919Z",
+      "identity": "proc:nc@cg5736",
+      "destination": "1.1.1.1:53",
+      "bytes": 0
+    }
+  ]
+}

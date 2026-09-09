@@ -1,0 +1,16 @@
+{
+  "flows": [
+    {
+      "time": "2026-09-09T10:35:20.153180053Z",
+      "identity": "proc:iouring_connect@cg1066",
+      "destination": "127.0.0.1:11434",
+      "bytes": 0
+    },
+    {
+      "time": "2026-09-09T10:35:20.15586922Z",
+      "identity": "proc:nc@cg1066",
+      "destination": "127.0.0.1:11434",
+      "bytes": 0
+    }
+  ]
+}
