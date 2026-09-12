@@ -49,6 +49,12 @@ a claim becomes `proven` only after a run, and only the run's own output moves i
 | `stack-up` from a cold cache on macOS | 2026-09-01 | this Mac, Apple Silicon, empty `CARGO_HOME` / `GOMODCACHE` / `GOCACHE` / npm cache, fresh `STACK_UP_HOME` and `TAIPAN_HOME` | `go-to-market-2026-09/evidence/stack-up-cold-run-2026-09-01.log` | 399 downloads, 353 compiles, zero reuse. **221 s** to a working dashboard; 10 records sealed, packed, verified offline, `VERIFIED`, exit 0. Run with `--no-tools`, so four installed-not-started tools sat outside it |
 | The 2026-08-31 `WARDRYX_DSN` to `WARDRYX_DB` change (stack-single#26), through a full `stack-single` bring-up | 2026-09-01 | three GCP `e2-standard-2`, destroyed (the same three installs above) | `go-to-market-2026-09/evidence/stack-single-three-installs-2026-09-01.md`, plus `install.sh:691-702` for the check names | Both installs on top of #26 (stack-single#27 and #28) ran `install.sh`'s own section 8, which is where `WARDRYX_DB` is read: `wardryx answers inside`, `policy store is up`, `policy plane accepts its admin key` (200), `policy plane rejects an unknown key` (401), `gateway's key cannot write policy` (403), `wardryx is NOT on the host`, all `ok` in both runs (18 and 19 checks respectively, 0 failures). Exercised through `install.sh` and `docker compose up`, by the installer's own checks, not by a separate test |
 
+## The gateway against a real provider, proven
+
+| What | When | On what | Artifact | Scope |
+|---|---|---|---|---|
+| The released `tokenfuse:v0.4.4` image in `enforce` mode in front of `api.anthropic.com` (Messages door), a half-cent per-run budget, the breaker refusing the third call with `402 budget_exceeded` and exporting two `breaker_tripped` events with a `prev_hash` chain | 2026-09-12 | this Mac, Docker Desktop 29.7.2, linux/aarch64, the image pulled by tag | `go-to-market-2026-09/evidence/1.0/r3-anthropic-2026-09-12/` (`SUMMARY.md`, `calls.log`, `hdr-*.txt`, `body-*.json`, `events.ndjson`) | One door, one provider, one run, four calls, `claude-haiku-4-5-20251001`, about USD 0.0004. A first attempt sized its budget so that eight calls fit under it and saw eight 200s, which is recorded, not a defect. Not the OpenAI door (unreleased on main at that hour), not streaming, not a cluster |
+
 ## Sensors, proven
 
 | What | When | On what | Artifact | Scope |
