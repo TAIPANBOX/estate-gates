@@ -410,10 +410,30 @@ MUTATIONS: dict[str, list[tuple[str, callable]]] = {
         "a consumer pins ahead of the newest tag",
         lambda r: gomod_pin(r, "qryx", "v9.9.9"),
     )],
-    "c1.minor-behind": [(
-        "a consumer is a minor behind",
-        lambda r: gomod_pin(r, "qryx", "v0.1.0"),
+    "c1.major-behind": [(
+        # The estate on 2026-09-12: agent-stack-go cut v1.0.0 and every
+        # consumer still pinned 0.x. Red for all of them by design until each
+        # re-pins, and the finding must say "major", not "a minor or more".
+        "the module cut 1.0 and a consumer is still on 0.x",
+        lambda r: git(r / "agent-stack-go", "tag", "v1.0.0"),
     )],
+    "c1.minor-behind": [
+        (
+            "a consumer is a minor behind a pre-1.0 module",
+            lambda r: gomod_pin(r, "qryx", "v0.1.0"),
+        ),
+        (
+            # Past 1.0 a minor is additive, so this is the mild reading and the
+            # finding must still fire: the support sentence gives fixes to the
+            # newest minor only.
+            "the module is past 1.0 and a consumer is one minor behind it",
+            lambda r: [
+                git(r / "agent-stack-go", "tag", "v1.0.0"),
+                git(r / "agent-stack-go", "tag", "v1.1.0"),
+                gomod_pin(r, "qryx", "v1.0.0"),
+            ],
+        ),
+    ],
     "c1.patch-behind": [(
         "a consumer is a patch behind",
         lambda r: gomod_pin(r, "qryx", "v0.5.0"),
@@ -863,6 +883,16 @@ MUTATIONS: dict[str, list[tuple[str, callable]]] = {
         or edit(
             r,
             "agent-stack-go/cmd/agent-conform/schemas/agent-event.v0.3.schema.json",
+            '"properties"',
+            '"disabled_properties"',
+            every=True,
+        )
+        # Every version the fixture carries, or the gate still has a subject
+        # and the case reads as toothless: adding the v1.0 copy without this
+        # line did exactly that on 2026-09-12.
+        or edit(
+            r,
+            "agent-stack-go/cmd/agent-conform/schemas/agent-event.v1.0.schema.json",
             '"properties"',
             '"disabled_properties"',
             every=True,
