@@ -93,7 +93,12 @@ import _estate as E  # noqa: E402
 
 OWNER = "taipanbox"
 GITHUB_OWNER = "TAIPANBOX"
-_IMAGE = re.compile(rf"ghcr\.io/{OWNER}/([a-z0-9][a-z0-9._-]*)(?::([A-Za-z0-9][A-Za-z0-9._-]*))?")
+# The tag group also admits a placeholder (`<tag>`, `${tag}`, `$V`), so a README's
+# verify block, which tells the reader to fill the tag in, is read as a template
+# and skipped rather than as an image with no tag. The first version of this
+# pattern did the latter and reported four verify blocks as the July-latest class
+# on the night they landed.
+_IMAGE = re.compile(rf"ghcr\.io/{OWNER}/([a-z0-9][a-z0-9._-]*)(?::([<$][^\s\\`)\"']*|[A-Za-z0-9][A-Za-z0-9._-]*))?")
 _DOWNLOAD = re.compile(
     rf"github\.com/{GITHUB_OWNER}/([A-Za-z0-9._-]+)/releases/(?:download/([A-Za-z0-9._-]+)|(latest)/download)/"
 )

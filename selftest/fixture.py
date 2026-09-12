@@ -1188,6 +1188,8 @@ IDRYX_README = """# idryx (fixture)
 
 Binaries: https://github.com/TAIPANBOX/idryx/releases/download/v0.3.1/idryx_linux_amd64.tar.gz
 Newest: https://github.com/TAIPANBOX/idryx/releases/latest/download/idryx_darwin_arm64.tar.gz
+
+Verify: cosign verify ghcr.io/taipanbox/idryx:<tag> and gh attestation verify oci://ghcr.io/taipanbox/idryx:${tag}
 """
 
 # C20's view of GitHub Releases, exported by selftest.py through
