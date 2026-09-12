@@ -1417,6 +1417,7 @@ ESTATE: dict[str, dict] = {
         "verdryx/events.py": VERDRYX_EVENTS_PY,
         "verdryx/cli.py": VERDRYX_CLI_PY,
         "tests/fixtures/agent-event.v0.2.schema.json": EVENT_V02,
+        "tests/fixtures/agent-event.v1.0.schema.json": EVENT_V10,
         "tests/test_events.py": CHAIN_TEST_PY,
     },
     "engram": {
@@ -1424,11 +1425,13 @@ ESTATE: dict[str, dict] = {
         "engram/core.py": ENGRAM_CORE_PY,
         "engram/reflection.py": ENGRAM_REFLECTION_PY,
         "tests/fixtures/agent-event.v0.2.schema.json": EVENT_V02,
+        "tests/fixtures/agent-event.v1.0.schema.json": EVENT_V10,
         "tests/test_events.py": CHAIN_TEST_PY,
     },
     "genaryx": {
         "crates/core/src/schemas/agent-event.v0.1.schema.json": EVENT_V01,
         "crates/core/src/schemas/agent-event.v0.2.schema.json": EVENT_V02,
+        "crates/core/src/schemas/agent-event.v1.0.schema.json": EVENT_V10,
         "crates/core/src/command.rs": GENARYX_COMMAND_RS,
     },
     "idryx": {
