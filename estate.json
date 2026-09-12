@@ -33,13 +33,23 @@
       "github": "TAIPANBOX/agent-passport",
       "local": "agent-passport",
       "role": "the spec. Canonical schemas and the SPEC.md 6.2 event-type registry.",
-      "runs": []
+      "runs": [],
+      "major": 1,
+      "compat": {
+        "manifest": "SPEC.md",
+        "gate": "scripts/version-compatibility.sh"
+      }
     },
     "agent-stack-go": {
       "github": "TAIPANBOX/agent-stack-go",
       "local": "agent-stack-go",
       "role": "the shared Go module. Wire types, the chain, the pinned cross-language vectors.",
-      "runs": []
+      "runs": [],
+      "major": 1,
+      "compat": {
+        "manifest": "api/surface.txt",
+        "gate": "scripts/api-surface.sh"
+      }
     },
     "tokenfuse": {
       "github": "TAIPANBOX/tokenfuse",
@@ -66,7 +76,10 @@
       "role": "the memory plane. Vendors the event schema as a test fixture and pins the chain vectors.",
       "runs": [
         "engram-mcp"
-      ]
+      ],
+      "compat": {
+        "exempt": "versioned past 1.0 (v2.4.1) before the estate had a compat surface; its API reference is docs/api-reference.md and a manifest with a gate is a per-plane decision (RELEASE-1.0-PLAN 10.42), not a retrofit this gate imposes"
+      }
     },
     "idryx": {
       "github": "TAIPANBOX/idryx",
