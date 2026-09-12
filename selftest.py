@@ -636,8 +636,15 @@ MUTATIONS: dict[str, list[tuple[str, callable]]] = {
         ),
     ],
     "c9.nothing-scanned": [(
+        # Every script under a scanned directory in the fixture, or the gate
+        # still has a subject and the case reads as toothless: adding
+        # agent-passport's surface gate for C19 did exactly that on
+        # 2026-09-12, the same way the v1.0 schema copy did to c12.schemas.
         "every script the check reads is gone",
-        lambda r: drop(r, "trailryx/scripts/audit.sh"),
+        lambda r: [
+            drop(r, "trailryx/scripts/audit.sh"),
+            drop(r, "agent-passport/scripts/version-compatibility.sh"),
+        ],
     )],
     # ---- C8
     "c8.type-unanswered": [
