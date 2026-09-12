@@ -354,6 +354,13 @@ def registry_runs(root: pathlib.Path, repo: str, kinds: list[str]) -> None:
     path.write_text(json.dumps(reg, indent=2) + "\n")
 
 
+def registry_del(root: pathlib.Path, repo: str, key: str) -> None:
+    """Take one field off one registry entry."""
+    path, reg = _case_registry(root)
+    del reg["repos"][repo][key]
+    path.write_text(json.dumps(reg, indent=2) + "\n")
+
+
 def registry_drop_runs(root: pathlib.Path, repo: str) -> None:
     """Take the required `runs` field off one registry entry."""
     path, reg = _case_registry(root)
@@ -437,6 +444,85 @@ MUTATIONS: dict[str, list[tuple[str, callable]]] = {
     "c1.patch-behind": [(
         "a consumer is a patch behind",
         lambda r: gomod_pin(r, "qryx", "v0.5.0"),
+    )],
+    # ---- C19
+    "c19.manifest-missing": [(
+        "the declared compatibility manifest is gone",
+        lambda r: drop(r, "agent-passport/SPEC.md"),
+    )],
+    "c19.gate-missing": [(
+        "the declared surface gate is gone",
+        lambda r: drop(r, "agent-passport/scripts/version-compatibility.sh"),
+    )],
+    "c19.gate-not-in-ci": [(
+        "no workflow names the surface gate",
+        lambda r: edit(
+            r,
+            "agent-passport/.github/workflows/ci.yml",
+            "      - run: ./scripts/version-compatibility.sh\n",
+            "      - run: echo gates\n",
+        ),
+    )],
+    "c19.tag-major-mismatch": [(
+        "a major is declared and the newest tag is below it",
+        lambda r: [
+            git(r / "agent-passport", "tag", "-d", "v1.0.0"),
+            git(r / "agent-passport", "tag", "v0.9.0"),
+        ],
+    )],
+    "c19.no-tags": [(
+        "a major is declared and no tag exists",
+        lambda r: git(r / "agent-passport", "tag", "-d", "v1.0.0"),
+    )],
+    "c19.undeclared-major": [(
+        # The failure the gate exists for: a 1.0 cut with no surface behind it.
+        "a 1.0 tag with no declaration in estate.json",
+        lambda r: git(r / "agent-stack-go", "tag", "v1.0.0"),
+    )],
+    "c19.no-subjects": [(
+        "no repository declares a major or carries a 1.0 tag",
+        lambda r: [
+            registry_del(r, "agent-passport", "major"),
+            registry_del(r, "agent-passport", "compat"),
+            git(r / "agent-passport", "tag", "-d", "v1.0.0"),
+        ],
+    )],
+    # ---- C20
+    "c20.image-unpinned": [(
+        # The July build: an image with no tag pulls whatever latest is.
+        "a README names an image with no tag",
+        lambda r: edit(r, "idryx/README.md", "ghcr.io/taipanbox/idryx:v0.3.1", "ghcr.io/taipanbox/idryx"),
+    )],
+    "c20.image-unowned": [(
+        "a README names an image no repository owns",
+        lambda r: edit(r, "idryx/README.md", "ghcr.io/taipanbox/idryx:v0.3.1", "ghcr.io/taipanbox/nonesuch:v0.3.1"),
+    )],
+    "c20.tag-unknown": [(
+        "a README pins a tag the repository never cut",
+        lambda r: edit(r, "idryx/README.md", "ghcr.io/taipanbox/idryx:v0.3.1", "ghcr.io/taipanbox/idryx:v9.9.9"),
+    )],
+    "c20.repo-unknown": [(
+        "a README links a release of a repository estate.json does not name",
+        lambda r: edit(r, "idryx/README.md", "TAIPANBOX/idryx/releases/download", "TAIPANBOX/nonesuch/releases/download"),
+    )],
+    "c20.release-missing": [(
+        # v0.3.0 is a git tag of the fixture's idryx and has no Release: the
+        # bare-tag shape wardryx, scopyx, heraldyx, costcrew and stack-k8s had
+        # until 2026-09-12.
+        "a README links a download for a tag with no Release",
+        lambda r: edit(r, "idryx/README.md", "releases/download/v0.3.1/", "releases/download/v0.3.0/"),
+    )],
+    "c20.no-releases": [(
+        "a README links releases/latest in a repository with no Release",
+        lambda r: plant(
+            r,
+            "qryx/README.md",
+            "# qryx (fixture)\n\nhttps://github.com/TAIPANBOX/qryx/releases/latest/download/qryx_darwin_arm64.tar.gz\n",
+        ),
+    )],
+    "c20.no-subjects": [(
+        "no README carries an install line",
+        lambda r: drop(r, "idryx/README.md"),
     )],
     # ---- C7
     # ---- C9
@@ -2007,6 +2093,9 @@ def main() -> int:
         arch_expectations = work / "architecture-expectations.json"
         arch_expectations.write_text(json.dumps(fixture.ARCHITECTURE_EXPECTATIONS, indent=2), encoding="utf-8")
         os.environ["ESTATE_GATES_ARCHITECTURE_EXPECTATIONS"] = str(arch_expectations)
+        releases = work / "releases.json"
+        releases.write_text(json.dumps(fixture.RELEASES, indent=2), encoding="utf-8")
+        os.environ["ESTATE_GATES_RELEASES"] = str(releases)
 
         # -- 1. the baseline is green --------------------------------------
         seen, verdicts, text = run_checks(base, registry, expectations)

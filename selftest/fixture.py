@@ -1160,6 +1160,41 @@ def gomod(module: str, pin: str | None = None) -> str:
     return text
 
 
+# C19 reads these: the spec's surface gate and the workflow that runs it. The
+# fixture's agent-passport is the one repository at 1.0 (tag below), as the
+# real one is.
+VERSION_COMPAT_SH = """#!/usr/bin/env bash
+# fixture: the gate that holds SPEC.md section 10
+echo "OK: fixture surface unchanged"
+"""
+
+AGENT_PASSPORT_CI_YML = """name: ci
+on:
+  push:
+    branches: [main]
+  pull_request:
+jobs:
+  gates:
+    runs-on: ubuntu-latest
+    steps:
+      - run: ./scripts/version-compatibility.sh
+"""
+
+# C20 reads this: one pinned image, one release download, one latest download.
+# Each target string appears exactly once so a mutation can edit it by name.
+IDRYX_README = """# idryx (fixture)
+
+    docker run ghcr.io/taipanbox/idryx:v0.3.1
+
+Binaries: https://github.com/TAIPANBOX/idryx/releases/download/v0.3.1/idryx_linux_amd64.tar.gz
+Newest: https://github.com/TAIPANBOX/idryx/releases/latest/download/idryx_darwin_arm64.tar.gz
+"""
+
+# C20's view of GitHub Releases, exported by selftest.py through
+# ESTATE_GATES_RELEASES: v0.3.0 is a git tag with no Release, on purpose.
+RELEASES = {"idryx": ["v0.3.1"]}
+
+
 # The whole fixture estate: repo -> {path: contents}. `_tags` is consumed by
 
 
@@ -1369,6 +1404,9 @@ func main() {
 
 ESTATE: dict[str, dict] = {
     "agent-passport": {
+        "scripts/version-compatibility.sh": VERSION_COMPAT_SH,
+        ".github/workflows/ci.yml": AGENT_PASSPORT_CI_YML,
+        "_tags": ["v1.0.0"],
         "schemas/agent-event.schema.json": EVENT_V01,
         "schemas/agent-event.v0.2.schema.json": EVENT_V02,
         "schemas/agent-event.v0.3.schema.json": EVENT_V03,
@@ -1435,6 +1473,8 @@ ESTATE: dict[str, dict] = {
         "crates/core/src/command.rs": GENARYX_COMMAND_RS,
     },
     "idryx": {
+        "README.md": IDRYX_README,
+        "_tags": ["v0.3.0", "v0.3.1"],
         "go.mod": gomod("idryx", "v0.5.1"),
         "internal/ingest/tokenfuse/tokenfuse.go": IDRYX_INGEST_GO,
         "internal/events/events.go": IDRYX_EVENTS_GO,
@@ -1842,4 +1882,12 @@ REGISTRY = {
         }
         for name in ESTATE
     },
+}
+
+# C19: the fixture's one repository at 1.0 declares its surface, as the real
+# agent-passport does.
+REGISTRY["repos"]["agent-passport"]["major"] = 1
+REGISTRY["repos"]["agent-passport"]["compat"] = {
+    "manifest": "SPEC.md",
+    "gate": "scripts/version-compatibility.sh",
 }

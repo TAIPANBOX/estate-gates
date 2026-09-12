@@ -297,6 +297,40 @@ list cannot become a graveyard. The record is private by decision, so in CI
 this gate reports NOT MEASURED and is measured in local runs, the same way
 taipan was before it went public.
 
+**C19, a repository at 1.0 declares its compatibility surface**
+(`gates/c19-compat-manifests.py`). SemVer's item 5: version 1.0.0 defines the
+public API, so a 1.0 tag is a promise about a surface, and a promise nobody can
+point at is a mood. The estate's first two 1.0 tags, agent-passport and
+agent-stack-go on 2026-09-12, each came with the surface written down (SPEC.md
+section 10; `api/surface.txt`) and a gate in the repository that fails when it
+moves. `estate.json` carries the declaration per repository: `major`, and
+`compat` naming the manifest and the gate (defaults `compat/1.0.json` and
+`scripts/compat-surface.sh`), or an exemption with its reason, printed on every
+run. For a declared major the manifest and the gate must exist and some
+workflow under `.github/workflows` must name the gate; the newest tag's major
+must not be below the declaration. A newest tag at 1.0.0 or above with no
+declaration is red, which is the failure the gate exists for. A repository at
+0.x with no declaration has nothing to hold. It checks that the manifest and
+the gate exist and are wired, not that the manifest is true: that is the
+repository's own gate's job.
+
+**C20, every README install line resolves to a release that exists**
+(`gates/c20-install-lines-resolve.py`). tokenfuse's front page said `docker run
+... ghcr.io/taipanbox/tokenfuse` for two months while `latest` in the registry
+was a July build: the release workflow wrote `latest` only on the default
+branch, which a tag push never is. Route A of decision 10.26: no moving tag
+anywhere, a README pins the tag it means, and this gate holds the pin. It reads
+`README.md` of every repository `estate.json` names for `ghcr.io/taipanbox/`
+image references and `github.com/TAIPANBOX/.../releases/` download links,
+skipping lines with placeholders. An image with no tag is red unless the owning
+repository declares a moving tag; a pinned tag must be a git tag of the owner
+(the repository whose name is the longest prefix of the image name; a
+`-variant` suffix is stripped first); a `releases/download/<tag>/` link needs a
+Release object for that tag and `releases/latest/download/` needs at least one,
+both read through the GitHub API, or from a fixture the self-test exports. It
+does not ask the registry whether the image tag was pushed (outside-view.py
+does) and does not check asset names on a Release.
+
 ## Running it
 
 Locally, against the sibling checkouts in the parent directory:
