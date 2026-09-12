@@ -60,8 +60,8 @@ somebody's uncommitted work is a finding they did not make yet.
 ./run-gates.py --mode ref --ref origin/main
 ```
 
-CI runs the first three and then `./run-gates.py --mode clone`. The third is
-allowed to be red: it is a report about the estate.
+CI runs the first three and then `./run-gates.py --mode clone`. Only that
+last one is allowed to be red: it is a report about the estate.
 
 ## Hard invariants
 
