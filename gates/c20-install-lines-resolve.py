@@ -141,6 +141,7 @@ def run(estate: E.Estate) -> E.Check:
     releases = Releases()
     repos = sorted(estate.repos)
     subjects = 0
+    unread = 0
     tags_cache: dict[str, set[str]] = {}
 
     def tags_of(repo: str) -> set[str]:
@@ -155,6 +156,7 @@ def run(estate: E.Estate) -> E.Check:
             continue
         except E.Unavailable as u:
             c.unavailable(f"c20.readme-unavailable:{repo}", str(u))
+            unread += 1
             continue
 
         for lineno, line in enumerate(text.splitlines(), start=1):
@@ -243,7 +245,9 @@ def run(estate: E.Estate) -> E.Check:
                         [f"  {where}", f"  releases of {target}: {', '.join(sorted(have)) or '(none)'}"],
                     )
 
-    if subjects == 0:
+    # As in C19: a run that could not read a README has not established that
+    # no README carries an install line.
+    if subjects == 0 and unread == 0:
         c.missing(
             "c20.no-subjects",
             "no README in the estate carries an install line this gate reads, so it "

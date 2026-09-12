@@ -103,6 +103,7 @@ def gate_wired(estate: E.Estate, repo: str, gate: str) -> bool:
 def run(estate: E.Estate) -> E.Check:
     c = E.Check("C19", "a repository at 1.0 declares its compatibility surface", estate)
     subjects = 0
+    unread = 0
 
     for repo in sorted(estate.repos):
         entry = estate.repos[repo]
@@ -112,9 +113,11 @@ def run(estate: E.Estate) -> E.Check:
             newest = newest_tag(estate, repo)
         except E.Unavailable as u:
             c.unavailable(f"c19.repo-unavailable:{repo}", str(u))
+            unread += 1
             continue
         except E.Missing as m:
             c.unavailable(f"c19.repo-unavailable:{repo}", str(m))
+            unread += 1
             continue
 
         if declared is None:
@@ -200,7 +203,11 @@ def run(estate: E.Estate) -> E.Check:
                 ],
             )
 
-    if subjects == 0:
+    # "Nothing is at 1.0" is a statement about content, and a run that could not
+    # read a repository has not established it: the unavailable findings above
+    # already make the run PARTIAL, and adding a red on top would say the
+    # estate is broken when the truth is that nothing looked (C15's lesson).
+    if subjects == 0 and unread == 0:
         c.missing(
             "c19.no-subjects",
             "no repository in estate.json declares a major or carries a tag at 1.0.0 or "
