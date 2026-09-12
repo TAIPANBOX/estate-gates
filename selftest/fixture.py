@@ -68,6 +68,20 @@ EVENT_V03 = EVENT_V02.replace(
     "agent-passport/v0.3/agent-event.schema.json",
 )
 
+# The contract at 1.0 (agent-passport SPEC 6.4.1, 2026-09-12): v0.2's shape
+# with the version string changed and one widening, `agent_id` may carry a
+# `claimed:` subject.
+EVENT_V10 = EVENT_V02.replace(
+    "agent-passport/v0.2/agent-event.schema.json",
+    "agent-passport/v1.0/agent-event.schema.json",
+).replace(
+    '"const": "taipanbox.dev/agent-event/v0.2"',
+    '"const": "taipanbox.dev/agent-event/v1.0"',
+).replace(
+    '"pattern": "^agent://[a-z0-9.-]+/[a-z0-9._/-]+$", "maxLength": 255',
+    '"pattern": "^(claimed:)?agent://[a-z0-9.-]+/[a-z0-9._/-]+$", "maxLength": 263',
+)
+
 
 # The RFC 8693 -> on_behalf_of mapping vector, as each language's own suite
 # holds it. Two forms on purpose: Go asserts a comma-joined string and Rust a
@@ -193,6 +207,17 @@ PASSPORT = """{
   }
 }
 """
+
+# The Passport at 1.0: v0.1 with the top level closed, the one narrowing SPEC
+# 6.4.1 names.
+PASSPORT_V10 = PASSPORT.replace(
+    "agent-passport/v0.1/agent-passport.schema.json",
+    "agent-passport/v1.0/agent-passport.schema.json",
+).replace(
+    '  "type": "object",\n',
+    '  "type": "object",\n  "additionalProperties": false,\n',
+    1,
+)
 
 SPEC = """# The agent passport specification
 
@@ -1348,6 +1373,8 @@ ESTATE: dict[str, dict] = {
         "schemas/agent-event.v0.2.schema.json": EVENT_V02,
         "schemas/agent-event.v0.3.schema.json": EVENT_V03,
         "schemas/agent-passport.schema.json": PASSPORT,
+        "schemas/agent-event.v1.0.schema.json": EVENT_V10,
+        "schemas/agent-passport.v1.0.schema.json": PASSPORT_V10,
         "SPEC.md": SPEC,
     },
     "agent-stack-go": {
@@ -1360,6 +1387,10 @@ ESTATE: dict[str, dict] = {
         "cmd/agent-conform/schemas/agent-passport.schema.json": PASSPORT,
         "passport/testdata/schema/agent-passport.schema.json": PASSPORT,
         "event/testdata/agent-event.v0.2.schema.json": EVENT_V02,
+        "cmd/agent-conform/schemas/agent-event.v1.0.schema.json": EVENT_V10,
+        "event/testdata/agent-event.v1.0.schema.json": EVENT_V10,
+        "cmd/agent-conform/schemas/agent-passport.v1.0.schema.json": PASSPORT_V10,
+        "passport/testdata/schema/agent-passport.v1.0.schema.json": PASSPORT_V10,
         "event/testdata/chain-vectors.json": CHAIN_VECTORS,
         "event/chain_test.go": CHAIN_TEST_GO,
         "chain/chain.go": CHAIN_GO,

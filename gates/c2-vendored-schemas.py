@@ -136,6 +136,36 @@ COPIES: dict[str, list[tuple[str, str, str]]] = {
             "the passport package's own conformance fixture",
         ),
     ],
+    # The contract at 1.0 (agent-passport v1.0.0 and agent-stack-go v1.0.0,
+    # both 2026-09-12). Consumers that vendor the v1.0 envelope for their own
+    # suites (genaryx, verdryx, engram) are added here as each one's copy lands
+    # on its main; until then discovery reports the copy as unwatched, which is
+    # the right reading of a copy this file does not yet name.
+    "schemas/agent-event.v1.0.schema.json": [
+        (
+            "agent-stack-go",
+            "cmd/agent-conform/schemas/agent-event.v1.0.schema.json",
+            "what `agent-conform -schema` validates v1.0 events against",
+        ),
+        (
+            "agent-stack-go",
+            "event/testdata/agent-event.v1.0.schema.json",
+            "the event package's own conformance fixture for the 1.0 envelope",
+        ),
+    ],
+    "schemas/agent-passport.v1.0.schema.json": [
+        (
+            "agent-stack-go",
+            "cmd/agent-conform/schemas/agent-passport.v1.0.schema.json",
+            "what `agent-conform -passport` validates a v1.0 passport against",
+        ),
+        (
+            "agent-stack-go",
+            "passport/testdata/schema/agent-passport.v1.0.schema.json",
+            "the passport package's fixture for the closed top level, the one "
+            "narrowing 1.0 made (SPEC 6.4.1)",
+        ),
+    ],
 }
 
 

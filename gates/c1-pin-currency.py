@@ -16,10 +16,19 @@ WHAT COUNTS AS A FAILURE, AND WHY THAT LINE
 ANY lag fails. The finding ID says which kind it is, and the exit code does
 not soften for either:
 
-  c1.minor-behind   a minor or major behind. The module is pre-1.0, so under
-                    semver a minor bump is where behaviour and breakage live:
-                    v0.5.0 is the release that added the chain verifier. Two
-                    consumers a minor apart are two dialects.
+  c1.major-behind   a major behind. From 1.0 (2026-09-12) a major is the
+                    different contract by definition: agent-stack-go's exported
+                    surface is a promise (api/surface.txt) and the one narrowing
+                    1.0 made is named in agent-passport SPEC 6.4.1. Two
+                    consumers a major apart conform to two contracts while every
+                    document says there is one.
+  c1.minor-behind   a minor behind, and what that means depends on which side
+                    of 1.0 the module is. Before 1.0 a minor bump was where
+                    behaviour and breakage lived: v0.5.0 is the release that
+                    added the chain verifier, and two consumers a minor apart
+                    were two dialects. From 1.0 a minor is additive (SPEC 10),
+                    so the consumer speaks the same contract and lacks what the
+                    newer minor added. The message says which reading applies.
   c1.patch-behind   a patch behind. Same contract, missing fixes.
   c1.ahead-of-module   pinned to something no tag names, which usually means a
                     pseudo-version or a replace, and a build that cannot be
@@ -183,21 +192,49 @@ def run(estate: E.Estate) -> E.Check:
         if pv == newest_v:
             c.ok("c1.current", f"{repo} pins {pin}, which is the newest tag.")
             continue
-        behind_minor = (pv[0], pv[1]) != (newest_v[0], newest_v[1])
+        behind_major = pv[0] != newest_v[0]
+        behind_minor = pv[1] != newest_v[1]
         detail = [
             f"  consumer: {where} pins {pin}",
             f"  module:   {MODULE_REPO} newest tag {newest}",
         ]
-        if behind_minor:
+        if behind_major:
+            c.drift(
+                "c1.major-behind",
+                f"{repo} pins {MODULE} at {pin} and the module is at {newest}: "
+                f"a major behind.",
+                detail
+                + [
+                    "A major is a different contract by definition. From 1.0 the",
+                    "module's exported surface is a promise (api/surface.txt) and the",
+                    "one narrowing 1.0 made is named in agent-passport SPEC 6.4.1;",
+                    "this consumer conforms to the contract before it.",
+                ],
+            )
+        elif behind_minor and newest_v[0] == 0:
             c.drift(
                 "c1.minor-behind",
                 f"{repo} pins {MODULE} at {pin} and the module is at {newest}: "
-                f"a minor or more behind.",
+                f"a minor behind.",
                 detail
                 + [
                     "The module is pre-1.0, so a minor bump is where behaviour and",
                     "breakage live. This consumer is on a different contract from the",
                     "ones that are current.",
+                ],
+            )
+        elif behind_minor:
+            c.drift(
+                "c1.minor-behind",
+                f"{repo} pins {MODULE} at {pin} and the module is at {newest}: "
+                f"a minor behind.",
+                detail
+                + [
+                    "From 1.0 a minor is additive (agent-passport SPEC 10): the same",
+                    "contract, missing what the newer minor added. Still red, because",
+                    "only the newest minor gets every fix and the one before it gets",
+                    "security fixes for 90 days, so a consumer here is walking toward",
+                    "unsupported.",
                 ],
             )
         else:
