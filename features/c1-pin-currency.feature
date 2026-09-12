@@ -14,13 +14,26 @@ Feature: Every consumer of the shared module is pinned to what the module is
   slightly behind, it is speaking a different contract while every document in
   the estate says there is one.
 
+  @fires:c1.major-behind
+  Scenario: A consumer is a major behind the module
+    Given the shared module tagged 1.0.0 or later
+    And a repository still requiring it at an older major
+    When the estate is read
+    Then it is refused, naming the consumer, its pin and the newest tag
+    Because from 1.0 a major is the different contract by definition: the
+      exported surface is a promise, and the one narrowing 1.0 made is named
+      in the specification, so this consumer conforms to the contract before it
+
   @fires:c1.minor-behind
-  Scenario: A consumer is a minor or more behind the module
+  Scenario: A consumer is a minor behind the module
     Given a repository requiring the shared module at an older minor
     When the estate is read
     Then it is refused, naming the consumer, its pin and the newest tag
-    Because the module is pre-1.0, so a minor bump is where behaviour and
-      breakage live, and two consumers a minor apart are two dialects
+    And the reason says which side of 1.0 the module is on
+    Because before 1.0 a minor bump is where behaviour and breakage live, so
+      two consumers a minor apart are two dialects, while from 1.0 a minor is
+      additive and the consumer merely lacks what the newer minor added, which
+      is still red because only the newest minor gets every fix
 
   @fires:c1.patch-behind
   Scenario: A consumer is a patch behind
