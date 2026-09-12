@@ -137,10 +137,11 @@ COPIES: dict[str, list[tuple[str, str, str]]] = {
         ),
     ],
     # The contract at 1.0 (agent-passport v1.0.0 and agent-stack-go v1.0.0,
-    # both 2026-09-12). Consumers that vendor the v1.0 envelope for their own
-    # suites (genaryx, verdryx, engram) are added here as each one's copy lands
-    # on its main; until then discovery reports the copy as unwatched, which is
-    # the right reading of a copy this file does not yet name.
+    # both 2026-09-12). The three consumers that vendor the v1.0 envelope for
+    # their own suites landed on their mains the same night (genaryx#67,
+    # verdryx#36, engram#47) and are declared below; between their merge and
+    # this line, discovery reported each as unwatched, which was the right
+    # reading of a copy this file did not yet name.
     "schemas/agent-event.v1.0.schema.json": [
         (
             "agent-stack-go",
@@ -151,6 +152,25 @@ COPIES: dict[str, list[tuple[str, str, str]]] = {
             "agent-stack-go",
             "event/testdata/agent-event.v1.0.schema.json",
             "the event package's own conformance fixture for the 1.0 envelope",
+        ),
+        (
+            "genaryx",
+            "crates/core/src/schemas/agent-event.v1.0.schema.json",
+            "compiled into genaryx-core with include_str!, crates/core/src/conform.rs; "
+            "the version the console accepts and the one under which it refuses a "
+            "claimed subject",
+        ),
+        (
+            "verdryx",
+            "tests/fixtures/agent-event.v1.0.schema.json",
+            "the fixture verdryx's suite proves its emitted lines already fit once "
+            "the version string moves",
+        ),
+        (
+            "engram",
+            "tests/fixtures/agent-event.v1.0.schema.json",
+            "the fixture engram's suite proves its emitted lines already fit once "
+            "the version string moves",
         ),
     ],
     "schemas/agent-passport.v1.0.schema.json": [
