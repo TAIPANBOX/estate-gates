@@ -88,7 +88,8 @@
       "runs": [
         "idryx",
         "idryx-detect"
-      ]
+      ],
+      "major": 1
     },
     "qryx": {
       "github": "TAIPANBOX/qryx",
@@ -96,7 +97,8 @@
       "role": "the crypto plane. Emits four event types.",
       "runs": [
         "qryx-trend"
-      ]
+      ],
+      "major": 1
     },
     "wardryx": {
       "github": "TAIPANBOX/wardryx",
@@ -104,7 +106,8 @@
       "role": "the policy plane. Emits seven event types.",
       "runs": [
         "wardryx"
-      ]
+      ],
+      "major": 1
     },
     "mockryx": {
       "github": "TAIPANBOX/mockryx",
@@ -128,7 +131,8 @@
       "role": "the web-egress enforcement point. Decides each destination against the policy plane before a backend fetches it, and writes its own journal in the same envelope.",
       "runs": [
         "scopyx"
-      ]
+      ],
+      "major": 1
     },
     "genaryx": {
       "github": "TAIPANBOX/genaryx",
@@ -151,7 +155,8 @@
       "runs": [
         "trailryx-seal",
         "record-seal"
-      ]
+      ],
+      "major": 1
     },
     "vouchryx": {
       "github": "TAIPANBOX/vouchryx",
