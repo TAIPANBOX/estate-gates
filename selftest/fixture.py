@@ -1196,6 +1196,24 @@ Verify: cosign verify ghcr.io/taipanbox/idryx:<tag> and gh attestation verify oc
 # ESTATE_GATES_RELEASES: v0.3.0 is a git tag with no Release, on purpose.
 RELEASES = {"idryx": ["v0.3.1"]}
 
+# ESTATE_GATES_ACTION_REFS: what `git ls-remote --tags --heads` says about the
+# actions the fixture's workflows pin, without a network. `1111...` and
+# `2222...` are commits at a ref tip (the baseline). `3333...` is the SHA of an
+# annotated TAG OBJECT of actions/checkout whose peeled commit is `1111...`:
+# the 2026-09-12 fault, twenty-one repositories pinning ossf/scorecard-action to
+# the tag object of v2.4.4 and every Scorecard upload refused as an "imposter
+# commit". The `^{}` entry is how the gate names the fix.
+ACTION_REFS = {
+    "actions/checkout": {
+        "1111111111111111111111111111111111111111": "commit",
+        "3333333333333333333333333333333333333333": "tag-object",
+        "3333333333333333333333333333333333333333^{}": "1111111111111111111111111111111111111111",
+    },
+    "docker/build-push-action": {
+        "2222222222222222222222222222222222222222": "commit",
+    },
+}
+
 
 # The whole fixture estate: repo -> {path: contents}. `_tags` is consumed by
 
@@ -1355,7 +1373,7 @@ jobs:
   binaries:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@1111111111111111111111111111111111111111 # v4.2.2
       - run: cargo build --release
 
   publish:
@@ -1363,7 +1381,7 @@ jobs:
     needs: binaries
     runs-on: ubuntu-latest
     steps:
-      - uses: docker/build-push-action@v6
+      - uses: docker/build-push-action@2222222222222222222222222222222222222222 # v6.15.0
         with:
           push: true
 """

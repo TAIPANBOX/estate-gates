@@ -524,6 +524,34 @@ MUTATIONS: dict[str, list[tuple[str, callable]]] = {
         "no README carries an install line",
         lambda r: drop(r, "idryx/README.md"),
     )],
+    # ---- C21
+    "c21.tag-object": [(
+        # The 2026-09-12 fault: the SHA is real, the workflow runs, and the
+        # Scorecard service refuses the upload as an "imposter commit".
+        "a workflow pins an action to the SHA of an annotated tag object",
+        lambda r: edit(
+            r,
+            "tokenfuse/.github/workflows/release.yml",
+            "actions/checkout@1111111111111111111111111111111111111111",
+            "actions/checkout@3333333333333333333333333333333333333333",
+        ),
+    )],
+    "c21.unpinned": [(
+        "a workflow uses an action by a tag name that moves",
+        lambda r: edit(
+            r,
+            "tokenfuse/.github/workflows/release.yml",
+            "actions/checkout@1111111111111111111111111111111111111111 # v4.2.2",
+            "actions/checkout@v4",
+        ),
+    )],
+    "c21.no-subjects": [(
+        # Every `uses:` in the fixture is in this one file (agent-passport's
+        # ci.yml runs a script and uses no action), so dropping it leaves
+        # nothing to judge, and the gate must say so rather than report OK.
+        "no workflow in the estate uses an action",
+        lambda r: drop(r, "tokenfuse/.github/workflows/release.yml"),
+    )],
     # ---- C7
     # ---- C9
     # ---- C10
@@ -2103,6 +2131,9 @@ def main() -> int:
         releases = work / "releases.json"
         releases.write_text(json.dumps(fixture.RELEASES, indent=2), encoding="utf-8")
         os.environ["ESTATE_GATES_RELEASES"] = str(releases)
+        action_refs = work / "action-refs.json"
+        action_refs.write_text(json.dumps(fixture.ACTION_REFS, indent=2), encoding="utf-8")
+        os.environ["ESTATE_GATES_ACTION_REFS"] = str(action_refs)
 
         # -- 1. the baseline is green --------------------------------------
         seen, verdicts, text = run_checks(base, registry, expectations)

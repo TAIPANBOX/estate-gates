@@ -331,6 +331,19 @@ both read through the GitHub API, or from a fixture the self-test exports. It
 does not ask the registry whether the image tag was pushed (outside-view.py
 does) and does not check asset names on a Release.
 
+**C21, every action a workflow uses is pinned to a commit**
+(`gates/c21-action-pins-are-commits.py`). On 2026-09-12 twenty-one repositories
+pinned `ossf/scorecard-action` to the SHA of the annotated TAG OBJECT of v2.4.4
+rather than the commit it points to, which `git rev-parse` and the GitHub API
+both hand back for an annotated tag. The workflow ran, and api.scorecard.dev
+refused every upload as an "imposter commit", so no repository had a published
+score when SUP-4 of the 1.0 proving run went to read one. The same files
+pinned `github/codeql-action` the same way. This gate reads every `uses:` line
+of every workflow, refuses a tag name (`@v4`) and a tag-object SHA (naming the
+peeled commit to pin instead), passes a commit at a ref tip, and reports a SHA
+at no tip as read but not judged. Ref tips come from `git ls-remote
+--tags --heads` once per action, or from a fixture the self-test exports.
+
 ## Running it
 
 Locally, against the sibling checkouts in the parent directory:
