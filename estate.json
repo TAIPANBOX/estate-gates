@@ -191,13 +191,19 @@
       "github": "TAIPANBOX/stack-single",
       "local": "stack-single",
       "role": "deployment two: one box, one compose file.",
-      "runs": []
+      "runs": [],
+      "compat": {
+        "exempt": "a stack release is a pinned set with a date, nothing more (RELEASE-1.0-PLAN 4.3, the launchers' own release): its surface is the images it pins and the installer's own flags, held by its own pinned-images/manifest-is-true gates and by C5 and C20; a compat manifest is not what a launcher promises"
+      }
     },
     "stack-k8s": {
       "github": "TAIPANBOX/stack-k8s",
       "local": "stack-k8s",
       "role": "deployment three: Kubernetes manifests.",
-      "runs": []
+      "runs": [],
+      "compat": {
+        "exempt": "a stack release is a pinned set with a date, nothing more (RELEASE-1.0-PLAN 4.3, the launchers' own release): its surface is the images it pins and the installer's own flags, held by its own pinned-images/manifest-is-true gates and by C5 and C20; a compat manifest is not what a launcher promises"
+      }
     },
     "taipan": {
       "github": "TAIPANBOX/taipan",
