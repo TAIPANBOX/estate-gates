@@ -59,7 +59,8 @@
         "tokenfuse-gateway",
         "tokenfuse-cloud",
         "focus-export"
-      ]
+      ],
+      "major": 1
     },
     "verdryx": {
       "github": "TAIPANBOX/verdryx",
