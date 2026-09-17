@@ -20,8 +20,10 @@ WHAT IS CHECKED, PER REGISTRY ENTRY
     on main after it
   - the file has a `## 8. Invariants and gates` section at all (a dossier with
     none measures nothing, rather than passing on an empty read)
-  - every `scripts/x.sh` a `*(gate: ...)*`/`*(gates: ...)*` marker inside that
-    section names exists in the service's own repository
+  - every `scripts/x.sh` a "gate:"/"gates:" marker inside that section names
+    exists in the service's own repository, however the marker is decorated
+    (an asterisk parenthetical, a plain parenthetical, or a table cell; see
+    GATE_MARKER's own comment)
 
 WHAT IT CANNOT SEE
 
@@ -50,15 +52,39 @@ ARCH = "architecture"
 EXCLUDE = [":(exclude)*.md", ":(exclude)docs", ":(exclude)LICENSE"]
 SHA = re.compile(r"^[0-9a-f]{40}$")
 GATES_HEADING = "## 8. Invariants and gates"
-#: `*(gate: ...)*` or `*(gates: ...)*`, the word case-insensitive so a marker
-#: spelled `*(Gate: ...)*` (vouchryx's own invariant 11) is still read. The
-#: colon right after the word is what this must not drop: "*(partly gated:
-#: ...)*" shares the word "gate" but is the WEAKER marker CLAUDE.md's own
-#: vocabulary uses for a check that only catches the crude case, and reading
-#: it as an enforced citation would be wrong in the other direction. `.*?`
-#: with DOTALL, because a marker's own prose can wrap onto a second physical
-#: line before its closing `)*`.
-GATE_MARKER = re.compile(r"\*\(\s*[Gg]ates?:.*?\)\*", re.DOTALL)
+#: The semantic marker is the bare word "gate:"/"gates:"; asterisks,
+#: parentheses and a table's pipes are three different DECORATIONS the real
+#: estate wraps it in, never the thing that makes it a citation:
+#:   - wardryx and most:  *(gate: `scripts/x.sh` ...)*
+#:   - trailryx section 8:  (gate: `scripts/x.sh`)            (no asterisks)
+#:   - costcrew, idryx, tokenfuse section 8: a table cell,
+#:     "| ... | gate: `scripts/x.sh` (...) |"
+#: `\b` before the word so "delegate:"/"aggregate:" cannot match (no word
+#: boundary before their "gate"), and matching stops at the marker's own
+#: end: the next `)`, `|`, or end of line, whichever comes first. Every
+#: citation observed in the real estate puts its script reference before any
+#: parenthetical aside that follows, and a table cell cannot contain a
+#: literal `|`, so this never truncates a real script away.
+#:
+#: Case-INSENSITIVE, though the word is lowercase everywhere except one
+#: place: vouchryx's own section 8 invariant 11 writes "*(Gate:
+#: `scripts/every-refusal-reaches-the-operator.sh`, ...)*", a real citation
+#: (that script exists there), capital G. What must NOT match is a
+#: different sentence three lines above it, invariant 1's "*(Gate cited in
+#: CLAUDE.md, `scripts/the-algorithm-comes-from-the-key.sh`, does not exist
+#: in this repository ...)*", which is prose SAYING a script is missing, not
+#: citing one that holds something; a gate that fired on "this does not
+#: exist" would be OVEREAGER, contradicting the dossier's own sentence
+#: instead of reading it. That exclusion is not about case: "Gate cited" has
+#: no colon immediately after the word at all, so `\bgates?:` never matches
+#: it regardless of how the letter is cased. Matching case-insensitively is
+#: what still finds the real citation at invariant 11 rather than dropping
+#: it along with the sentence at invariant 1; the two are told apart by the
+#: colon, not by the letter.
+#: `"partly gated: ..."` (CLAUDE.md's own weaker marker, meaning a check that
+#: only catches the crude case) also does not match: "gated" is "gate" plus
+#: "d", not "gate" plus ":", so `gates?:` never matches it either.
+GATE_MARKER = re.compile(r"\bgates?:([^)|\n]*)", re.IGNORECASE)
 SCRIPT_REF = re.compile(r"`(scripts/[A-Za-z0-9._/-]+)`")
 
 
@@ -244,20 +270,16 @@ def run(estate: E.Estate) -> E.Check:
                 f"{estate.where(ARCH, rel)} has no `{GATES_HEADING}` heading, so this gate measured nothing about the gates it cites",
             )
         else:
-            # Only the gate markers, never every backticked scripts/... in the
-            # section: services/vouchryx.md section 8 says, in prose, inside a
-            # "*(Gate cited in CLAUDE.md, `scripts/the-algorithm-comes-from-
-            # the-key.sh`, does not exist in this repository ...)*"
-            # parenthetical, that a script is MISSING. Matching every
-            # backticked path in the section would fire on that sentence, and
-            # a gate that reads "this does not exist" as a citation would be
-            # OVEREAGER: the estate already says the quiet part out loud, and
-            # this gate would be wrong to contradict it.
+            # Only what follows a "gate:"/"gates:" token, never every
+            # backticked scripts/... in the section: see GATE_MARKER's own
+            # comment for why, and for the three decorations (asterisk
+            # parenthetical, plain parenthetical, table cell) this reads
+            # without caring which one a given dossier uses.
             scripts = sorted(
                 {
                     m.group(1)
                     for marker in GATE_MARKER.finditer(section)
-                    for m in SCRIPT_REF.finditer(marker.group(0))
+                    for m in SCRIPT_REF.finditer(marker.group(1))
                 }
             )
             for script in scripts:

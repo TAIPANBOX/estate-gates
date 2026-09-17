@@ -607,12 +607,18 @@ Stop and tell the user, then wait:
     gates it names exist. The hooks in archguard count the same drift to
     advise; only this gate decides.
 
-    The gates-exist half reads `## 8. Invariants and gates` specifically, and
-    only the `*(gate: ...)*`/`*(gates: ...)*` markers inside it, never every
+    The gates-exist half reads `## 8. Invariants and gates` specifically,
+    and only what follows a `gate:`/`gates:` token there, never every
     backticked `scripts/...` path in the section: a dossier can say in prose
     that a script does NOT exist there any more (one does, about code that
     moved to another repository), and matching that sentence would be
-    OVEREAGER, not thorough. A dossier with no such heading at all is red as
+    OVEREAGER, not thorough. The token is read under any of the three ways
+    the real estate decorates it (an asterisk parenthetical, a plain
+    parenthetical, or a table cell); the first version of this fix read only
+    the asterisk form and stayed toothless against the other two, caught the
+    same day by a real dossier (`services/tokenfuse.md`) citing a script
+    that does not exist, in a table cell, which the narrower matcher could
+    not see. A dossier with no `## 8.` heading at all is red as
     `c18.no-gates-section`, measured nothing, rather than a silent pass on an
     empty read.
     *(gate: `gates/c18-architecture-is-current.py`, ten mutations in

@@ -1679,10 +1679,13 @@ func TestWireTypesIsExactlyWhatTheCallSitesProduce(t *testing.T) {}
 # (`text.find("## 5. Decisions")`) matched nothing anywhere, and a fixture
 # still shaped like the old contract could not have caught that; it proved
 # the mutation harness could edit a "Decisions" table, not that the gate
-# could read the estate. Section 8 carries one invariant in the real
-# `*(gate: `script`)*` style, and `scripts/present.sh` is planted
-# into every rendered repository below (PRESENT_SH) so the baseline's own
-# citation is not itself dangling: rule 1 is that the baseline must be green.
+# could read the estate. Section 8 carries one invariant per citation form
+# the real estate actually uses (asterisk parenthetical, plain parenthetical,
+# table cell; 2026-09-17, widened the same day after the first fix only read
+# the asterisk form and stayed toothless against costcrew, idryx and
+# tokenfuse), and `scripts/present.sh` is planted into every rendered
+# repository below (PRESENT_SH) so the baseline's own citations are not
+# themselves dangling: rule 1 is that the baseline must be green.
 
 SERVICE_FILE = """---
 service: {name}
@@ -1723,7 +1726,12 @@ Fixture.
 
 ## 8. Invariants and gates
 
-1. A fixture rule. *(gate: `scripts/present.sh`)*
+1. A fixture rule, the asterisk form. *(gate: `scripts/present.sh`)*
+2. A fixture rule, the plain form. (gate: `scripts/present.sh`)
+
+| # | Invariant | Held by |
+|---|---|---|
+| 3 | A fixture rule, the table form | gate: `scripts/present.sh` |
 
 ## 9. Traps and decisions
 

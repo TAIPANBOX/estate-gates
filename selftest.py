@@ -2036,16 +2036,52 @@ MUTATIONS: dict[str, list[tuple[str, callable]]] = {
         "a code commit landed on main after verified_at",
         lambda r: _commit_code(r, "wardryx", "internal/new.go", "package internal\n"),
     )],
-    "c18.dangling-gate": [(
-        "section 8 cites a gate script the repository does not have",
-        lambda r: edit(r, "architecture/services/wardryx.md", "scripts/present.sh", "scripts/not-there.sh"),
-    )],
+    "c18.dangling-gate": [
+        (
+            "the asterisk-form gate marker cites a script the repository does not have",
+            lambda r: edit(
+                r,
+                "architecture/services/wardryx.md",
+                "*(gate: `scripts/present.sh`)*",
+                "*(gate: `scripts/not-there.sh`)*",
+            ),
+        ),
+        (
+            # trailryx's own form: a plain "(gate: ...)" with no asterisks.
+            # Targeted by "the plain form." rather than the bare marker text,
+            # or this replace would hit the asterisk-wrapped line above
+            # first: "(gate: `scripts/present.sh`)" is also a substring of
+            # "*(gate: `scripts/present.sh`)*".
+            "the plain-parens gate marker cites a script the repository does not have",
+            lambda r: edit(
+                r,
+                "architecture/services/wardryx.md",
+                "the plain form. (gate: `scripts/present.sh`)",
+                "the plain form. (gate: `scripts/not-there.sh`)",
+            ),
+        ),
+        (
+            # costcrew/idryx/tokenfuse's own form: a table cell.
+            "the table-cell gate marker cites a script the repository does not have",
+            lambda r: edit(
+                r,
+                "architecture/services/wardryx.md",
+                "the table form | gate: `scripts/present.sh` |",
+                "the table form | gate: `scripts/not-there.sh` |",
+            ),
+        ),
+    ],
     "c18.no-gates-section": [(
         "the file has no ## 8. Invariants and gates heading at all",
         lambda r: edit(
             r,
             "architecture/services/wardryx.md",
-            "## 8. Invariants and gates\n\n1. A fixture rule. *(gate: `scripts/present.sh`)*\n\n",
+            "## 8. Invariants and gates\n\n"
+            "1. A fixture rule, the asterisk form. *(gate: `scripts/present.sh`)*\n"
+            "2. A fixture rule, the plain form. (gate: `scripts/present.sh`)\n\n"
+            "| # | Invariant | Held by |\n"
+            "|---|---|---|\n"
+            "| 3 | A fixture rule, the table form | gate: `scripts/present.sh` |\n\n",
             "",
         ),
     )],
