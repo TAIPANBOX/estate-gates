@@ -296,11 +296,13 @@ commit on main; did code land on main after it; does every gate a
 names actually exist in that repository, however the marker is decorated
 (an asterisk parenthetical, a plain parenthetical, a table cell, or any of
 those wrapped onto a second line with the script on an indented
-continuation; the real estate uses all four). Two dossiers still cite gates
-in a shape none of that reads (`agent-passport.md` names the script BEFORE
-the marker; `taipan.md` puts a comma between the word and its qualifier),
-named rather than silently missed; bringing those two rows to the same
-form as the rest of the estate is the next change, not this gate. A
+continuation; the real estate uses all four). What it does not read is
+named, not silent: over the 22 registered repositories it visits,
+`agent-passport.md` names the script BEFORE the marker and cites a path
+outside `scripts/`, `stack-single.md` names two gates by path with no
+`gate:` word and one by bare file name, and `taipan.md` puts a comma
+between the word and its qualifier; bringing those rows to the same form
+as the rest of the estate is the next change, not this gate. A
 pending entry whose file exists is red, so the pending list cannot become
 a graveyard, and a dossier with no such section at all is red too, reported
 as measured nothing rather than passed on an empty read. The record is

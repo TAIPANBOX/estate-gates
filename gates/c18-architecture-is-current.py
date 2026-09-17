@@ -20,10 +20,12 @@ WHAT IS CHECKED, PER REGISTRY ENTRY
     on main after it
   - the file has a `## 8. Invariants and gates` section at all (a dossier with
     none measures nothing, rather than passing on an empty read)
-  - every `scripts/x.sh` a "gate:"/"gates:" marker inside that section names
-    exists in the service's own repository, however the marker is decorated
-    (an asterisk parenthetical, a plain parenthetical, or a table cell; see
-    GATE_MARKER's own comment)
+  - every `scripts/x.sh` a "gate:"/"gates:"/"partly gated:" marker inside
+    that section names exists in the service's own repository, however the
+    marker is decorated (an asterisk parenthetical, a plain parenthetical, a
+    table cell, or any of those wrapped onto an indented next line; a
+    trailing argument inside the backticks is read past; see GATE_MARKER's
+    own comment)
 
 WHAT IT CANNOT SEE
 
@@ -79,8 +81,9 @@ GATES_HEADING = "## 8. Invariants and gates"
 #: the marker's own close otherwise: the next `)`, `|`, or an unindented end
 #: of line, whichever comes first. Every citation observed in the real
 #: estate puts its script reference before any parenthetical aside that
-#: follows, and a table cell cannot contain a literal `|`, so this never
-#: truncates a real script away.
+#: follows, and a table cell cannot contain a literal `|`, so this was
+#: observed to truncate no real script away (checked over the 30 dossier
+#: files on 2026-09-17, old regex against new: nothing lost).
 #:
 #: Case-INSENSITIVE, though the word is lowercase almost everywhere: two
 #: places in one file write it capitalised, both real citations. Vouchryx's
@@ -101,17 +104,23 @@ GATES_HEADING = "## 8. Invariants and gates"
 #: rather than dropping them along with the sentence at invariant 1; the
 #: citation and the sentence are told apart by the colon, not by the letter.
 #:
-#: STILL not read, by design, and named rather than silently missed: a
-#: marker with the word AFTER the path instead of before it ("Held by:
-#: `scripts/x.sh`, ..., *(gate)*", agent-passport.md, nine scripts) and a
-#: path that does not start with "scripts/" even when it contains that word
-#: ("`.github/scripts/validate_examples.py`", also agent-passport.md); and a
-#: comma between the word and its qualifier ("*(gate, signalling half:
-#: ...)*", taipan.md:170), which has no colon immediately after "gate"
-#: either, the same shape as "Gate cited" above. Bringing those two
-#: dossiers' own rows to the "gate:"/"gates:" form the rest of the estate
-#: already uses is the next change; it is not a reason to widen this regex
-#: further, which would start trading precision for reach the wrong way.
+#: STILL not read, by design, and named rather than silently missed, over
+#: the 22 registered repositories this half visits (dossiers outside
+#: estate.json, `architecture` and `itrat-console` among them, are never
+#: opened here): a marker with the word AFTER the path instead of before it
+#: ("Held by: `scripts/x.sh`, ..., *(gate)*", agent-passport.md, eight
+#: scripts); a path that does not start with "scripts/" even when it
+#: contains that word ("`.github/scripts/validate_examples.py`", twice in
+#: agent-passport.md); two gates named by path with no "gate:" word before
+#: them (stack-single.md's closing paragraph of section 8) and one cited
+#: by bare file name without the prefix (stack-single.md, under "partly
+#: gated:"); and a comma between the word and its qualifier ("*(gate,
+#: signalling half: ...)*", taipan.md:170), which has no colon immediately
+#: after "gate" either, the same shape as "Gate cited" above. Bringing
+#: those dossiers' own rows to the "gate:"/"gates:" form the rest of the
+#: estate already uses is the next change; it is not a reason to widen this
+#: regex further, which would start trading precision for reach the wrong
+#: way.
 GATE_MARKER = re.compile(r"\b(?:partly gated|gates?):((?:[^)|\n]|\n[ \t]+)*)", re.IGNORECASE)
 #: The path only: a script cited with a trailing argument inside the same
 #: backtick span ("`scripts/declared-deps.sh list`", trailryx.md:167) still
@@ -238,9 +247,11 @@ def run(estate: E.Estate) -> E.Check:
         return c
 
     # What this half actually read, printed the way C9 prints its own scan
-    # count: zero is a legitimate answer for one dossier (sphere-ios cites no
-    # script anywhere), so this is a note, not a finding; the finding is
-    # c18.no-gates-section, for a dossier this count never reaches at all.
+    # count: zero is what a dossier that cites no script yields, and also
+    # what one that cites scripts only in an unread shape yields
+    # (agent-passport today, see GATE_MARKER's comment), so this is a note,
+    # not a finding; the finding is c18.no-gates-section, for a dossier this
+    # count never reaches at all.
     citations_read = 0
     dossiers_with_gates_section = 0
 

@@ -1683,8 +1683,9 @@ func TestWireTypesIsExactlyWhatTheCallSitesProduce(t *testing.T) {}
 # the real estate actually uses (asterisk parenthetical, plain parenthetical,
 # a wrapped asterisk parenthetical whose script sits on the next, indented,
 # line, and a table cell; 2026-09-17, widened twice the same day: the first
-# fix only read the asterisk form and stayed toothless against costcrew,
-# idryx and tokenfuse; the second still missed a marker wrapped onto a
+# fix read the asterisk form only and stayed toothless against costcrew,
+# idryx and tokenfuse; the second read the cell and the plain form but lost
+# the wrapped one and still missed a marker wrapped onto a
 # second line, measured against stack-single.md), and `scripts/present.sh`
 # is planted into every rendered repository below (PRESENT_SH) so the
 # baseline's own citations are not themselves dangling: rule 1 is that the

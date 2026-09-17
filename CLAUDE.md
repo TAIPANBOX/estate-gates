@@ -615,20 +615,28 @@ Stop and tell the user, then wait:
     sentence would be OVEREAGER, not thorough. The token is read under any
     of four real shapes: an asterisk parenthetical, a plain parenthetical, a
     table cell, or any of those wrapped onto a second line with the script
-    on an indented continuation. This half was widened three times against
-    the real estate in one day: the first version read only the single-line
-    asterisk form and stayed toothless against a table cell in
+    on an indented continuation. This half was widened twice against the
+    real estate in one day: the first version read the asterisk form only
+    (single-line or wrapped) and stayed toothless against a table cell in
     `services/tokenfuse.md`, citing a script that does not exist; the
-    second stayed toothless against the same marker wrapped onto two lines
-    in `services/stack-single.md`. A dossier with no `## 8.` heading at all
+    second read the table cell and the plain parenthetical but lost the
+    wrapped form, and stayed toothless against it in `services/stack-single.md`
+    until the third. A dossier with no `## 8.` heading at all
     is red as `c18.no-gates-section`, measured nothing, rather than a
     silent pass on an empty read.
 
-    **Two real dossiers still cite gates in a shape this half does not read,
-    named here rather than silently missed.** `services/agent-passport.md`
-    puts the marker AFTER the path ("Held by: `scripts/x.sh`, ...,
-    `*(gate)*`", nine scripts) and once names a path outside `scripts/`
-    entirely (`.github/scripts/validate_examples.py`); `services/taipan.md`
+    **What this half does not read, named here so the silence is a stated
+    limit and not a gap nobody knows about**, over the 22 registered
+    repositories it visits (the eight dossiers outside `estate.json`,
+    `architecture` and `itrat-console` among them, are never opened by it):
+    `services/agent-passport.md` puts the marker AFTER the path ("Held by:
+    `scripts/x.sh`, ..., `*(gate)*`", eight scripts) and twice names a path
+    outside `scripts/` (`.github/scripts/validate_examples.py`, invariants 3
+    and 12); `services/stack-single.md`'s closing paragraph names two gates
+    by path with no `gate:` word before them, and one row cites a script
+    under `partly gated:` by bare file name without the `scripts/` prefix
+    (read only because a later row cites the same script in full);
+    `services/taipan.md`
     invariant 5 puts a comma between the word and its qualifier ("`*(gate,
     signalling half: ...)*`"), the same shape as the "Gate cited in
     CLAUDE.md" sentence this half must not read as a citation, just spelled
