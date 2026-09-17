@@ -667,12 +667,16 @@ MUTATIONS: dict[str, list[tuple[str, callable]]] = {
         # Every script under a scanned directory in the fixture, or the gate
         # still has a subject and the case reads as toothless: adding
         # agent-passport's surface gate for C19 did exactly that on
-        # 2026-09-12, the same way the v1.0 schema copy did to c12.schemas.
+        # 2026-09-12, the same way the v1.0 schema copy did to c12.schemas,
+        # and c18's own scripts/present.sh (added 2026-09-17 so its dossier's
+        # gate marker is not itself dangling) did it again the same way: every
+        # repository below carries that stub now, so "the two named scripts
+        # are gone" stopped meaning "nothing is left to scan".
         "every script the check reads is gone",
         lambda r: [
             drop(r, "trailryx/scripts/audit.sh"),
             drop(r, "agent-passport/scripts/version-compatibility.sh"),
-        ],
+        ] + [drop(r, f"{repo}/scripts/present.sh") for repo in fixture.ESTATE if repo != "architecture"],
     )],
     # ---- C8
     "c8.type-unanswered": [
@@ -2032,9 +2036,71 @@ MUTATIONS: dict[str, list[tuple[str, callable]]] = {
         "a code commit landed on main after verified_at",
         lambda r: _commit_code(r, "wardryx", "internal/new.go", "package internal\n"),
     )],
-    "c18.dangling-gate": [(
-        "the decisions table names a gate script the repository does not have",
-        lambda r: edit(r, "architecture/services/wardryx.md", "prose only", "`scripts/not-there.sh`"),
+    "c18.dangling-gate": [
+        (
+            "the asterisk-form gate marker cites a script the repository does not have",
+            lambda r: edit(
+                r,
+                "architecture/services/wardryx.md",
+                "*(gate: `scripts/present.sh`)*",
+                "*(gate: `scripts/not-there.sh`)*",
+            ),
+        ),
+        (
+            # trailryx's own form: a plain "(gate: ...)" with no asterisks.
+            # Targeted by "the plain form." rather than the bare marker text,
+            # or this replace would hit the asterisk-wrapped line above
+            # first: "(gate: `scripts/present.sh`)" is also a substring of
+            # "*(gate: `scripts/present.sh`)*".
+            "the plain-parens gate marker cites a script the repository does not have",
+            lambda r: edit(
+                r,
+                "architecture/services/wardryx.md",
+                "the plain form. (gate: `scripts/present.sh`)",
+                "the plain form. (gate: `scripts/not-there.sh`)",
+            ),
+        ),
+        (
+            # costcrew/idryx/tokenfuse's own form: a table cell.
+            "the table-cell gate marker cites a script the repository does not have",
+            lambda r: edit(
+                r,
+                "architecture/services/wardryx.md",
+                "the table form | gate: `scripts/present.sh` |",
+                "the table form | gate: `scripts/not-there.sh` |",
+            ),
+        ),
+        (
+            # stack-single.md's own form: "gate:" ends one line, the script
+            # sits on the next, indented, line. Targeted at the closing
+            # backtick, not the opening one, or this replace would hit the
+            # asterisk form above first: both lines carry the literal text
+            # "`scripts/present.sh`)*".
+            "the wrapped asterisk-form gate marker cites a script the repository does not have",
+            lambda r: edit(
+                r,
+                "architecture/services/wardryx.md",
+                "   `scripts/present.sh`)*\n\n| # | Invariant",
+                "   `scripts/not-there.sh`)*\n\n| # | Invariant",
+            ),
+        ),
+    ],
+    "c18.no-gates-section": [(
+        "the file has no ## 8. Invariants and gates heading at all",
+        lambda r: edit(
+            r,
+            "architecture/services/wardryx.md",
+            "## 8. Invariants and gates\n\n"
+            "1. A fixture rule, the asterisk form. *(gate: `scripts/present.sh`)*\n"
+            "2. A fixture rule, the plain form. (gate: `scripts/present.sh`)\n"
+            "3. A fixture rule, the wrapped asterisk form, gate on one line and the\n"
+            "   script on the next, indented, line. *(gate:\n"
+            "   `scripts/present.sh`)*\n\n"
+            "| # | Invariant | Held by |\n"
+            "|---|---|---|\n"
+            "| 4 | A fixture rule, the table form | gate: `scripts/present.sh` |\n\n",
+            "",
+        ),
     )],
 }
 

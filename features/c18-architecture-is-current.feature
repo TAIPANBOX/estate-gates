@@ -62,8 +62,17 @@ Feature: Every architecture file is current against its repository
     Then it is refused, listing the commits
     Because that list is exactly what the agent has to read before trusting the file
 
+  @fires:c18.no-gates-section
+  Scenario: A service file has no gates section at all
+    Given a service file with no "## 8. Invariants and gates" heading
+    When the estate is read
+    Then it says it measured nothing, naming the file
+    Because a heading that fell out of the file is not a heading with
+    nothing under it, and reading the two the same way is the exact
+    failure this suite exists to end
+
   @fires:c18.dangling-gate
-  Scenario: A decision claims a gate that does not exist
-    Given a decisions row held by a script the repository does not have
+  Scenario: An invariant cites a gate that does not exist
+    Given a "gate:", "gates:" or "partly gated:" marker naming a script the repository does not have, decorated as an asterisk parenthetical, a plain parenthetical, a table cell, or any of those wrapped onto a second indented line
     Then it is refused, naming the script
-    Because a decision held by a missing gate is held by nothing
+    Because a gate marker naming a missing script is held by nothing, however it is decorated or wrapped
