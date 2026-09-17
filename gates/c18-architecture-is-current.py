@@ -52,40 +52,72 @@ ARCH = "architecture"
 EXCLUDE = [":(exclude)*.md", ":(exclude)docs", ":(exclude)LICENSE"]
 SHA = re.compile(r"^[0-9a-f]{40}$")
 GATES_HEADING = "## 8. Invariants and gates"
-#: The semantic marker is the bare word "gate:"/"gates:"; asterisks,
-#: parentheses and a table's pipes are three different DECORATIONS the real
-#: estate wraps it in, never the thing that makes it a citation:
+#: The semantic marker is the bare word "gate:"/"gates:"/"partly gated:";
+#: asterisks, parentheses and a table's pipes are three different
+#: DECORATIONS the real estate wraps it in, never the thing that makes it a
+#: citation:
 #:   - wardryx and most:  *(gate: `scripts/x.sh` ...)*
 #:   - trailryx section 8:  (gate: `scripts/x.sh`)            (no asterisks)
 #:   - costcrew, idryx, tokenfuse section 8: a table cell,
 #:     "| ... | gate: `scripts/x.sh` (...) |"
-#: `\b` before the word so "delegate:"/"aggregate:" cannot match (no word
-#: boundary before their "gate"), and matching stops at the marker's own
-#: end: the next `)`, `|`, or end of line, whichever comes first. Every
-#: citation observed in the real estate puts its script reference before any
-#: parenthetical aside that follows, and a table cell cannot contain a
-#: literal `|`, so this never truncates a real script away.
+#: `partly gated:` is included, not excluded: idryx.md and genaryx.md each
+#: cite a real `scripts/...` gate under it (a check that only catches the
+#: crude case is still a check of something, and the script it names still
+#: has to exist). `\b` before the word so "delegate:"/"aggregate:" cannot
+#: match (no word boundary before their "gate"/"gated").
 #:
-#: Case-INSENSITIVE, though the word is lowercase everywhere except one
-#: place: vouchryx's own section 8 invariant 11 writes "*(Gate:
-#: `scripts/every-refusal-reaches-the-operator.sh`, ...)*", a real citation
-#: (that script exists there), capital G. What must NOT match is a
-#: different sentence three lines above it, invariant 1's "*(Gate cited in
-#: CLAUDE.md, `scripts/the-algorithm-comes-from-the-key.sh`, does not exist
-#: in this repository ...)*", which is prose SAYING a script is missing, not
-#: citing one that holds something; a gate that fired on "this does not
-#: exist" would be OVEREAGER, contradicting the dossier's own sentence
-#: instead of reading it. That exclusion is not about case: "Gate cited" has
-#: no colon immediately after the word at all, so `\bgates?:` never matches
-#: it regardless of how the letter is cased. Matching case-insensitively is
-#: what still finds the real citation at invariant 11 rather than dropping
-#: it along with the sentence at invariant 1; the two are told apart by the
-#: colon, not by the letter.
-#: `"partly gated: ..."` (CLAUDE.md's own weaker marker, meaning a check that
-#: only catches the crude case) also does not match: "gated" is "gate" plus
-#: "d", not "gate" plus ":", so `gates?:` never matches it either.
-GATE_MARKER = re.compile(r"\bgates?:([^)|\n]*)", re.IGNORECASE)
-SCRIPT_REF = re.compile(r"`(scripts/[A-Za-z0-9._/-]+)`")
+#: A marker's span can cross ONE OR MORE line breaks, each followed by
+#: indentation, because a wrapped list item keeps its continuation lines
+#: indented and the estate uses that shape: stack-single.md puts "gate:" at
+#: the end of one line and the script on the next, indented, line (lines
+#: 352-353 and 356-357; `scripts/build-context-complete.sh` and
+#: `scripts/fail-before-half-the-job.sh` are cited nowhere else in that
+#: file, so a dangling one there would have been silent). `\n[ \t]+` is the
+#: allowed crossing, never a bare `\n`: an UNINDENTED line starts the next
+#: numbered item or table row, never a continuation, so the span still ends
+#: there rather than swallowing the rest of the section. It still ends at
+#: the marker's own close otherwise: the next `)`, `|`, or an unindented end
+#: of line, whichever comes first. Every citation observed in the real
+#: estate puts its script reference before any parenthetical aside that
+#: follows, and a table cell cannot contain a literal `|`, so this never
+#: truncates a real script away.
+#:
+#: Case-INSENSITIVE, though the word is lowercase almost everywhere: two
+#: places in one file write it capitalised, both real citations. Vouchryx's
+#: section 8 invariant 11 writes "*(Gate:
+#: `scripts/every-refusal-reaches-the-operator.sh`, ...)*" (that script
+#: exists there); invariant 12, two lines later, writes "*(Gate:
+#: `internal/manifest`'s five tests ...)*" (not a scripts/ path, so SCRIPT_REF
+#: below still finds nothing there, but the marker itself is exactly as real).
+#: What must NOT match is a different sentence three lines above invariant
+#: 11, invariant 1's "*(Gate cited in CLAUDE.md, `scripts/the-algorithm-
+#: comes-from-the-key.sh`, does not exist in this repository ...)*", which is
+#: prose SAYING a script is missing, not citing one that holds something; a
+#: gate that fired on "this does not exist" would be OVEREAGER, contradicting
+#: the dossier's own sentence instead of reading it. That exclusion is not
+#: about case: "Gate cited" has no colon immediately after the word at all,
+#: so `\bgates?:` never matches it regardless of how the letter is cased.
+#: Matching case-insensitively is what still finds the two real citations
+#: rather than dropping them along with the sentence at invariant 1; the
+#: citation and the sentence are told apart by the colon, not by the letter.
+#:
+#: STILL not read, by design, and named rather than silently missed: a
+#: marker with the word AFTER the path instead of before it ("Held by:
+#: `scripts/x.sh`, ..., *(gate)*", agent-passport.md, nine scripts) and a
+#: path that does not start with "scripts/" even when it contains that word
+#: ("`.github/scripts/validate_examples.py`", also agent-passport.md); and a
+#: comma between the word and its qualifier ("*(gate, signalling half:
+#: ...)*", taipan.md:170), which has no colon immediately after "gate"
+#: either, the same shape as "Gate cited" above. Bringing those two
+#: dossiers' own rows to the "gate:"/"gates:" form the rest of the estate
+#: already uses is the next change; it is not a reason to widen this regex
+#: further, which would start trading precision for reach the wrong way.
+GATE_MARKER = re.compile(r"\b(?:partly gated|gates?):((?:[^)|\n]|\n[ \t]+)*)", re.IGNORECASE)
+#: The path only: a script cited with a trailing argument inside the same
+#: backtick span ("`scripts/declared-deps.sh list`", trailryx.md:167) still
+#: names one real file to check for, and `(?:\s[^`]*)?` reads the argument
+#: without capturing it.
+SCRIPT_REF = re.compile(r"`(scripts/[A-Za-z0-9._/-]+)(?:\s[^`]*)?`")
 
 
 def expectations_path(estate: E.Estate) -> pathlib.Path:
@@ -205,6 +237,13 @@ def run(estate: E.Estate) -> E.Check:
         c.missing("c18.no-files", f"{ARCH} has no services/*.md at all, so this gate measured nothing")
         return c
 
+    # What this half actually read, printed the way C9 prints its own scan
+    # count: zero is a legitimate answer for one dossier (sphere-ios cites no
+    # script anywhere), so this is a note, not a finding; the finding is
+    # c18.no-gates-section, for a dossier this count never reaches at all.
+    citations_read = 0
+    dossiers_with_gates_section = 0
+
     for name in sorted(n for n in estate.repos if n != ARCH):
         if name not in have:
             if name in pending:
@@ -270,11 +309,13 @@ def run(estate: E.Estate) -> E.Check:
                 f"{estate.where(ARCH, rel)} has no `{GATES_HEADING}` heading, so this gate measured nothing about the gates it cites",
             )
         else:
-            # Only what follows a "gate:"/"gates:" token, never every
-            # backticked scripts/... in the section: see GATE_MARKER's own
-            # comment for why, and for the three decorations (asterisk
-            # parenthetical, plain parenthetical, table cell) this reads
-            # without caring which one a given dossier uses.
+            dossiers_with_gates_section += 1
+            # Only what follows a "gate:"/"gates:"/"partly gated:" token,
+            # never every backticked scripts/... in the section: see
+            # GATE_MARKER's own comment for why, and for the three
+            # decorations (asterisk parenthetical, plain parenthetical,
+            # table cell) this reads without caring which one a given
+            # dossier uses, wrapped onto a second line or not.
             scripts = sorted(
                 {
                     m.group(1)
@@ -282,12 +323,14 @@ def run(estate: E.Estate) -> E.Check:
                     for m in SCRIPT_REF.finditer(marker.group(1))
                 }
             )
+            citations_read += len(scripts)
             for script in scripts:
                 if not estate.exists(name, script):
                     c.drift(
                         f"c18.dangling-gate:{name}",
                         f"{estate.where(ARCH, rel)} says a gate is held by `{script}`, and {estate.where(name, script)} does not exist",
                     )
+    c.note(f"read {citations_read} gate citation(s) across {dossiers_with_gates_section} dossier(s) with a gates section.")
     return c
 
 

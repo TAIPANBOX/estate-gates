@@ -73,6 +73,6 @@ Feature: Every architecture file is current against its repository
 
   @fires:c18.dangling-gate
   Scenario: An invariant cites a gate that does not exist
-    Given a "gate:" or "gates:" marker naming a script the repository does not have, decorated as an asterisk parenthetical, a plain parenthetical, or a table cell
+    Given a "gate:", "gates:" or "partly gated:" marker naming a script the repository does not have, decorated as an asterisk parenthetical, a plain parenthetical, a table cell, or any of those wrapped onto a second indented line
     Then it is refused, naming the script
-    Because a gate marker naming a missing script is held by nothing, however it is decorated
+    Because a gate marker naming a missing script is held by nothing, however it is decorated or wrapped

@@ -292,14 +292,20 @@ why, with the commit of that service's main it was last checked against in its
 frontmatter. This gate reads the record and every service repository and asks:
 does the file exist, or is the gap recorded with a date; is `verified_at` a
 commit on main; did code land on main after it; does every gate a
-`gate:`/`gates:` marker in `## 8. Invariants and gates` names actually exist
-in that repository, however the marker is decorated (an asterisk
-parenthetical, a plain parenthetical, or a table cell; the real estate uses
-all three). A pending entry whose file exists is red, so the pending list
-cannot become a graveyard, and a dossier with no such section at all is red
-too, reported as measured nothing rather than passed on an empty read. The
-record is private by decision, so in CI this gate reports NOT MEASURED and
-is measured in local runs, the same way taipan was before it went public.
+`gate:`/`gates:`/`partly gated:` marker in `## 8. Invariants and gates`
+names actually exist in that repository, however the marker is decorated
+(an asterisk parenthetical, a plain parenthetical, a table cell, or any of
+those wrapped onto a second line with the script on an indented
+continuation; the real estate uses all four). Two dossiers still cite gates
+in a shape none of that reads (`agent-passport.md` names the script BEFORE
+the marker; `taipan.md` puts a comma between the word and its qualifier),
+named rather than silently missed; bringing those two rows to the same
+form as the rest of the estate is the next change, not this gate. A
+pending entry whose file exists is red, so the pending list cannot become
+a graveyard, and a dossier with no such section at all is red too, reported
+as measured nothing rather than passed on an empty read. The record is
+private by decision, so in CI this gate reports NOT MEASURED and is
+measured in local runs, the same way taipan was before it went public.
 
 **C19, a repository at 1.0 declares its compatibility surface**
 (`gates/c19-compat-manifests.py`). SemVer's item 5: version 1.0.0 defines the

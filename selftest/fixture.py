@@ -1681,11 +1681,14 @@ func TestWireTypesIsExactlyWhatTheCallSitesProduce(t *testing.T) {}
 # the mutation harness could edit a "Decisions" table, not that the gate
 # could read the estate. Section 8 carries one invariant per citation form
 # the real estate actually uses (asterisk parenthetical, plain parenthetical,
-# table cell; 2026-09-17, widened the same day after the first fix only read
-# the asterisk form and stayed toothless against costcrew, idryx and
-# tokenfuse), and `scripts/present.sh` is planted into every rendered
-# repository below (PRESENT_SH) so the baseline's own citations are not
-# themselves dangling: rule 1 is that the baseline must be green.
+# a wrapped asterisk parenthetical whose script sits on the next, indented,
+# line, and a table cell; 2026-09-17, widened twice the same day: the first
+# fix only read the asterisk form and stayed toothless against costcrew,
+# idryx and tokenfuse; the second still missed a marker wrapped onto a
+# second line, measured against stack-single.md), and `scripts/present.sh`
+# is planted into every rendered repository below (PRESENT_SH) so the
+# baseline's own citations are not themselves dangling: rule 1 is that the
+# baseline must be green.
 
 SERVICE_FILE = """---
 service: {name}
@@ -1728,10 +1731,13 @@ Fixture.
 
 1. A fixture rule, the asterisk form. *(gate: `scripts/present.sh`)*
 2. A fixture rule, the plain form. (gate: `scripts/present.sh`)
+3. A fixture rule, the wrapped asterisk form, gate on one line and the
+   script on the next, indented, line. *(gate:
+   `scripts/present.sh`)*
 
 | # | Invariant | Held by |
 |---|---|---|
-| 3 | A fixture rule, the table form | gate: `scripts/present.sh` |
+| 4 | A fixture rule, the table form | gate: `scripts/present.sh` |
 
 ## 9. Traps and decisions
 

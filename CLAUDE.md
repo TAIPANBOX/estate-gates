@@ -608,20 +608,34 @@ Stop and tell the user, then wait:
     advise; only this gate decides.
 
     The gates-exist half reads `## 8. Invariants and gates` specifically,
-    and only what follows a `gate:`/`gates:` token there, never every
-    backticked `scripts/...` path in the section: a dossier can say in prose
-    that a script does NOT exist there any more (one does, about code that
-    moved to another repository), and matching that sentence would be
-    OVEREAGER, not thorough. The token is read under any of the three ways
-    the real estate decorates it (an asterisk parenthetical, a plain
-    parenthetical, or a table cell); the first version of this fix read only
-    the asterisk form and stayed toothless against the other two, caught the
-    same day by a real dossier (`services/tokenfuse.md`) citing a script
-    that does not exist, in a table cell, which the narrower matcher could
-    not see. A dossier with no `## 8.` heading at all is red as
-    `c18.no-gates-section`, measured nothing, rather than a silent pass on an
-    empty read.
-    *(gate: `gates/c18-architecture-is-current.py`, ten mutations in
-    `selftest.py`, one per red path; the fixture's service files are rendered
-    from the sibling fixtures' real commits at build time, so the baseline is
-    current by construction)*
+    and only what follows a `gate:`/`gates:`/`partly gated:` token there,
+    never every backticked `scripts/...` path in the section: a dossier can
+    say in prose that a script does NOT exist there any more (one does,
+    about code that moved to another repository), and matching that
+    sentence would be OVEREAGER, not thorough. The token is read under any
+    of four real shapes: an asterisk parenthetical, a plain parenthetical, a
+    table cell, or any of those wrapped onto a second line with the script
+    on an indented continuation. This half was widened three times against
+    the real estate in one day: the first version read only the single-line
+    asterisk form and stayed toothless against a table cell in
+    `services/tokenfuse.md`, citing a script that does not exist; the
+    second stayed toothless against the same marker wrapped onto two lines
+    in `services/stack-single.md`. A dossier with no `## 8.` heading at all
+    is red as `c18.no-gates-section`, measured nothing, rather than a
+    silent pass on an empty read.
+
+    **Two real dossiers still cite gates in a shape this half does not read,
+    named here rather than silently missed.** `services/agent-passport.md`
+    puts the marker AFTER the path ("Held by: `scripts/x.sh`, ...,
+    `*(gate)*`", nine scripts) and once names a path outside `scripts/`
+    entirely (`.github/scripts/validate_examples.py`); `services/taipan.md`
+    invariant 5 puts a comma between the word and its qualifier ("`*(gate,
+    signalling half: ...)*`"), the same shape as the "Gate cited in
+    CLAUDE.md" sentence this half must not read as a citation, just spelled
+    differently. Bringing those two dossiers' own rows to the `gate:`/
+    `gates:` form the rest of the estate already uses is the next change;
+    it is not a reason to widen this half further.
+    *(gate: `gates/c18-architecture-is-current.py`, thirteen cases across
+    ten findings in `selftest.py`; the fixture's service files are rendered
+    from the sibling fixtures' real commits at build time, so the baseline
+    is current by construction)*

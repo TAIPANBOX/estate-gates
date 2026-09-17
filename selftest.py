@@ -2070,6 +2070,20 @@ MUTATIONS: dict[str, list[tuple[str, callable]]] = {
                 "the table form | gate: `scripts/not-there.sh` |",
             ),
         ),
+        (
+            # stack-single.md's own form: "gate:" ends one line, the script
+            # sits on the next, indented, line. Targeted at the closing
+            # backtick, not the opening one, or this replace would hit the
+            # asterisk form above first: both lines carry the literal text
+            # "`scripts/present.sh`)*".
+            "the wrapped asterisk-form gate marker cites a script the repository does not have",
+            lambda r: edit(
+                r,
+                "architecture/services/wardryx.md",
+                "   `scripts/present.sh`)*\n\n| # | Invariant",
+                "   `scripts/not-there.sh`)*\n\n| # | Invariant",
+            ),
+        ),
     ],
     "c18.no-gates-section": [(
         "the file has no ## 8. Invariants and gates heading at all",
@@ -2078,10 +2092,13 @@ MUTATIONS: dict[str, list[tuple[str, callable]]] = {
             "architecture/services/wardryx.md",
             "## 8. Invariants and gates\n\n"
             "1. A fixture rule, the asterisk form. *(gate: `scripts/present.sh`)*\n"
-            "2. A fixture rule, the plain form. (gate: `scripts/present.sh`)\n\n"
+            "2. A fixture rule, the plain form. (gate: `scripts/present.sh`)\n"
+            "3. A fixture rule, the wrapped asterisk form, gate on one line and the\n"
+            "   script on the next, indented, line. *(gate:\n"
+            "   `scripts/present.sh`)*\n\n"
             "| # | Invariant | Held by |\n"
             "|---|---|---|\n"
-            "| 3 | A fixture rule, the table form | gate: `scripts/present.sh` |\n\n",
+            "| 4 | A fixture rule, the table form | gate: `scripts/present.sh` |\n\n",
             "",
         ),
     )],
