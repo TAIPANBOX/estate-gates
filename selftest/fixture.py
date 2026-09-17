@@ -1670,6 +1670,19 @@ func TestWireTypesIsExactlyWhatTheCallSitesProduce(t *testing.T) {}
 # does not exist until build_estate has committed it. mockryx is left pending
 # on purpose, so the "pending" path of C18 is green on the baseline and the
 # "stale-pending" mutation has something to plant.
+#
+# The template keeps the CURRENT dossier contract (the twelve headings
+# architecture/internal/lint/lint.go's `Sections` names, in order), not the
+# two-heading shape this fixture used before 2026-09-17. That is the finding,
+# not a style choice: no real dossier has had a "## 5. Decisions" heading
+# since the rewrite to twelve sections, so the gate's old reader
+# (`text.find("## 5. Decisions")`) matched nothing anywhere, and a fixture
+# still shaped like the old contract could not have caught that; it proved
+# the mutation harness could edit a "Decisions" table, not that the gate
+# could read the estate. Section 8 carries one invariant in the real
+# `*(gate: `script`)*` style, and `scripts/present.sh` is planted
+# into every rendered repository below (PRESENT_SH) so the baseline's own
+# citation is not itself dangling: rule 1 is that the baseline must be green.
 
 SERVICE_FILE = """---
 service: {name}
@@ -1680,15 +1693,53 @@ status: active
 ---
 # {name}
 
-## 1. What it is, and what it is not
+## 1. Identity and boundary
 
 Fixture.
 
-## 5. Decisions
+## 2. Stack and toolchain
 
-| Date | Marker | Decision | Held by |
-|---|---|---|---|
-| 2026-09-09 | @decided 2026-09-09 | a fixture decision | prose only |
+Fixture.
+
+## 3. Layout
+
+Fixture.
+
+## 4. Entry points and surfaces
+
+Fixture.
+
+## 5. Configuration
+
+Fixture.
+
+## 6. Data and state
+
+Fixture.
+
+## 7. Contracts
+
+Fixture.
+
+## 8. Invariants and gates
+
+1. A fixture rule. *(gate: `scripts/present.sh`)*
+
+## 9. Traps and decisions
+
+Fixture.
+
+## 10. Run it
+
+Fixture.
+
+## 11. State and next
+
+Fixture.
+
+## 12. Deeper sources
+
+Fixture.
 """
 
 PENDING = ("mockryx",)
@@ -1716,6 +1767,19 @@ def render_architecture(root) -> dict[str, str]:
             continue
         files[f"services/{name}.md"] = SERVICE_FILE.format(name=name, sha=_head(root, name))
     return files
+
+
+# SERVICE_FILE's section 8 cites `scripts/present.sh` in the real
+# `*(gate: ...)*` style, so every repository it gets rendered for must
+# actually have that file, or the baseline would not be green (rule 1). Added
+# here, once, to every repository's own file set, the same way a fixture file
+# is added anywhere else in this dict: `build_estate` writes it and commits
+# it along with everything else already in the dict, so the c18.dangling-gate
+# mutation below has a real script to take away.
+PRESENT_SH = "#!/usr/bin/env bash\n# fixture stub: exists so the dossier's own gate marker is not dangling.\n"
+for _repo, _files in ESTATE.items():
+    if _repo != "architecture":
+        _files.setdefault("scripts/present.sh", PRESENT_SH)
 
 
 # Last on purpose: build_estate iterates in insertion order, and this entry's

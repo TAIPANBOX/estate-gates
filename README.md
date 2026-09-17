@@ -291,11 +291,14 @@ TAIPANBOX/architecture, holds one file per service saying how it is built and
 why, with the commit of that service's main it was last checked against in its
 frontmatter. This gate reads the record and every service repository and asks:
 does the file exist, or is the gap recorded with a date; is `verified_at` a
-commit on main; did code land on main after it; does every gate the decisions
-table names exist. A pending entry whose file exists is red, so the pending
-list cannot become a graveyard. The record is private by decision, so in CI
-this gate reports NOT MEASURED and is measured in local runs, the same way
-taipan was before it went public.
+commit on main; did code land on main after it; does every gate a
+`*(gate: ...)*`/`*(gates: ...)*` marker in `## 8. Invariants and gates` names
+actually exist in that repository. A pending entry whose file exists is red,
+so the pending list cannot become a graveyard, and a dossier with no such
+section at all is red too, reported as measured nothing rather than passed on
+an empty read. The record is private by decision, so in CI this gate reports
+NOT MEASURED and is measured in local runs, the same way taipan was before it
+went public.
 
 **C19, a repository at 1.0 declares its compatibility surface**
 (`gates/c19-compat-manifests.py`). SemVer's item 5: version 1.0.0 defines the

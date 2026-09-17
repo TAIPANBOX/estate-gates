@@ -667,12 +667,16 @@ MUTATIONS: dict[str, list[tuple[str, callable]]] = {
         # Every script under a scanned directory in the fixture, or the gate
         # still has a subject and the case reads as toothless: adding
         # agent-passport's surface gate for C19 did exactly that on
-        # 2026-09-12, the same way the v1.0 schema copy did to c12.schemas.
+        # 2026-09-12, the same way the v1.0 schema copy did to c12.schemas,
+        # and c18's own scripts/present.sh (added 2026-09-17 so its dossier's
+        # gate marker is not itself dangling) did it again the same way: every
+        # repository below carries that stub now, so "the two named scripts
+        # are gone" stopped meaning "nothing is left to scan".
         "every script the check reads is gone",
         lambda r: [
             drop(r, "trailryx/scripts/audit.sh"),
             drop(r, "agent-passport/scripts/version-compatibility.sh"),
-        ],
+        ] + [drop(r, f"{repo}/scripts/present.sh") for repo in fixture.ESTATE if repo != "architecture"],
     )],
     # ---- C8
     "c8.type-unanswered": [
@@ -2033,8 +2037,17 @@ MUTATIONS: dict[str, list[tuple[str, callable]]] = {
         lambda r: _commit_code(r, "wardryx", "internal/new.go", "package internal\n"),
     )],
     "c18.dangling-gate": [(
-        "the decisions table names a gate script the repository does not have",
-        lambda r: edit(r, "architecture/services/wardryx.md", "prose only", "`scripts/not-there.sh`"),
+        "section 8 cites a gate script the repository does not have",
+        lambda r: edit(r, "architecture/services/wardryx.md", "scripts/present.sh", "scripts/not-there.sh"),
+    )],
+    "c18.no-gates-section": [(
+        "the file has no ## 8. Invariants and gates heading at all",
+        lambda r: edit(
+            r,
+            "architecture/services/wardryx.md",
+            "## 8. Invariants and gates\n\n1. A fixture rule. *(gate: `scripts/present.sh`)*\n\n",
+            "",
+        ),
     )],
 }
 

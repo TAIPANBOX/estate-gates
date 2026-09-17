@@ -18,7 +18,10 @@ WHAT IS CHECKED, PER REGISTRY ENTRY
   - that commit exists in the repository and is on its main
   - no commit touching code (anything but markdown, docs/ and LICENSE) landed
     on main after it
-  - every `scripts/x.sh` the decisions table names as holding a decision exists
+  - the file has a `## 8. Invariants and gates` section at all (a dossier with
+    none measures nothing, rather than passing on an empty read)
+  - every `scripts/x.sh` a `*(gate: ...)*`/`*(gates: ...)*` marker inside that
+    section names exists in the service's own repository
 
 WHAT IT CANNOT SEE
 
@@ -46,6 +49,17 @@ import _estate as E  # noqa: E402
 ARCH = "architecture"
 EXCLUDE = [":(exclude)*.md", ":(exclude)docs", ":(exclude)LICENSE"]
 SHA = re.compile(r"^[0-9a-f]{40}$")
+GATES_HEADING = "## 8. Invariants and gates"
+#: `*(gate: ...)*` or `*(gates: ...)*`, the word case-insensitive so a marker
+#: spelled `*(Gate: ...)*` (vouchryx's own invariant 11) is still read. The
+#: colon right after the word is what this must not drop: "*(partly gated:
+#: ...)*" shares the word "gate" but is the WEAKER marker CLAUDE.md's own
+#: vocabulary uses for a check that only catches the crude case, and reading
+#: it as an enforced citation would be wrong in the other direction. `.*?`
+#: with DOTALL, because a marker's own prose can wrap onto a second physical
+#: line before its closing `)*`.
+GATE_MARKER = re.compile(r"\*\(\s*[Gg]ates?:.*?\)\*", re.DOTALL)
+SCRIPT_REF = re.compile(r"`(scripts/[A-Za-z0-9._/-]+)`")
 
 
 def expectations_path(estate: E.Estate) -> pathlib.Path:
@@ -100,12 +114,44 @@ def tip(estate: E.Estate) -> str:
     return estate.ref if estate.mode == "ref" else "HEAD"
 
 
-def decisions_section(text: str) -> str:
-    i = text.find("## 5. Decisions")
-    if i < 0:
-        return ""
-    j = text.find("\n## ", i + 1)
-    return text[i : j if j > 0 else len(text)]
+def gates_section(text: str) -> str | None:
+    """The text of `## 8. Invariants and gates`, or None if that heading is
+    absent.
+
+    Fence-aware the same way architecture/internal/lint/lint.go reads
+    headings: a line inside a fenced code block (``` or ~~~) toggles a fence
+    flag and is never read as a heading, so an example inside section 8
+    cannot end it early, and a heading-shaped line inside an EARLIER fenced
+    example (section 2's "gates (CLAUDE.md, verbatim): ..." blocks are the
+    common one in this estate) cannot be misread as section 8 starting.
+
+    None and "" mean different things to the caller: None is no section 8 at
+    all (c18.no-gates-section, this dossier was not read for its gates);
+    "" is a section 8 with nothing scannable in it, which is not a finding,
+    only nothing to iterate.
+
+    No real dossier has had a "## 5. Decisions" heading since the rewrite to
+    the current twelve-section contract (architecture/internal/lint's
+    `Sections`), so the previous version of this function, which looked for
+    exactly that heading, matched nothing anywhere in the real estate; see
+    the self-test case `c18.dangling-gate` and its 2026-09-17 fixture rewrite.
+    """
+    lines = text.split("\n")
+    in_fence = False
+    start: int | None = None
+    for i, line in enumerate(lines):
+        stripped = line.strip()
+        if stripped.startswith("```") or stripped.startswith("~~~"):
+            in_fence = not in_fence
+            continue
+        if in_fence or not line.startswith("## "):
+            continue
+        if start is None:
+            if line == GATES_HEADING:
+                start = i + 1
+            continue
+        return "\n".join(lines[start:i])
+    return None if start is None else "\n".join(lines[start:])
 
 
 def run(estate: E.Estate) -> E.Check:
@@ -191,12 +237,35 @@ def run(estate: E.Estate) -> E.Check:
             )
         else:
             c.ok(f"c18.current:{name}", f"verified_at {sha[:7]} is {name}'s {tip(estate)}, no code commit since")
-        for script in sorted(set(re.findall(r"`(scripts/[A-Za-z0-9._/-]+)`", decisions_section(text)))):
-            if not estate.exists(name, script):
-                c.drift(
-                    f"c18.dangling-gate:{name}",
-                    f"{estate.where(ARCH, rel)} says a decision is held by `{script}`, and {estate.where(name, script)} does not exist",
-                )
+        section = gates_section(text)
+        if section is None:
+            c.missing(
+                f"c18.no-gates-section:{name}",
+                f"{estate.where(ARCH, rel)} has no `{GATES_HEADING}` heading, so this gate measured nothing about the gates it cites",
+            )
+        else:
+            # Only the gate markers, never every backticked scripts/... in the
+            # section: services/vouchryx.md section 8 says, in prose, inside a
+            # "*(Gate cited in CLAUDE.md, `scripts/the-algorithm-comes-from-
+            # the-key.sh`, does not exist in this repository ...)*"
+            # parenthetical, that a script is MISSING. Matching every
+            # backticked path in the section would fire on that sentence, and
+            # a gate that reads "this does not exist" as a citation would be
+            # OVEREAGER: the estate already says the quiet part out loud, and
+            # this gate would be wrong to contradict it.
+            scripts = sorted(
+                {
+                    m.group(1)
+                    for marker in GATE_MARKER.finditer(section)
+                    for m in SCRIPT_REF.finditer(marker.group(0))
+                }
+            )
+            for script in scripts:
+                if not estate.exists(name, script):
+                    c.drift(
+                        f"c18.dangling-gate:{name}",
+                        f"{estate.where(ARCH, rel)} says a gate is held by `{script}`, and {estate.where(name, script)} does not exist",
+                    )
     return c
 
 

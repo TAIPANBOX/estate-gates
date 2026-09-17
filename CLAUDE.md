@@ -606,7 +606,16 @@ Stop and tell the user, then wait:
     a verdict: exists or recorded pending, commit on main, no code after it,
     gates it names exist. The hooks in archguard count the same drift to
     advise; only this gate decides.
-    *(gate: `gates/c18-architecture-is-current.py`, nine mutations in
+
+    The gates-exist half reads `## 8. Invariants and gates` specifically, and
+    only the `*(gate: ...)*`/`*(gates: ...)*` markers inside it, never every
+    backticked `scripts/...` path in the section: a dossier can say in prose
+    that a script does NOT exist there any more (one does, about code that
+    moved to another repository), and matching that sentence would be
+    OVEREAGER, not thorough. A dossier with no such heading at all is red as
+    `c18.no-gates-section`, measured nothing, rather than a silent pass on an
+    empty read.
+    *(gate: `gates/c18-architecture-is-current.py`, ten mutations in
     `selftest.py`, one per red path; the fixture's service files are rendered
     from the sibling fixtures' real commits at build time, so the baseline is
     current by construction)*
