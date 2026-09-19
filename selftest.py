@@ -1884,6 +1884,7 @@ MUTATIONS: dict[str, list[tuple[str, callable]]] = {
                         "ActorCeiling",
                     ),
                     ("tokenfuse/crates/delegation/src/lib.rs", "MAX_CHAIN_ENTRIES", "CEILING"),
+                    ("tokenfuse/crates/gateway/src/chainproof.rs", "MAX_CHAIN_ENTRIES", "CEILING"),
                     (
                         "tokenfuse/crates/delegation/src/lib.rs",
                         "MAX_ACTORS_WITH_SUBJECT",
@@ -1902,7 +1903,29 @@ MUTATIONS: dict[str, list[tuple[str, callable]]] = {
                 "const MAX_CHAIN_ENTRIES: usize = 32;",
                 "const MAX_CHAIN_ENTRIES: usize = default_cap();",
             ),
-        )
+        ),
+        (
+            "a Rust cap alias names a crate the gateway does not depend on",
+            lambda r: edit(
+                r, "tokenfuse/crates/gateway/Cargo.toml",
+                "tokenfuse-delegation.workspace = true", "other-crate.workspace = true",
+            ),
+        ),
+        (
+            "a Rust cap alias points through a workspace path to another crate",
+            lambda r: edit(
+                r, "tokenfuse/Cargo.toml",
+                'path = "crates/delegation"', 'path = "crates/elsewhere"',
+            ),
+        ),
+        (
+            "a Rust cap alias points at a constant the crate does not export",
+            lambda r: edit(
+                r, "tokenfuse/crates/delegation/src/lib.rs",
+                "pub const MAX_CHAIN_ENTRIES: usize = 32;",
+                "const MAX_CHAIN_ENTRIES: usize = 32;",
+            ),
+        ),
     ],
     "c13.entry-cap-differs": [
         (

@@ -86,8 +86,10 @@ from __future__ import annotations
 import argparse
 import json
 import pathlib
+import posixpath
 import re
 import sys
+import tomllib
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 
@@ -237,6 +239,7 @@ _LITERAL = re.compile(r"^(\d[\d_]*)$")
 #: `OTHER - 1`, and the bare `OTHER`, which is the shape the 2026-08-27 defect
 #: takes when somebody derives the actor bound and forgets the arithmetic.
 _DERIVED = re.compile(r"^([A-Za-z_][A-Za-z0-9_]*)\s*(?:([+-])\s*(\d+))?$")
+_RUST_ALIAS = re.compile(r"^([A-Za-z_][A-Za-z0-9_]*)::([A-Za-z_][A-Za-z0-9_]*)$")
 
 
 def caps_in(repo: str, path: str, text: str) -> list[Cap]:
@@ -250,8 +253,8 @@ def caps_in(repo: str, path: str, text: str) -> list[Cap]:
     return list(seen.values())
 
 
-def resolve(caps: list[Cap]) -> list[Cap]:
-    """Give each cap a value, resolving a derivation against its own file.
+def resolve(caps: list[Cap], estate: E.Estate) -> list[Cap]:
+    """Give each cap a value, resolving local and proven Rust crate aliases.
 
     A cap this cannot evaluate keeps `value = None`, which the caller turns
     into a red. Guessing would be the one thing worse than not reading it.
@@ -272,6 +275,77 @@ def resolve(caps: list[Cap]) -> list[Cap]:
                 delta = int(m.group(3)) if m.group(3) else 0
                 c.value = literal + delta if m.group(2) == "+" else literal - delta
                 c.derived_from = m.group(1)
+    # A Rust crate may re-export the cap from a sibling crate. Read the Cargo
+    # graph before following `crate_name::CONST`: equal names in unrelated
+    # files do not establish that the compiled gateway uses that constant.
+    for repo in {c.repo for c in caps if _RUST_ALIAS.match(c.raw)}:
+        try:
+            paths = [p for p in estate.list_files(repo) if p.endswith("Cargo.toml")]
+        except (E.Unavailable, E.Missing):
+            continue  # the caller reports the unread expression as unparsed
+        manifests: dict[str, dict] = {}
+        for path in paths:
+            try:
+                manifests[path] = tomllib.loads(estate.read_text(repo, path))
+            except (E.Unavailable, E.Missing, tomllib.TOMLDecodeError):
+                continue
+        packages: dict[str, list[tuple[str, str]]] = {}
+        for path, manifest in manifests.items():
+            name = manifest.get("package", {}).get("name")
+            if isinstance(name, str):
+                packages.setdefault(name.replace("-", "_"), []).append((path, name))
+
+        for c in caps:
+            if c.repo != repo or c.value is not None:
+                continue
+            alias = _RUST_ALIAS.match(c.raw)
+            if alias is None:
+                continue
+            crate_ident, name = alias.groups()
+            targets = packages.get(crate_ident, [])
+            if len(targets) != 1:
+                continue
+            target_manifest, package_name = targets[0]
+            source_manifests = [
+                path for path in manifests
+                if c.path.startswith(posixpath.dirname(path) + "/")
+            ]
+            if not source_manifests:
+                continue
+            source_manifest = max(source_manifests, key=len)
+            deps = manifests[source_manifest].get("dependencies", {})
+            matches = [
+                (key, spec) for key, spec in deps.items()
+                if key.replace("-", "_") == crate_ident
+            ]
+            if len(matches) != 1:
+                continue
+            key, spec = matches[0]
+            if not isinstance(spec, dict) or spec.get("package", package_name) != package_name:
+                continue
+            if spec.get("workspace") is True:
+                workspace_dep = manifests.get("Cargo.toml", {}).get("workspace", {}).get("dependencies", {}).get(key)
+                if not isinstance(workspace_dep, dict):
+                    continue
+                path = workspace_dep.get("path")
+                if not isinstance(path, str) or posixpath.normpath(path) != posixpath.dirname(target_manifest):
+                    continue
+            else:
+                path = spec.get("path")
+                if not isinstance(path, str) or posixpath.normpath(posixpath.join(posixpath.dirname(source_manifest), path)) != posixpath.dirname(target_manifest):
+                    continue
+            target_source = posixpath.join(posixpath.dirname(target_manifest), "src/lib.rs")
+            target = next((x for x in caps if x.repo == repo and x.path == target_source and x.name == name), None)
+            if target is None or target.value is None:
+                continue
+            try:
+                source = estate.read_text(repo, target_source)
+            except (E.Unavailable, E.Missing):
+                continue
+            if not re.search(rf"\bpub\s+const\s+{re.escape(name)}\s*:", source):
+                continue
+            c.value = target.value
+            c.derived_from = c.raw
     return caps
 
 
@@ -427,7 +501,7 @@ def run(estate: E.Estate) -> E.Check:
         )
         return c
 
-    resolve(caps)
+    resolve(caps, estate)
 
     for cap_const in sorted(caps, key=lambda x: (x.repo, x.path, x.name)):
         if cap_const.value is None:

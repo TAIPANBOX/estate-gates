@@ -166,7 +166,7 @@ mod tests {
 }
 
 /// The chain cap agent-passport SPEC 5.1 sets, in the unit SPEC 5.1 uses.
-const MAX_CHAIN_ENTRIES: usize = 32;
+pub const MAX_CHAIN_ENTRIES: usize = 32;
 
 /// The same cap counted in RFC 8693 actors.
 const MAX_ACTORS_WITH_SUBJECT: usize = MAX_CHAIN_ENTRIES - 1;
@@ -1341,6 +1341,8 @@ fn mapping_for(kind: &str) -> Option<Mapping> {
 CHAINPROOF_RS = """//! The door that resolves who a caller acts for.
 use tokenfuse_delegation::verify_delegation;
 
+pub const MAX_CHAIN_ENTRIES: usize = tokenfuse_delegation::MAX_CHAIN_ENTRIES;
+
 pub fn admit(req: &Request) -> DecideContext {
     match crate::chainproof::resolve(&req.cfg, req.token(), req.proof()) {
         Chain::Proven(chain) => DecideContext {
@@ -1458,6 +1460,9 @@ ESTATE: dict[str, dict] = {
         "_tags": ["v0.1.0", "v0.5.1"],
     },
     "tokenfuse": {
+        "Cargo.toml": '[workspace]\n[workspace.dependencies]\ntokenfuse-delegation = { path = "crates/delegation" }\n',
+        "crates/delegation/Cargo.toml": '[package]\nname = "tokenfuse-delegation"\nversion = "0.0.1"\n',
+        "crates/gateway/Cargo.toml": '[package]\nname = "tokenfuse-gateway"\nversion = "0.0.1"\n[dependencies]\ntokenfuse-delegation.workspace = true\n',
         "crates/core/src/breaker.rs": BREAKER_RS,
         "crates/core/src/outcomes.rs": OUTCOMES_RS,
         "crates/core/src/agent_event.rs": AGENT_EVENT_RS,

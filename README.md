@@ -196,6 +196,8 @@ consumer accepting what the SPEC forbids. And every cap constant under a
 `chain` or `delegation` path, where an entries cap must equal the SPEC's number
 and an actors cap must equal it minus one AND be derived from the entries cap
 rather than retyped.
+Rust caps re-exported from a sibling crate are resolved through the declared
+Cargo dependency and the exported constant; an unreadable alias is a finding.
 
 The finding to read first is none of those three. A file that maps an `act`
 claim into a chain must state BOTH numbers, and that check does not depend on
