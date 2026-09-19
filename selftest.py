@@ -1926,6 +1926,14 @@ MUTATIONS: dict[str, list[tuple[str, callable]]] = {
                 "const MAX_CHAIN_ENTRIES: usize = 32;",
             ),
         ),
+        (
+            "a Rust cap alias targets a crate with a nonstandard library source",
+            lambda r: edit(
+                r, "tokenfuse/crates/delegation/Cargo.toml",
+                'version = "0.0.1"',
+                'version = "0.0.1"\n[lib]\npath = "../shared.rs"',
+            ),
+        ),
     ],
     "c13.entry-cap-differs": [
         (

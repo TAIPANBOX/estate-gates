@@ -334,6 +334,12 @@ def resolve(caps: list[Cap], estate: E.Estate) -> list[Cap]:
                 path = spec.get("path")
                 if not isinstance(path, str) or posixpath.normpath(posixpath.join(posixpath.dirname(source_manifest), path)) != posixpath.dirname(target_manifest):
                     continue
+            # A custom library path can leave an old src/lib.rs on disk. Cargo
+            # compiles the declared path, so trusting that old file would turn
+            # a changed cap into a false green. Unsupported layouts fail red.
+            lib_spec = manifests[target_manifest].get("lib", {})
+            if not isinstance(lib_spec, dict) or lib_spec.get("path", "src/lib.rs") != "src/lib.rs":
+                continue
             target_source = posixpath.join(posixpath.dirname(target_manifest), "src/lib.rs")
             target = next((x for x in caps if x.repo == repo and x.path == target_source and x.name == name), None)
             if target is None or target.value is None:
