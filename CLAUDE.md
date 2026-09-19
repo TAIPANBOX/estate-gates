@@ -132,6 +132,10 @@ an absent invariant.
 7. **A divergence between the three deployments is either recorded with a
    reason or red.** And an expectation recorded for a divergence that no
    longer exists is red as well, so the file cannot become a graveyard.
+   The stack-single no-scheduler check reads scheduling forms, not service
+   ordering under `docker.service.d`: the latter falsely fired in the
+   2026-09-19 estate run. The self-test fixture includes that non-fault and
+   plants `crontab -l` as the fault that must still fire.
    *(gate: `gates/c5-deployment-parity.py`; verified by four unrecorded
    divergences, one per fact family, and by one stale expectation)*
 

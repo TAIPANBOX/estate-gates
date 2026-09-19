@@ -952,6 +952,9 @@ add_env_default() {
 }
 
 add_env_default ALERT_MIN_SEVERITY high
+
+# Ordering Docker after tailscaled is service setup, not a scheduled routine.
+mkdir -p /etc/systemd/system/docker.service.d
 """
 
 K8S_PLANES = """---

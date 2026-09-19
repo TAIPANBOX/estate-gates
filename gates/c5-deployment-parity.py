@@ -474,10 +474,12 @@ def observe_stack_single(estate: E.Estate) -> dict:
             )
         ports[service] = int(m.group(1))
 
-    # Routines: the claim is that there are none. Verified by looking, not by
-    # assuming. Anything matching a scheduler word in the shipped files is a
-    # routine this check would otherwise have missed.
-    scheduler = re.compile(r"\b(cron|crontab|systemd|\.timer|OnCalendar|launchd)\b", re.I)
+    # Routines: the claim is that there are none. Look for scheduling forms,
+    # not systemd itself: docker.service.d orders service startup and does
+    # not schedule a governance routine (the 2026-09-19 false finding).
+    scheduler = re.compile(
+        r"\b(cron|crontab|systemd-run|\.timer|OnCalendar|launchd)\b", re.I
+    )
     found = []
     for f in ("compose.yaml", "install.sh"):
         text = estate.read_text("stack-single", f)
