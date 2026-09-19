@@ -79,6 +79,13 @@ Feature: The delegation depth cap, from every side, reduced to one number
       agreement on an unread number is the failure this repository exists to
       prevent
 
+  @fires:c13.cap-unparsed
+  Scenario: A Rust cap alias must resolve through its declared crate dependency
+    Given a gateway cap that names a constant in another crate
+    When its Cargo dependency or exported target does not match that crate
+    Then the cap is refused as unreadable
+    Because a same-named constant elsewhere does not prove what the gateway uses
+
   @fires:c13.spec-unit-unknown
   Scenario: The SPEC sentence stops counting in the unit this check knows
     Given a cap stated in some other unit

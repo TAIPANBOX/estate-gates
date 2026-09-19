@@ -348,12 +348,16 @@ Stop and tell the user, then wait:
     with the second DERIVED from the first rather than retyped. That question
     does not depend on the cap anchor matching, which is what stops a rename
     from switching the check off in silence.
-    *(gate: `gates/c13-delegation-cap.py`, with seventeen cases across
+    A Rust cap re-exported from another crate is read through the source
+    crate's Cargo dependency and the target crate's exported constant; a
+    same-named constant elsewhere does not establish the compiled bound.
+    *(gate: `gates/c13-delegation-cap.py`, with twenty cases across
     fourteen findings in `selftest.py`: the SPEC's sentence reworded, its heading gone, the cap
     stated twice, the SPEC deleted, the unit changed from entries to hops, a
     vendored schema bounding one lower, a consumer declaring the member and
     bounding nothing, the member renamed out of every schema in the estate,
     every cap renamed out of the anchor, a cap set to something unevaluable,
+    three broken Rust alias links (dependency, workspace path, export),
     the record's cap drifting below the SPEC, the actor bound set equal to the
     entry bound, the actor bound retyped as a literal, the actor bound removed
     from a mapping file, the `Act` declaration renamed everywhere, and a
