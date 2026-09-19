@@ -72,7 +72,8 @@ Feature: Three deployments of one product, and every difference written down
   @fires:c5.unread-scheduler
   Scenario: A deployment ships no readable routine and mentions a scheduler
     Given a deployment this check reads no routine from
-    And lines in it that mention a scheduler
+    And an executable scheduling form in its installer
+    But service-order setup under docker.service.d is not a schedule
     When the estate is read
     Then it is refused, printing those lines
     Because either it schedules something this check is blind to, or the

@@ -96,6 +96,11 @@ date. It fails the other way too: an expectation recorded for a divergence
 that no longer exists is red, so the file cannot become a graveyard of stale
 allowances.
 
+The stack-single no-scheduler check reads executable scheduling forms in its
+installer and Compose file. A `systemd` service drop-in that only orders Docker
+startup is not a scheduled governance routine. Scheduling forms outside the
+check's named patterns remain a limit of this source reader.
+
 **C6, cross-language chain vectors** (`gates/c6-chain-vectors.py`).
 `agent-stack-go/event/testdata/chain-vectors.json` pins the RFC 8785
 canonicalization and the SPEC 6.5 chain hashes. Three implementations retype
