@@ -85,7 +85,20 @@ MAPPER_FN = "fn mapping_for"
 #: its own opening words, which trailryx wrote as a sentence rather than as a
 #: heading, so this is the strongest name available.
 REFUSED_ANCHOR = "Refused today"
-REFUSED_END = "# The one that got a type of its own"
+
+#: Where the list ends: the end of its own paragraph, a blank `//!` line, or
+#: the next doc-comment heading if one comes first. Until 2026-09-25 this was
+#: a heading's exact text, "# The one that got a type of its own"; trailryx
+#: had since retitled it "# The two that got types of their own", the search
+#: found nothing, and the extractor fell back to a fixed 4000-character window
+#: without saying so. The list happened to sit inside the window, which is why
+#: nothing went red. Reading to the next heading instead was tried and read 54
+#: names where the list holds 46: the paragraphs after the list explain the
+#: refusals and name field names and mapped types in backticks, and every one
+#: of them would have counted as refused. So the passage is the list's own
+#: paragraph, found by shape rather than by wording, and a list with no end is
+#: a finding.
+PASSAGE_END = re.compile(r"^//!\s*$|^//! #{1,6} ", re.MULTILINE)
 
 
 def mapped_types(text: str) -> set[str]:
@@ -130,8 +143,16 @@ def refused_types(text: str) -> set[str]:
             f"deliberately. Without it this check cannot tell a decision from an "
             f"omission, which is the only thing it does"
         )
-    end = text.find(REFUSED_END, start)
-    section = text[start : end if end > start else start + 4000]
+    end = PASSAGE_END.search(text, start)
+    if end is None:
+        raise E.Missing(
+            f"{MAPPER_PATH}: the `{REFUSED_ANCHOR}` list has no end, neither a "
+            f"blank `//!` line nor a `//! #` heading after it, so this check "
+            f"cannot tell where the deliberate refusals stop. Reading on to the "
+            f"end of the file would count every type named anywhere after it "
+            f"as refused"
+        )
+    section = text[start : end.start()]
     found = set(re.findall(r"`([a-z0-9_]+)`", section))
     if not found:
         raise E.Missing(
@@ -225,6 +246,19 @@ def run(estate: E.Estate) -> E.Check:
     # than fails. It is here because the alternative is that the refusal list
     # silently accumulates names for events that no longer exist, and a reader
     # cannot tell those from current ones.
+    # A type in both lists is one the refused passage MENTIONS rather than
+    # refuses: the paragraph explaining costcrew's two renames names the
+    # mapped types it renames into. Mapped wins at the ingest door, so this is
+    # not a failure, and it is said out loud because the passage is prose and
+    # a mention there is otherwise indistinguishable from a refusal.
+    both = sorted(mapped & refused)
+    if both:
+        c.note(
+            f"{RECORD_REPO}'s refused passage mentions {len(both)} type(s) its "
+            f"mapper also maps: {', '.join(both)}. Mapped wins; the mention is "
+            f"prose, not a refusal."
+        )
+
     stale = sorted((mapped | refused) - all_types)
     if stale:
         c.note(
