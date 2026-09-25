@@ -201,6 +201,12 @@ SERVICE_KIND = {
     # --with-finops. An estate APP rather than a plane, so its absence from the
     # two server deployments is a profile decision and not a gap.
     "costcrew": "costcrew",
+    # All three deployments carry it since 2026-09-25, each behind its own
+    # opt-in (stack-single `--profile typed`, stack-up `--with-typed`,
+    # stack-k8s `deploy.sh --with-typed`). Like vouchryx it is recorded as an
+    # `extra` in each rather than added to `agreed`, because nobody gets it by
+    # default; its port, 4320, IS in the agreed port map.
+    "typryx": "typryx",
     # stack-single, behind `--profile routines`, added 2026-08-28. Three
     # routines that run as long-lived compose SERVICES rather than on a timer,
     # for the same reason record-seal does: compose has no cron. So the same

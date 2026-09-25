@@ -103,7 +103,8 @@
         "console": 7420,
         "policy-db": 5432,
         "dashboard": 3000,
-        "scopyx": 4300
+        "scopyx": 4300,
+        "typryx": 4320
       },
       "divergences": {
         "ports:stack-k8s:unagreed:genaryx-console-lb=443": {
@@ -165,6 +166,21 @@
           "recorded": "2026-08-27",
           "provenance": "@yurii 2026-08-27",
           "why": "A DECISION, and his: the estate is one product installed by function (\u00ab\u0437 \u043c\u043e\u0436\u043b\u0438\u0432\u0456\u0441\u0442\u044e \u0432\u0441\u0442\u0430\u043d\u043e\u0432\u043b\u0435\u043d\u043d\u044f \u0437\u0430 \u043e\u043a\u0440\u0435\u043c\u0438\u043c\u0438 \u0444\u0443\u043d\u043a\u0446\u0456\u043e\u043d\u0430\u043b\u0430\u043c\u0438\u00bb), and `delegate` is one of those functions rather than part of the base stack. stack-up gained it first because it is the sandbox; stack-single and stack-k8s are step 3 of agent-market-research-2026-08/PLAN.md section 8 and will follow. Recorded as `extra` rather than by adding vouchryx to `agreed` on purpose: `agreed` is what every deployment brings up, and an opt-in profile is not that. Measured 2026-08-27 on a real ./up.sh --with-delegation: the gateway reports `delegation door: ON` and refuses a revoked token with HTTP 401, while the same launcher without the flag returns 200 to that same revoked token because the door never examines it. NOTE for whoever adds the other two: this file's model has no notion of a PROFILE, only of agreed/extra/absent, so a second and third deployment installing vouchryx will read here as two more `extra` entries rather than as one decision. That is a limit of C5 worth fixing when it bites, not a reason to write the wrong thing now."
+        },
+        "services:stack-k8s:extra:typryx": {
+          "recorded": "2026-09-25",
+          "provenance": "@decided 2026-09-25",
+          "why": "A DECISION, taken 2026-09-25 when typryx was wired into all three deployments at once: the typed-answer service is an optional add-on, and a customer who does not ask for it runs exactly the stack they ran before. Each deployment carries it behind its own opt-in: stack-up `--with-typed`, stack-single `--profile typed` (`WITH_TYPED=1 ./install.sh`), stack-k8s `manifests/51-typryx.yaml` outside the kustomization, applied by `deploy.sh --with-typed`. Recorded as `extra` in all three rather than added to `agreed`, for the reason the vouchryx entry gives: `agreed` is what every deployment brings up, and an opt-in profile is not that. Its journal and ledger stay on its own storage in all three, off the shared bus, until its event types are registered in agent-passport SPEC 6.2."
+        },
+        "services:stack-single:extra:typryx": {
+          "recorded": "2026-09-25",
+          "provenance": "@decided 2026-09-25",
+          "why": "A DECISION, taken 2026-09-25 when typryx was wired into all three deployments at once: the typed-answer service is an optional add-on, and a customer who does not ask for it runs exactly the stack they ran before. Each deployment carries it behind its own opt-in: stack-up `--with-typed`, stack-single `--profile typed` (`WITH_TYPED=1 ./install.sh`), stack-k8s `manifests/51-typryx.yaml` outside the kustomization, applied by `deploy.sh --with-typed`. Recorded as `extra` in all three rather than added to `agreed`, for the reason the vouchryx entry gives: `agreed` is what every deployment brings up, and an opt-in profile is not that. Its journal and ledger stay on its own storage in all three, off the shared bus, until its event types are registered in agent-passport SPEC 6.2."
+        },
+        "services:stack-up:extra:typryx": {
+          "recorded": "2026-09-25",
+          "provenance": "@decided 2026-09-25",
+          "why": "A DECISION, taken 2026-09-25 when typryx was wired into all three deployments at once: the typed-answer service is an optional add-on, and a customer who does not ask for it runs exactly the stack they ran before. Each deployment carries it behind its own opt-in: stack-up `--with-typed`, stack-single `--profile typed` (`WITH_TYPED=1 ./install.sh`), stack-k8s `manifests/51-typryx.yaml` outside the kustomization, applied by `deploy.sh --with-typed`. Recorded as `extra` in all three rather than added to `agreed`, for the reason the vouchryx entry gives: `agreed` is what every deployment brings up, and an opt-in profile is not that. Its journal and ledger stay on its own storage in all three, off the shared bus, until its event types are registered in agent-passport SPEC 6.2."
         },
         "services:stack-up:extra:costcrew": {
           "recorded": "2026-08-28",

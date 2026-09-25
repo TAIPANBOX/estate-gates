@@ -406,7 +406,7 @@ MUTATIONS: dict[str, list[tuple[str, callable]]] = {
             # joined it in G4.4, and until it was added here the mutation left
             # one consumer standing and c1.no-consumers could not fire.
             for repo in ("idryx", "qryx", "wardryx", "mockryx", "heraldyx",
-                         "scopyx", "terraform-provider-taipan")
+                         "scopyx", "typryx", "terraform-provider-taipan")
         ],
     )],
     "c1.unparseable-pin": [(

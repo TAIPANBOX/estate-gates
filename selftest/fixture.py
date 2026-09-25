@@ -258,6 +258,7 @@ depth is 32 entries.
 | `heraldyx` | `alert_sent` |
 | `vouchryx` | `delegation_issued` (info) · `delegation_denied` (high) · `delegation_revoked` (high) |
 | `scopyx` | `web_fetch` . `web_blocked` |
+| `typryx` | `typed_answer` |
 | `costcrew` | `anomaly_triaged` |
 
 A row here is a CLAIM that the source writes those types into this envelope
@@ -661,6 +662,31 @@ func (j *Journal) Fetch(agentID string) Outcome {
 
 func (j *Journal) Blocked(agentID string) Outcome {
 	return j.emit(TypeBlocked, agentID)
+}
+
+func (j *Journal) emit(kind, agentID string) Outcome {
+	e := event.Event{Source: Source, Type: kind, AgentID: agentID}
+	return j.w.Write(e)
+}
+
+func Open(path string) (*Journal, error) {
+	w, err := event.NewChainedWriter(path)
+	return &Journal{w: w}, err
+}
+"""
+
+TYPRYX_RECORD_GO = """package record
+
+// The typed-answer service, added 2026-09-25. Same shape as the egress plane
+// above: the types are constants and the emit site passes the variable.
+const (
+	Source = "typryx"
+
+	TypeAnswer = "typed_answer"
+)
+
+func (j *Journal) Answer(agentID string) Outcome {
+	return j.emit(TypeAnswer, agentID)
 }
 
 func (j *Journal) emit(kind, agentID string) Outcome {
@@ -1290,7 +1316,7 @@ TRAILRYX_AGENTEVENT = """//! The estate's shared agent-event envelope, mapped in
 //!
 //! Refused today, each because the record vocabulary has no honest home for it
 //! rather than because nobody got to it: `crypto_finding`, `eval_run`,
-//! `sim_run`, `console_command` and `anomaly_triaged`. Each is a finding or an observation about
+//! `sim_run`, `console_command`, `anomaly_triaged` and `typed_answer`. Each is a finding or an observation about
 //! infrastructure rather than a decision an agent took.
 //!
 //! # The one that got a type of its own, and what that cost
@@ -1514,6 +1540,10 @@ ESTATE: dict[str, dict] = {
     "scopyx": {
         "go.mod": gomod("scopyx", "v0.5.1"),
         "internal/record/record.go": SCOPYX_RECORD_GO,
+    },
+    "typryx": {
+        "go.mod": gomod("typryx", "v0.5.1"),
+        "internal/record/record.go": TYPRYX_RECORD_GO,
     },
     # costcrew DECLARES its wire types and its own suite holds the declaration
     # to its call sites, which is why C4 reads a list here rather than trying to
