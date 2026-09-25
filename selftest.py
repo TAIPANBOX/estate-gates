@@ -746,6 +746,18 @@ MUTATIONS: dict[str, list[tuple[str, callable]]] = {
                 "Refused today",
                 "Not mapped at present",
             ),
+        ),        # 2026-09-25. Before this, a list whose end could not be found was read
+        # through a fixed 4000-character window and nothing said so. Both
+        # kinds of end go, blank doc lines and headings, because either alone
+        # still ends the list.
+        (
+            "the refused list has no end, no blank doc line and no heading after it",
+            lambda r: [
+                edit(r, "trailryx/crates/trailryx-agentevent/src/lib.rs",
+                     "//!\n", "", every=True),
+                edit(r, "trailryx/crates/trailryx-agentevent/src/lib.rs",
+                     "//! # ", "//! ", every=True),
+            ],
         ),
     ],
     "c7.canonical-gone": [(

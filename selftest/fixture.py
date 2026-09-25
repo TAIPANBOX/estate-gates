@@ -1319,7 +1319,7 @@ TRAILRYX_AGENTEVENT = """//! The estate's shared agent-event envelope, mapped in
 //! `sim_run`, `console_command`, `anomaly_triaged` and `typed_answer`. Each is a finding or an observation about
 //! infrastructure rather than a decision an agent took.
 //!
-//! # The one that got a type of its own, and what that cost
+//! # The two that got types of their own, and what that cost
 //!
 //! `alert_sent` is a notification leaving for a person, which is an event in
 //! the run's own history rather than a finding about infrastructure.
