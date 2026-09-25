@@ -159,6 +159,14 @@
       ],
       "major": 1
     },
+    "typryx": {
+      "github": "TAIPANBOX/typryx",
+      "local": "typryx",
+      "role": "the typed-answer service. An optional add-on: answers a typed question with a probability over HTTP and MCP, sends only the fields a template names, caps its own calls and keeps its own journal and ledger, off the shared bus until its event types are registered.",
+      "runs": [
+        "typryx"
+      ]
+    },
     "vouchryx": {
       "github": "TAIPANBOX/vouchryx",
       "local": "vouchryx",

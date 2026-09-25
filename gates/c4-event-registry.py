@@ -243,6 +243,21 @@ def _refuse_unresolved(repo: str, path: str, unresolved: set[str]) -> None:
         )
 
 
+def _typryx(estate: E.Estate) -> dict[str, set[str]]:
+    """The typed-answer service, registered in 6.2 on 2026-09-25.
+
+    Its journal was adapted from scopyx's and keeps the same shape: the types
+    are constants and `j.emit(` passes the variable, so it is read the same way.
+    """
+    text = estate.read_text("typryx", "internal/record/record.go")
+    consts = go_consts(text)
+    types, unresolved = go_call_first_args(text, "j.emit", consts)
+    _refuse_unresolved("typryx", "internal/record/record.go", unresolved)
+    if not types:
+        raise E.Missing("typryx internal/record/record.go: no `j.emit(` call resolved to a type")
+    return {"typryx": types}
+
+
 def _scopyx(estate: E.Estate) -> dict[str, set[str]]:
     """The egress plane names its types as constants and passes the variable.
 
@@ -465,6 +480,11 @@ PRODUCERS: dict[str, dict] = {
         "writer": ("internal/record/record.go", "event.NewChainedWriter"),
         "extract": _scopyx,
         "owns": ["scopyx"],
+    },
+    "typryx": {
+        "writer": ("internal/record/record.go", "event.NewChainedWriter"),
+        "extract": _typryx,
+        "owns": ["typryx"],
     },
     "qryx": {
         "writer": ("internal/exporter/exporter.go", "event.NewChainedWriter"),
