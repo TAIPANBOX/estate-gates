@@ -2021,6 +2021,12 @@ REGISTRY = {
     },
 }
 
+# C22: the fixture's add-on and the two repositories on every request's path,
+# marked the way the real estate.json marks them.
+REGISTRY["repos"]["typryx"]["addon"] = True
+REGISTRY["repos"]["tokenfuse"]["request_path"] = True
+REGISTRY["repos"]["wardryx"]["request_path"] = True
+
 # C19: the fixture's one repository at 1.0 declares its surface, as the real
 # agent-passport does.
 REGISTRY["repos"]["agent-passport"]["major"] = 1

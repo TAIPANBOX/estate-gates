@@ -217,19 +217,24 @@ class Estate:
             names = [n for n in names if n.endswith(suffix)]
         return names
 
-    def grep_files(self, repo: str, marker: str) -> list[str]:
+    def grep_files(self, repo: str, marker: str, ignore_case: bool = False) -> list[str]:
         """Every tracked path in the repo whose CONTENT contains `marker`.
 
         A fixed-string search, not a pattern: callers pass a literal that
         identifies what they are looking for, and a caller that wanted a regex
-        would be asking a different question.
+        would be asking a different question. `ignore_case` is for a NAME
+        (C22 asks whether a repository names another one in any spelling), not
+        for a token whose case is part of what it means.
 
         This exists so a check can DISCOVER files rather than be told where
         they are. A hand-kept list of paths is itself a copy of the truth, and
         the estate has already been bitten by one going stale.
         """
         directory = self.dir_of(repo)
-        args = ["git", "-C", str(directory), "grep", "-l", "--fixed-strings", marker]
+        args = ["git", "-C", str(directory), "grep", "-l", "--fixed-strings"]
+        if ignore_case:
+            args.append("--ignore-case")
+        args.append(marker)
         if self.mode == "ref":
             args += [self.ref]
         proc = subprocess.run(args, capture_output=True, text=True)

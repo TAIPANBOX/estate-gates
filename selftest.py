@@ -552,6 +552,41 @@ MUTATIONS: dict[str, list[tuple[str, callable]]] = {
         "no workflow in the estate uses an action",
         lambda r: drop(r, "tokenfuse/.github/workflows/release.yml"),
     )],
+    # ---- C22
+    "c22.core-names-an-addon": [
+        (
+            # The shape the decision exists to stop: a docs page in the money
+            # plane describing how to call the add-on on the request path.
+            "a request-path repository gains a page naming the add-on",
+            lambda r: plant(
+                r,
+                "tokenfuse/docs/typed-answers.md",
+                "# Typed answers\n\nBefore forwarding, the gateway asks typryx whether the call looks safe.\n",
+            ),
+        ),
+        (
+            # Any spelling, and in the other request-path repository: a check
+            # that matched one exact case, or read only the first repository,
+            # would pass this.
+            "the policy plane names the add-on in another case, in code",
+            lambda r: plant(
+                r,
+                "wardryx/internal/typed/typed.go",
+                "package typed\n\n// Ask TypRyx for a probability before deciding.\nconst Upstream = \"http://TYPRYX:4320\"\n",
+            ),
+        ),
+    ],
+    "c22.no-addons": [(
+        "the registry stops marking the add-on",
+        lambda r: registry_del(r, "typryx", "addon"),
+    )],
+    "c22.no-request-path": [(
+        "the registry stops marking any repository as on the request path",
+        lambda r: [
+            registry_del(r, "tokenfuse", "request_path"),
+            registry_del(r, "wardryx", "request_path"),
+        ],
+    )],
     # ---- C7
     # ---- C9
     # ---- C10
