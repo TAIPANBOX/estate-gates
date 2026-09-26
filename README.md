@@ -363,6 +363,19 @@ peeled commit to pin instead), passes a commit at a ref tip, and reports a SHA
 at no tip as read but not judged. Ref tips come from `git ls-remote
 --tags --heads` once per action, or from a fixture the self-test exports.
 
+**C22, an optional add-on stays off the path every agent request takes**
+(`gates/c22-addons-stay-off-the-request-path.py`). Decided on 2026-09-26: an
+optional add-on, typryx first, is integrated beside the core and never inside
+it, so a stack without it runs as before and a slow or failed add-on cannot
+slow or fail a request. The add-on talks to the rest of the stack through the
+shared event bus, and any direct link a consumer adds is optional and fails
+open. This gate holds the part only a cross-repository reader can see: no
+repository marked `"request_path": true` in `estate.json` (tokenfuse,
+wardryx) names a repository marked `"addon": true`, or any component its
+`runs` field lists, in any tracked file and in any case. Launchers are where
+an add-on is wired, by configuration, and are not read. It does not catch a
+dependency that never spells the name, such as a hard-coded address or port.
+
 ## Running it
 
 Locally, against the sibling checkouts in the parent directory:

@@ -26,7 +26,15 @@
     "'private_remote' is the slug of a repository that exists on GitHub but is",
     "PRIVATE by decision, so 'github' stays null (CI cannot clone it) and the",
     "outside view checks that it has not been flipped public. Recorded here",
-    "because a visibility flip is silent everywhere else."
+    "because a visibility flip is silent everywhere else.",
+    "",
+    "'addon': true marks an optional add-on, a service offered beside the core that",
+    "a stack may leave out and run exactly as before (typryx). 'request_path': true",
+    "marks a repository every agent request passes through (tokenfuse, wardryx).",
+    "C22 reads both: no request-path repository may name an add-on in any file,",
+    "so an add-on can never become a dependency of a request. Both markers are",
+    "read from here and nowhere else; a gate with its own list of either would be",
+    "the copy this file exists to prevent."
   ],
   "repos": {
     "agent-passport": {
@@ -60,7 +68,8 @@
         "tokenfuse-cloud",
         "focus-export"
       ],
-      "major": 1
+      "major": 1,
+      "request_path": true
     },
     "verdryx": {
       "github": "TAIPANBOX/verdryx",
@@ -108,7 +117,8 @@
       "runs": [
         "wardryx"
       ],
-      "major": 1
+      "major": 1,
+      "request_path": true
     },
     "mockryx": {
       "github": "TAIPANBOX/mockryx",
@@ -162,10 +172,11 @@
     "typryx": {
       "github": "TAIPANBOX/typryx",
       "local": "typryx",
-      "role": "the typed-answer service. An optional add-on: answers a typed question with a probability over HTTP and MCP, sends only the fields a template names, caps its own calls and keeps its own journal and ledger, off the shared bus until its event types are registered.",
+      "role": "the typed-answer service. An optional add-on: answers a typed question with a probability over HTTP and MCP, sends only the fields a template names, caps its own calls and keeps its own ledger; its journal is on the shared bus and tokenfuse's MCP broker fronts it by configuration in all three launchers.",
       "runs": [
         "typryx"
-      ]
+      ],
+      "addon": true
     },
     "vouchryx": {
       "github": "TAIPANBOX/vouchryx",

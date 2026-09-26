@@ -656,3 +656,34 @@ Stop and tell the user, then wait:
     ten findings in `selftest.py`; the fixture's service files are rendered
     from the sibling fixtures' real commits at build time, so the baseline
     is current by construction)*
+
+22. **An optional add-on stays off the path every agent request takes.**
+    `@decided 2026-09-26`: an optional add-on, typryx first, is integrated
+    beside the core and never inside it. Three rules, of which this repository
+    can hold only the first: the repositories every agent request passes
+    through (tokenfuse, wardryx) name no add-on in any file, code, config or
+    docs; the add-on reaches the rest of the stack through the shared event bus
+    by default; and a direct link a consumer adds is optional, off by default,
+    and fails open, so the consumer runs exactly as without the add-on when it
+    is slow or down.
+
+    The first is estate-shaped: every repository may mention every other, and
+    nothing inside tokenfuse could tell that a mention of typryx is the start
+    of a dependency on the request path. Subjects come from the registry,
+    `"addon": true` and `"request_path": true`, never a list here; either set
+    empty is `missing`. Launchers are not request-path repositories: wiring an
+    add-on by configuration there is the point. What it does not catch: a
+    dependency that never spells the name, such as an add-on's address or port
+    hard-coded into the core.
+    *(gate: `gates/c22-addons-stay-off-the-request-path.py`, four cases in
+    `selftest.py` across three findings: a docs page naming the add-on in the
+    money plane, the add-on named in another case in the policy plane's code,
+    no add-on marked, no request-path repository marked. The second and third
+    rules are held by each consumer's own suite, not here. `@claude`
+    2026-09-26: the one direct consumer today, verdryx, is opt-in (its typed
+    grader is registered only when a typryx URL is given,
+    `test_build_graders_registers_typed_grader_when_client_given`); where
+    typryx IS the grader an operator asked for, a refusal fails that eval run
+    rather than scoring it (`test_eval_command_typed_refusal_still_fails_the_run_and_saves_nothing`),
+    which blocks nothing else and is the honest reading of "fails open" for a
+    consumer whose answer is the add-on's answer)*

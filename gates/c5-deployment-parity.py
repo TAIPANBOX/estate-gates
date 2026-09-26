@@ -207,6 +207,12 @@ SERVICE_KIND = {
     # `extra` in each rather than added to `agreed`, because nobody gets it by
     # default; its port, 4320, IS in the agreed port map.
     "typryx": "typryx",
+    # tokenfuse's own `mcp-broker` subcommand, fronting typryx, in all three
+    # deployments since 2026-09-26 behind the same opt-in as typryx itself.
+    # The same binary as the gateway but a separate process with its own
+    # port, so it is its own kind rather than a second gateway; recorded as
+    # an `extra` in each, like typryx.
+    "tokenfuse-mcp-broker": "tokenfuse-mcp-broker",
     # stack-single, behind `--profile routines`, added 2026-08-28. Three
     # routines that run as long-lived compose SERVICES rather than on a timer,
     # for the same reason record-seal does: compose has no cron. So the same
