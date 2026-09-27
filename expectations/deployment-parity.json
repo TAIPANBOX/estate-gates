@@ -117,6 +117,11 @@
           "recorded": "2026-09-01",
           "provenance": "@claude",
           "why": "The port of the opt-in plane recorded one entry above, and it moves with it: 8321 is what 49-costcrew.yaml publishes and what costcrew's own components.json declares as its `listen_default`, so the two agree and the only thing missing was this file's word for it. Nothing metered and nothing exposed: the Service is cluster-internal, exactly like the four planes in the agreed map."
+        },
+        "ports:stack-k8s:unagreed:hub-ingress=80": {
+          "recorded": "2026-09-27",
+          "provenance": "@claude 2026-09-27",
+          "why": "Not a component port: `hub-ingress` is the hub entry's LoadBalancer Service (80 and 443; 80 only redirects to HTTPS, 308), in front of planes whose own ports are in the agreed map and unchanged. The same shape as `genaryx-console-lb`'s 443. Opt-in, excluded from the default apply."
         }
       }
     },
@@ -227,6 +232,11 @@
           "recorded": "2026-09-26",
           "provenance": "@decided 2026-09-26",
           "why": "A DECISION, taken 2026-09-26 when tokenfuse's MCP broker was put in front of typryx in all three deployments at once: the broker runs tokenfuse's own `mcp-broker` subcommand, unchanged, wired to typryx by configuration only, and it comes up only behind the same opt-in as typryx itself: stack-up `--with-typed`, stack-single `--profile typed` (`WITH_TYPED=1 ./install.sh`), stack-k8s `manifests/52-tokenfuse-mcp-broker.yaml` applied by `--with-typed` after 51. Recorded as `extra` in all three rather than added to `agreed`, for the reason the typryx entry gives: an opt-in profile is not what every deployment brings up."
+        },
+        "services:stack-k8s:extra:hub-ingress": {
+          "recorded": "2026-09-27",
+          "provenance": "@decided 2026-09-26",
+          "why": "A DECISION, taken 2026-09-26: a customer with several sites reaches one hub over outbound HTTPS to a single public entry, authenticated by the planes' own keys, with no VPN. `hub-ingress` (stack-k8s `manifests/53-hub-entry.yaml`, stack-k8s#107) is that entry: upstream Caddy pinned by digest, exactly the seven routes a remote gateway calls, 404 for everything else. Opt-in, applied by `hub/up.sh`, never by the default apply, and METERED (a LoadBalancer). Only the cluster launcher is a hub today; stack-single and stack-up are the shape a remote site runs, so they carry no entry."
         }
       }
     },
@@ -262,6 +272,11 @@
           "recorded": "2026-09-26",
           "provenance": "@claude 2026-09-26",
           "why": "Not a new decision but the consequence of one: the broker is tokenfuse's own `mcp-broker` subcommand, so tokenfuse is the repository that would claim it, and claiming it here would make C15 require a matching component in tokenfuse's own components.json. The 2026-09-25 decision that tokenfuse is not changed for an optional add-on (C22 holds its request-path half) rules that change out while the broker exists only to front typryx. Recorded rather than filtered, so a later reader can disagree; if tokenfuse ever declares the broker as a component for its own reasons, this entry goes stale and C5 says so."
+        },
+        "coverage:hub-ingress:claimed-by-no-repository": {
+          "recorded": "2026-09-27",
+          "provenance": "@claude 2026-09-27",
+          "why": "No estate repository builds it: the entry is upstream Caddy, pinned by digest in stack-k8s's own manifest, configured by a Caddyfile in the same file. Claiming it from stack-k8s would make C15 look for a component that repository does not build."
         }
       }
     }
