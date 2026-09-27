@@ -213,6 +213,13 @@ SERVICE_KIND = {
     # port, so it is its own kind rather than a second gateway; recorded as
     # an `extra` in each, like typryx.
     "tokenfuse-mcp-broker": "tokenfuse-mcp-broker",
+    # stack-k8s only since 2026-09-27 (stack-k8s#107): the hub's one public
+    # entry for a remote site's gateway, upstream Caddy pinned by digest in
+    # `manifests/53-hub-entry.yaml`, applied by `hub/up.sh` and never by the
+    # default apply. An ingress in front of planes that are already mapped,
+    # not a plane of its own, so it is its own kind and recorded as an
+    # `extra`, the same way `genaryx-console-lb`'s port is recorded.
+    "hub-ingress": "hub-ingress",
     # stack-single, behind `--profile routines`, added 2026-08-28. Three
     # routines that run as long-lived compose SERVICES rather than on a timer,
     # for the same reason record-seal does: compose has no cron. So the same
