@@ -105,7 +105,8 @@
         "dashboard": 3000,
         "scopyx": 4300,
         "typryx": 4320,
-        "tokenfuse-mcp-broker": 4200
+        "tokenfuse-mcp-broker": 4200,
+        "vouchryx": 4310
       },
       "divergences": {
         "ports:stack-k8s:unagreed:genaryx-console-lb=443": {
@@ -237,6 +238,16 @@
           "recorded": "2026-09-27",
           "provenance": "@decided 2026-09-26",
           "why": "A DECISION, taken 2026-09-26: a customer with several sites reaches one hub over outbound HTTPS to a single public entry, authenticated by the planes' own keys, with no VPN. `hub-ingress` (stack-k8s `manifests/53-hub-entry.yaml`, stack-k8s#107) is that entry: upstream Caddy pinned by digest, exactly the seven routes a remote gateway calls, 404 for everything else. Opt-in, applied by `hub/up.sh`, never by the default apply, and METERED (a LoadBalancer). Only the cluster launcher is a hub today; stack-single and stack-up are the shape a remote site runs, so they carry no entry."
+        },
+        "services:stack-k8s:extra:vouchryx": {
+          "recorded": "2026-09-27",
+          "provenance": "@decided 2026-09-27",
+          "why": "A DECISION, taken 2026-09-27 when vouchryx was wired into stack-single and stack-k8s, completing the set stack-up started: the launchers offer vouchryx as an opt-in delegation plane, off by default, so a gateway can verify a proved delegation chain instead of trusting a claimed one. Each deployment carries it behind its own opt-in: stack-up `--with-delegation`, stack-single `--profile delegation` (`WITH_DELEGATION=1 ./install.sh`, which also needs the operator's `VOUCHRYX_TRUSTED_ISSUERS` or an explicit demo issuer), stack-k8s `manifests/54-delegation.yaml` outside the kustomization, applied by `delegation/up.sh` (which needs `--issuer`, `--audience` and `--jwks-file`). Recorded as `extra` in all three rather than added to `agreed`, for the reason the stack-up entry gives: `agreed` is what every deployment brings up, and an opt-in profile is not that. The port, 4310, is the same in all three and is in the agreed port map."
+        },
+        "services:stack-single:extra:vouchryx": {
+          "recorded": "2026-09-27",
+          "provenance": "@decided 2026-09-27",
+          "why": "A DECISION, taken 2026-09-27 when vouchryx was wired into stack-single and stack-k8s, completing the set stack-up started: the launchers offer vouchryx as an opt-in delegation plane, off by default, so a gateway can verify a proved delegation chain instead of trusting a claimed one. Each deployment carries it behind its own opt-in: stack-up `--with-delegation`, stack-single `--profile delegation` (`WITH_DELEGATION=1 ./install.sh`, which also needs the operator's `VOUCHRYX_TRUSTED_ISSUERS` or an explicit demo issuer), stack-k8s `manifests/54-delegation.yaml` outside the kustomization, applied by `delegation/up.sh` (which needs `--issuer`, `--audience` and `--jwks-file`). Recorded as `extra` in all three rather than added to `agreed`, for the reason the stack-up entry gives: `agreed` is what every deployment brings up, and an opt-in profile is not that. The port, 4310, is the same in all three and is in the agreed port map."
         }
       }
     },
