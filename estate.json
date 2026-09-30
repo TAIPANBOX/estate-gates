@@ -178,6 +178,12 @@
       ],
       "addon": true
     },
+    "typryx-evalset": {
+      "github": "TAIPANBOX/typryx-evalset",
+      "local": "typryx-evalset",
+      "role": "typryx's benchmark: 3000 synthetic typed questions with truth by construction, a frozen test split, a runner and metrics for any typryx backend, and no-model baselines. Runs nothing.",
+      "runs": []
+    },
     "vouchryx": {
       "github": "TAIPANBOX/vouchryx",
       "local": "vouchryx",
