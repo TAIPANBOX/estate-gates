@@ -113,7 +113,7 @@
     "wardryx": {
       "github": "TAIPANBOX/wardryx",
       "local": "wardryx",
-      "role": "the policy plane. Emits seven event types.",
+      "role": "the policy plane. Emits eight event types.",
       "runs": [
         "wardryx"
       ],
