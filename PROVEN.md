@@ -438,8 +438,8 @@ deployment table already cites). Dates are the run dates those sources state.
 
 Backfilled on 2026-10-02. The demos ran on one AWS demo account (profile
 `stack-k8s`, `eu-central-1` unless a row says otherwise) and on this Mac. Their
-evidence is not in a repository: it lives in a working copy on this Mac,
-`tania-content-2026-10-01/AWS-Community-for-Tania/demos/`, written `<demos>/` below.
+evidence is not in a repository: it lives in a private content working copy on
+this Mac, in its AWS community folder's `demos/`, written `<demos>/` below.
 D7 never ran the AWS FinOps Agent itself; its row records only the direct API reads
 that did run.
 
