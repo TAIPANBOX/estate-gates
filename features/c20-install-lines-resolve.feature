@@ -25,8 +25,9 @@ Feature: Every README install line resolves to a release that exists
   references under ghcr.io/taipanbox and release download links under
   github.com/TAIPANBOX. A line carrying a placeholder is a template a reader
   fills in and is skipped. The owner of an image is the repository whose name
-  is the longest prefix of the image name; Releases are read through the
-  GitHub API, or from a fixture the self-test exports.
+  is the longest prefix of the image name, or the repository whose estate.json
+  entry lists the image under images; Releases are read through the GitHub
+  API, or from a fixture the self-test exports.
 
   @fires:c20.image-unpinned
   Scenario: A README names an image with no tag
@@ -78,3 +79,19 @@ Feature: Every README install line resolves to a release that exists
     When the estate is read
     Then it is refused as having measured nothing
     Because a dozen repositories publish one, so finding none means the wrong thing was read
+
+  @fires:c20.image-unowned
+  Scenario: An image published from a command inside a module is owned by declaration
+    Given a repository publishing an image whose name no repository name prefixes
+    And the repository's estate.json entry lists the image under images
+    When the estate is read
+    Then the README line naming it is owned by that repository
+    But with the declaration taken away it is refused as owned by nobody
+
+  @fires:c20.image-ambiguous
+  Scenario: A declared image has two owners
+    Given an estate.json images declaration naming an image
+    And another repository declares it too, or owns it by a repository-name prefix
+    When the estate is read
+    Then it is refused, naming both owners
+    Because the gate would otherwise pick one in silence and call that agreement

@@ -84,7 +84,13 @@ appears at an emit site. Reverse, and more valuable: any type string emitted
 by any repository whose source the registry does not carry, or which is
 attributed to the wrong source. Anchored on the emit call sites in Rust, Go
 and Python, never on strings that look like event names, and a repository
-whose shape defeats the parser is reported as a hole rather than skipped.
+whose shape defeats the parser is reported as a hole rather than skipped. A
+producer that is a command inside a shared module rather than a repository of
+its own (`agent-conform` in agent-stack-go) is declared under the module's
+entry and read from its const block, and the extractor requires each declared
+name to still be written. The search for an undeclared writer asks only
+whether a repository is declared, so a SECOND writer added inside a declared
+repository is not found by it.
 
 **C5, deployment parity** (`gates/c5-deployment-parity.py`). stack-up,
 stack-single and stack-k8s compared on four things: which governance routines
@@ -343,8 +349,10 @@ anywhere, a README pins the tag it means, and this gate holds the pin. It reads
 image references and `github.com/TAIPANBOX/.../releases/` download links,
 skipping lines with placeholders. An image with no tag is red unless the owning
 repository declares a moving tag; a pinned tag must be a git tag of the owner
-(the repository whose name is the longest prefix of the image name; a
-`-variant` suffix is stripped first); a `releases/download/<tag>/` link needs a
+(the repository whose name is the longest prefix of the image name, or the
+one whose `estate.json` entry lists the image under `images`, the exception for
+an image not named after its repository such as agent-stack-go's
+`agent-conform`; a `-variant` suffix is stripped first); a `releases/download/<tag>/` link needs a
 Release object for that tag and `releases/latest/download/` needs at least one,
 both read through the GitHub API, or from a fixture the self-test exports. It
 does not ask the registry whether the image tag was pushed (outside-view.py

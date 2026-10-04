@@ -34,7 +34,13 @@
     "C22 reads both: no request-path repository may name an add-on in any file,",
     "so an add-on can never become a dependency of a request. Both markers are",
     "read from here and nowhere else; a gate with its own list of either would be",
-    "the copy this file exists to prevent."
+    "the copy this file exists to prevent.",
+    "",
+    "'images' lists container images a repository publishes under a name that is",
+    "NOT prefixed by its own name (agent-stack-go publishes agent-conform, a",
+    "command inside the module). C20 owns an image by the longest repository-name",
+    "prefix; this field is the explicit exception, exact names only, and a name",
+    "another repository also owns is c20.image-ambiguous."
   ],
   "repos": {
     "agent-passport": {
@@ -53,6 +59,9 @@
       "local": "agent-stack-go",
       "role": "the shared Go module. Wire types, the chain, the pinned cross-language vectors.",
       "runs": [],
+      "images": [
+        "agent-conform"
+      ],
       "major": 1,
       "compat": {
         "manifest": "api/surface.txt",
