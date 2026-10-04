@@ -550,8 +550,11 @@ MUTATIONS: dict[str, list[tuple[str, callable]]] = {
         ),
     )],
     "c20.no-subjects": [(
+        # Every README that carries an install line, and the list must grow
+        # with the fixture: agent-stack-go's joined it with agent-conform, and
+        # until it was added here this left one subject standing.
         "no README carries an install line",
-        lambda r: drop(r, "idryx/README.md"),
+        lambda r: [drop(r, "idryx/README.md"), drop(r, "agent-stack-go/README.md")],
     )],
     # ---- C21
     "c21.tag-object": [(
