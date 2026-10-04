@@ -182,6 +182,21 @@ ROUTINE_KIND = {
     # recorded as a single-launcher divergence in
     # expectations/deployment-parity.json rather than added to `agreed`.
     "costcrew-crew": "costcrew-run",
+    # The on-box chain verifier: agent-stack-go's `agent-conform watch-dir`,
+    # which re-verifies the shared event bus's hash chain and writes a
+    # `chain_broken` event (high) to its own stream when a chain does not hold.
+    # ONE kind, `agent-conform`, named for the tool and not for any launcher's
+    # label, because the three launchers disagree about the label and none of
+    # them is more right: stack-k8s calls its CronJob `agent-conform` (every 15
+    # minutes), stack-up calls its routine `chain-verify` (daily 06:52), and
+    # stack-single runs the same tool as a compose SERVICE of the same name
+    # (see SERVICE_KIND below). Mapping stack-up's `chain-verify` onto the tool
+    # name here, instead of asking stack-up to rename a routine whose name
+    # says what it does for an operator reading `./up.sh routines`, keeps the
+    # launchers free to name things for their own readers, which is the whole
+    # job of this map. @claude 2026-10-04.
+    "chain-verify": "agent-conform",
+    "agent-conform": "agent-conform",
 }
 
 SERVICE_KIND = {
@@ -238,6 +253,25 @@ SERVICE_KIND = {
     # a service and a routine are compared against different things here
     # and calling one the other would make both comparisons wrong.
     "record-seal": "record-seal",
+    # stack-single, behind `--profile routines`, added 2026-10-04: the on-box
+    # chain verifier (agent-stack-go's `agent-conform watch-dir`) as a compose
+    # SERVICE that loops every five minutes, for the reason record-seal and the
+    # three routines above loop: compose has no cron, and the image is
+    # distroless, with no shell to hang a loop on from outside. Same kind as
+    # the routine of the same tool in the other two launchers (ROUTINE_KIND
+    # maps stack-up's `chain-verify` and stack-k8s's `agent-conform` to it), and
+    # for the same reason as the rows above it appears in two families and
+    # keeps one name in both.
+    "agent-conform": "agent-conform",
+    # typryx's own `wardryx-proxy` subcommand: a separate process from typryx
+    # itself, on its own port (4330), that puts a typed risk signal in front of
+    # wardryx's decision. All three launchers carry it since 2026-10-04, each
+    # behind the same opt-in as typryx itself, so it is recorded as an `extra`
+    # in each, like the broker, and its port is in the agreed map. It is the
+    # same binary as typryx and its own kind for the reason the broker is its
+    # own kind and not a second gateway: a separate process with its own port,
+    # health path and failure mode is a component of its own to an operator.
+    "typryx-wardryx-proxy": "typryx-wardryx-proxy",
     # stack-single (compose service keys)
     "tokenfuse-gateway": "tokenfuse-gateway",
     "tokenfuse-cloud": "tokenfuse-cloud",

@@ -52,7 +52,9 @@
       "github": "TAIPANBOX/agent-stack-go",
       "local": "agent-stack-go",
       "role": "the shared Go module. Wire types, the chain, the pinned cross-language vectors.",
-      "runs": [],
+      "runs": [
+        "agent-conform"
+      ],
       "major": 1,
       "compat": {
         "manifest": "api/surface.txt",
