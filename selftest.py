@@ -361,6 +361,13 @@ def registry_del(root: pathlib.Path, repo: str, key: str) -> None:
     path.write_text(json.dumps(reg, indent=2) + "\n")
 
 
+def registry_images(root: pathlib.Path, repo: str, images: list[str]) -> None:
+    """Make the registry declare that `repo` publishes `images` (C20)."""
+    path, reg = _case_registry(root)
+    reg["repos"][repo]["images"] = images
+    path.write_text(json.dumps(reg, indent=2) + "\n")
+
+
 def registry_drop_runs(root: pathlib.Path, repo: str) -> None:
     """Take the required `runs` field off one registry entry."""
     path, reg = _case_registry(root)
@@ -493,10 +500,32 @@ MUTATIONS: dict[str, list[tuple[str, callable]]] = {
         "a README names an image with no tag",
         lambda r: edit(r, "idryx/README.md", "ghcr.io/taipanbox/idryx:v0.3.1", "ghcr.io/taipanbox/idryx"),
     )],
-    "c20.image-unowned": [(
-        "a README names an image no repository owns",
-        lambda r: edit(r, "idryx/README.md", "ghcr.io/taipanbox/idryx:v0.3.1", "ghcr.io/taipanbox/nonesuch:v0.3.1"),
-    )],
+    "c20.image-unowned": [
+        (
+            "a README names an image no repository owns",
+            lambda r: edit(r, "idryx/README.md", "ghcr.io/taipanbox/idryx:v0.3.1", "ghcr.io/taipanbox/nonesuch:v0.3.1"),
+        ),
+        (
+            # agent-conform is owned by DECLARATION only: no repository is named
+            # for it. Taking the declaration away must leave it nobody's, which
+            # also proves the baseline's green is the declaration's doing and
+            # not a prefix match.
+            "an image no repository name prefixes loses its declaration",
+            lambda r: registry_del(r, "agent-stack-go", "images"),
+        ),
+    ],
+    "c20.image-ambiguous": [
+        (
+            "two repositories declare the same image",
+            lambda r: registry_images(r, "idryx", ["agent-conform"]),
+        ),
+        (
+            # A declaration must not quietly take an image from its prefix
+            # owner: `idryx` is idryx's by name.
+            "a repository declares an image another repository owns by prefix",
+            lambda r: registry_images(r, "agent-stack-go", ["agent-conform", "idryx"]),
+        ),
+    ],
     "c20.tag-unknown": [(
         "a README pins a tag the repository never cut",
         lambda r: edit(r, "idryx/README.md", "ghcr.io/taipanbox/idryx:v0.3.1", "ghcr.io/taipanbox/idryx:v9.9.9"),
@@ -521,8 +550,11 @@ MUTATIONS: dict[str, list[tuple[str, callable]]] = {
         ),
     )],
     "c20.no-subjects": [(
+        # Every README that carries an install line, and the list must grow
+        # with the fixture: agent-stack-go's joined it with agent-conform, and
+        # until it was added here this left one subject standing.
         "no README carries an install line",
-        lambda r: drop(r, "idryx/README.md"),
+        lambda r: [drop(r, "idryx/README.md"), drop(r, "agent-stack-go/README.md")],
     )],
     # ---- C21
     "c21.tag-object": [(
@@ -1299,17 +1331,35 @@ MUTATIONS: dict[str, list[tuple[str, callable]]] = {
         "SPEC.md loses its 6.2 heading",
         lambda r: edit(r, "agent-passport/SPEC.md", "### 6.2 Initial", "### 6.9 Initial"),
     )],
-    "c4.writer-file-gone": [(
-        "a producer's writer file is deleted",
-        lambda r: drop(r, "qryx/internal/exporter/exporter.go"),
-    )],
-    "c4.writer-anchor-gone": [(
-        "the writer call is renamed, so nothing proves the path exists",
-        lambda r: edit(
-            r, "mockryx/internal/events/events.go",
-            "event.NewChainedWriter(path)", "event.OpenWriter(path)"
+    "c4.writer-file-gone": [
+        (
+            "a producer's writer file is deleted",
+            lambda r: drop(r, "qryx/internal/exporter/exporter.go"),
         ),
-    )],
+        (
+            # The on-box verifier's own file. This is also the state of the
+            # estate between the PRODUCERS entry merging and the command
+            # landing in the module: red by design, never a quiet skip.
+            "the on-box verifier's command file is not in the module",
+            lambda r: drop(r, "agent-stack-go/cmd/agent-conform/watchdir.go"),
+        ),
+    ],
+    "c4.writer-anchor-gone": [
+        (
+            "the writer call is renamed, so nothing proves the path exists",
+            lambda r: edit(
+                r, "mockryx/internal/events/events.go",
+                "event.NewChainedWriter(path)", "event.OpenWriter(path)"
+            ),
+        ),
+        (
+            "the on-box verifier stops opening a chained writer",
+            lambda r: edit(
+                r, "agent-stack-go/cmd/agent-conform/watchdir.go",
+                "event.NewChainedWriter(path)", "event.OpenWriter(path)"
+            ),
+        ),
+    ],
     "c4.producer-unreadable": [
         (
             "a producer's emit sites stop parsing",
@@ -1336,6 +1386,36 @@ MUTATIONS: dict[str, list[tuple[str, callable]]] = {
                 "scopyx/internal/record/record.go",
                 '\tTypeBlocked = "web_blocked"',
                 '\tTypeRefused = "web_blocked"',
+            ),
+        ),
+        # The on-box verifier is read from a const block and then required to
+        # be USED. Three ways to break that, each a different line of the
+        # extractor.
+        (
+            "the verifier's const block loses a type constant",
+            lambda r: edit(
+                r,
+                "agent-stack-go/cmd/agent-conform/watchdir.go",
+                '\ttypeChainUnchained = "chain_unchained"\n',
+                "",
+            ),
+        ),
+        (
+            "the verifier declares a type constant and no case writes it",
+            lambda r: edit(
+                r,
+                "agent-stack-go/cmd/agent-conform/watchdir.go",
+                "case typeChainUnchained:",
+                "case typeChainQuiet:",
+            ),
+        ),
+        (
+            "the verifier writes a source other than the one it declares",
+            lambda r: edit(
+                r,
+                "agent-stack-go/cmd/agent-conform/watchdir.go",
+                "Source: watchSource,",
+                'Source: "agent-conform",',
             ),
         ),
     ],
@@ -1396,28 +1476,56 @@ MUTATIONS: dict[str, list[tuple[str, callable]]] = {
         "a registered producer's code is gone entirely",
         lambda r: drop(r, "mockryx/internal/events/events.go"),
     )],
-    "c4.registered-type-not-emitted": [(
-        "a registered type has no emit site",
-        lambda r: edit(
-            r, "tokenfuse/crates/core/src/agent_event.rs",
-            'EventType::RunKilled => "run_killed",', ""
+    "c4.registered-type-not-emitted": [
+        (
+            "a registered type has no emit site",
+            lambda r: edit(
+                r, "tokenfuse/crates/core/src/agent_event.rs",
+                'EventType::RunKilled => "run_killed",', ""
+            ),
         ),
-    )],
-    "c4.unregistered-source": [(
-        "a producer emits under a source 6.2 does not carry",
-        lambda r: edit(
-            r, "genaryx/crates/core/src/command.rs",
-            'Value::String("console".to_string())', 'Value::String("gonsole".to_string())'
+        (
+            "6.2 lists a type the on-box verifier never writes",
+            lambda r: edit(
+                r, "agent-passport/SPEC.md",
+                "`chain_broken` . `chain_unchained` |",
+                "`chain_broken` . `chain_unchained` . `chain_phantom` |",
+            ),
         ),
-    )],
-    "c4.unregistered-type": [(
-        "a producer emits a type 6.2 does not list",
-        lambda r: edit(
-            r, "mockryx/internal/events/events.go", 'Type: "sim_run",',
-            'Type: "sim_run",\n\t})\n}\n\nfunc (e *Emitter) SimFinding() error {\n'
-            '\treturn e.write(event.Event{\n\t\tType: "sim_finding",'
+    ],
+    "c4.unregistered-source": [
+        (
+            "a producer emits under a source 6.2 does not carry",
+            lambda r: edit(
+                r, "genaryx/crates/core/src/command.rs",
+                'Value::String("console".to_string())', 'Value::String("gonsole".to_string())'
+            ),
         ),
-    )],
+        (
+            "the on-box verifier's source constant is changed and 6.2 is not",
+            lambda r: edit(
+                r, "agent-stack-go/cmd/agent-conform/watchdir.go",
+                'watchSource     = "agent-conform"', 'watchSource     = "agent-verify"',
+            ),
+        ),
+    ],
+    "c4.unregistered-type": [
+        (
+            "the on-box verifier's type constant is changed and 6.2 is not",
+            lambda r: edit(
+                r, "agent-stack-go/cmd/agent-conform/watchdir.go",
+                'typeChainUnchained = "chain_unchained"', 'typeChainUnchained = "chain_forged"',
+            ),
+        ),
+        (
+            "a producer emits a type 6.2 does not list",
+            lambda r: edit(
+                r, "mockryx/internal/events/events.go", 'Type: "sim_run",',
+                'Type: "sim_run",\n\t})\n}\n\nfunc (e *Emitter) SimFinding() error {\n'
+                '\treturn e.write(event.Event{\n\t\tType: "sim_finding",'
+            ),
+        ),
+    ],
     # ---- C5
     "c5.expectations-gone": [(
         "the expectations file is not there",

@@ -259,6 +259,7 @@ depth is 32 entries.
 | `vouchryx` | `delegation_issued` (info) · `delegation_denied` (high) · `delegation_revoked` (high) |
 | `scopyx` | `web_fetch` . `web_blocked` |
 | `typryx` | `typed_answer` |
+| `agent-conform` | `chain_broken` . `chain_unchained` |
 | `costcrew` | `anomaly_triaged` |
 
 A row here is a CLAIM that the source writes those types into this envelope
@@ -673,6 +674,50 @@ func Open(path string) (*Journal, error) {
 	w, err := event.NewChainedWriter(path)
 	return &Journal{w: w}, err
 }
+"""
+
+# C4 reads this: the on-box verifier lives inside the shared module, names its
+# source and types in one const block, and writes `Type: f.typ`, a variable. The
+# header comment names both types on purpose: C4 reads code, not comments.
+AGENT_CONFORM_WATCHDIR_GO = """package main
+
+// agent-conform watch-dir (fixture). It raises chain_broken and chain_unchained.
+
+const (
+	// The registry name of this producer.
+	watchSource     = "agent-conform"
+	watchOutputName = watchSource + ".ndjson"
+
+	typeChainBroken    = "chain_broken"
+	typeChainUnchained = "chain_unchained"
+)
+
+var openAlertWriter = func(path string) (alertWriter, error) { return event.NewChainedWriter(path) }
+
+func alertFor(f finding) event.Event {
+	e := event.Event{
+		Source: watchSource,
+		Type:   f.typ,
+	}
+	switch f.typ {
+	case typeChainBroken:
+		e.Severity = event.SeverityHigh
+	case typeChainUnchained:
+		e.Severity = event.SeverityLow
+	}
+	return e
+}
+"""
+
+# C20 reads this: agent-stack-go publishes an image that no repository NAME
+# prefixes, so only the registry's `images` declaration owns it. The tag
+# placeholder is a template and the prose mention is the shape the real README
+# had; both must be read as the same image.
+AGENT_STACK_GO_README = """# agent-stack-go (fixture)
+
+The image is ghcr.io/taipanbox/agent-conform:<tag>, static and non-root.
+
+Verify: cosign verify ghcr.io/taipanbox/agent-conform:<tag>
 """
 
 TYPRYX_RECORD_GO = """package record
@@ -1316,7 +1361,7 @@ TRAILRYX_AGENTEVENT = """//! The estate's shared agent-event envelope, mapped in
 //!
 //! Refused today, each because the record vocabulary has no honest home for it
 //! rather than because nobody got to it: `crypto_finding`, `eval_run`,
-//! `sim_run`, `console_command`, `anomaly_triaged` and `typed_answer`. Each is a finding or an observation about
+//! `sim_run`, `console_command`, `anomaly_triaged`, `typed_answer`, `chain_broken` and `chain_unchained`. Each is a finding or an observation about
 //! infrastructure rather than a decision an agent took.
 //!
 //! # The two that got types of their own, and what that cost
@@ -1481,6 +1526,8 @@ ESTATE: dict[str, dict] = {
         "cmd/agent-conform/schemas/agent-passport.v1.0.schema.json": PASSPORT_V10,
         "passport/testdata/schema/agent-passport.v1.0.schema.json": PASSPORT_V10,
         "event/testdata/chain-vectors.json": CHAIN_VECTORS,
+        "cmd/agent-conform/watchdir.go": AGENT_CONFORM_WATCHDIR_GO,
+        "README.md": AGENT_STACK_GO_README,
         "event/chain_test.go": CHAIN_TEST_GO,
         "chain/chain.go": CHAIN_GO,
         "delegation/chain.go": DELEGATION_CHAIN_GO,
@@ -2023,6 +2070,10 @@ REGISTRY = {
 
 # C22: the fixture's add-on and the two repositories on every request's path,
 # marked the way the real estate.json marks them.
+# C20: agent-stack-go publishes `agent-conform`, an image no repository name
+# prefixes, so the registry declares it.
+REGISTRY["repos"]["agent-stack-go"]["images"] = ["agent-conform"]
+
 REGISTRY["repos"]["typryx"]["addon"] = True
 REGISTRY["repos"]["tokenfuse"]["request_path"] = True
 REGISTRY["repos"]["wardryx"]["request_path"] = True
