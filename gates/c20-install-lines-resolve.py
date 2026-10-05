@@ -60,6 +60,18 @@ image name (`tokenfuse-control-plane` is tokenfuse's, `trailryx-node` is
 trailryx's, `genaryx-console` is genaryx's). Nothing is hand-listed; a new
 image named after its repository is owned the day it appears.
 
+The exception is an image that is NOT named after its repository, because the
+repository publishes more than one thing: agent-stack-go is a Go module, and
+`agent-conform`, a command inside it, is published from its release workflow
+as `ghcr.io/taipanbox/agent-conform`. No repository is named `agent-conform`
+and none has that name as a prefix, so by name it is nobody's. Such an image is
+declared on its repository's `estate.json` entry, `"images": ["agent-conform"]`
+(an exact image name, never a prefix), and that declaration wins over the
+prefix rule. A declaration that collides with another is `c20.image-ambiguous`,
+so a declaration cannot quietly take an image away from its prefix owner.
+A declared image that no README names is not a finding: the declaration is a
+statement of who owns the name, and C20's subjects are the README lines.
+
 HOW RELEASES ARE READ
 
 Through the GitHub API (`gh api repos/TAIPANBOX/<repo>/releases`), once per
@@ -131,8 +143,41 @@ class Releases:
         return result
 
 
-def image_owner(image: str, repos: list[str]) -> str | None:
-    """The repository whose name is the longest prefix of the image name."""
+def declared_images(estate: E.Estate, c: E.Check) -> dict[str, str]:
+    """Image name to owning repository, from `estate.json`'s `images` lists.
+
+    Reports a declaration that collides with another, and leaves the FIRST
+    declarer (in registry order) as the answer so the run goes on and says
+    everything else it finds as well.
+    """
+    repos = sorted(estate.repos)
+    out: dict[str, str] = {}
+    for repo in repos:
+        for image in estate.repos[repo].get("images", []):
+            other = out.get(image)
+            by_name = image_owner(image, [r for r in repos if r != repo])
+            if other is not None or by_name is not None:
+                c.drift(
+                    "c20.image-ambiguous",
+                    f"estate.json declares ghcr.io/{OWNER}/{image} for {repo}, and "
+                    f"{other or by_name} already owns that name"
+                    + (" by declaration." if other else " by prefix."),
+                    [
+                        f"  {estate.where(repo, 'README.md')} may name it; estate.json "
+                        f"`images` of {repo} claims it",
+                        "One image has one owner. Drop the declaration, or rename the image.",
+                    ],
+                )
+                continue
+            out[image] = repo
+    return out
+
+
+def image_owner(image: str, repos: list[str], declared: dict[str, str] | None = None) -> str | None:
+    """The repository that owns the image: its declaration if it has one,
+    otherwise the repository whose name is the longest prefix of the image name."""
+    if declared and image in declared:
+        return declared[image]
     best = None
     for repo in repos:
         if image == repo or image.startswith(repo + "-"):
@@ -145,6 +190,7 @@ def run(estate: E.Estate) -> E.Check:
     c = E.Check("C20", "every README install line resolves to a release that exists", estate)
     releases = Releases()
     repos = sorted(estate.repos)
+    declared = declared_images(estate, c)
     subjects = 0
     unread = 0
     tags_cache: dict[str, set[str]] = {}
@@ -170,7 +216,7 @@ def run(estate: E.Estate) -> E.Check:
             for m in _IMAGE.finditer(line):
                 image, tag = m.group(1), m.group(2)
                 subjects += 1
-                owner = image_owner(image, repos)
+                owner = image_owner(image, repos, declared)
                 if owner is None:
                     c.drift(
                         "c20.image-unowned",

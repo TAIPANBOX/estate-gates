@@ -258,6 +258,52 @@ def _typryx(estate: E.Estate) -> dict[str, set[str]]:
     return {"typryx": types}
 
 
+def _agent_conform(estate: E.Estate) -> dict[str, set[str]]:
+    """The on-box chain verifier, `agent-conform watch-dir`, in agent-stack-go.
+
+    It is the one producer here that lives inside the shared Go MODULE rather
+    than in a repository of its own, which is why the PRODUCERS entry is keyed
+    `agent-stack-go` and owns the source `agent-conform`.
+
+    Its types are neither a `Type:` literal nor a first argument. The alert
+    builder writes `Type: f.typ`, a variable, so `go_types` would call it
+    unresolved and refuse; and `go_consts` reads only `[a-z0-9_]` values, which
+    the hyphen of the source name `agent-conform` is not. So this reads what
+    the file itself names in one place, the `const (...)` block (`watchSource`,
+    `typeChainBroken`, `typeChainUnchained`), and then requires the alert
+    builder to still USE each of those names: `Source: watchSource` and one
+    `case <name>:` per type. A constant nobody switches on would be a type the
+    verifier no longer writes, and the registry would go on claiming it.
+
+    Comments are stripped first (invariant 14): the file's own header prose
+    names both types.
+    """
+    path = "cmd/agent-conform/watchdir.go"
+    code = "\n".join(
+        line for line in estate.read_text("agent-stack-go", path).splitlines()
+        if not line.lstrip().startswith("//")
+    )
+    block = re.search(r"^const \(\n(.*?)^\)", code, re.S | re.M)
+    if not block:
+        raise E.Missing(f"{path}: no `const (...)` block at the top level")
+    consts = dict(re.findall(r"^\s*(\w+)\s*=\s*\"([a-z0-9_-]+)\"\s*$", block.group(1), re.M))
+    for name in ("watchSource", "typeChainBroken", "typeChainUnchained"):
+        if name not in consts:
+            raise E.Missing(
+                f"{path}: the const block has no string constant `{name}`, so "
+                f"this producer's source and types could not be read"
+            )
+    if not re.search(r"\bSource:\s*watchSource\b", code):
+        raise E.Missing(f"{path}: no `Source: watchSource`, so the declared source is not the one written")
+    for name in ("typeChainBroken", "typeChainUnchained"):
+        if not re.search(rf"\bcase\s+{name}\s*:", code):
+            raise E.Missing(
+                f"{path}: no `case {name}:` in the alert builder, so the "
+                f"constant is declared and nothing writes it"
+            )
+    return {consts["watchSource"]: {consts["typeChainBroken"], consts["typeChainUnchained"]}}
+
+
 def _scopyx(estate: E.Estate) -> dict[str, set[str]]:
     """The egress plane names its types as constants and passes the variable.
 
@@ -485,6 +531,13 @@ PRODUCERS: dict[str, dict] = {
         "writer": ("internal/record/record.go", "event.NewChainedWriter"),
         "extract": _typryx,
         "owns": ["typryx"],
+    },
+    # Not a repository of its own: the verifier is a command inside the shared
+    # module, so the entry is keyed by the module's repository.
+    "agent-stack-go": {
+        "writer": ("cmd/agent-conform/watchdir.go", "event.NewChainedWriter"),
+        "extract": _agent_conform,
+        "owns": ["agent-conform"],
     },
     "qryx": {
         "writer": ("internal/exporter/exporter.go", "event.NewChainedWriter"),
