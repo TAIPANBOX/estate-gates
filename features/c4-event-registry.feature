@@ -102,3 +102,11 @@ Feature: The event registry and what the producers emit, in both directions
     And the repository behind it unreadable
     When the claim is checked
     Then it says so rather than accepting the claim
+
+  @fires:c4.producer-unreadable
+  Scenario: The on-box verifier's source and types are read from its constants
+    Given a producer that lives inside a shared module and writes its type through a variable
+    And its source and type names declared in one const block
+    When the const block loses a name, or no case writes a declared type, or the source written is not the declared one
+    Then the producer is reported unreadable
+    Because a constant nobody writes is a type the registry would go on claiming
