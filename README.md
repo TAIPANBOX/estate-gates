@@ -183,6 +183,38 @@ forced: taking the last three principals found the same three whatever the
 assertion said, because a body also names the principals that BUILD the token,
 and the gate could not see the exact failure it exists for.
 
+**C12, every envelope member has a plane at the record**
+(`gates/c12-envelope-members-have-a-plane.py`). C8 asks whether each event
+TYPE has an answer at the record plane. This asks it about the envelope's
+MEMBERS, and the failure is worse, because a member has no refusal path.
+trailryx's mapper files every member of a line in exactly one of two planes: a
+fixed list (`CONSUMED`) goes to typed metadata, which is kept, and everything
+else goes to the payload plane, which a per-event key ERASES. A member the
+mapper has never seen is therefore not refused and not counted. It is silently
+filed in the erasable half, and the store reports nothing.
+
+What it found when it was written: `delegation_proof` (agent-passport SPEC
+5.2), emitted by tokenfuse since 2026-08-26, which records that the
+`on_behalf_of` chain was proved by an RFC 8693 token. `CONSUMED` did not name
+it, so the chain sat in the kept plane and its proof in the erasable one. SPEC
+5.2 reads a chain with no proof beside it as not proven, so a routine payload
+erasure would have turned a proven chain into an unproven one, silently, in the
+store whose claim is that it holds what happened in a form nobody can quietly
+alter.
+
+The check is about coverage, never about which answer. Payload is a legitimate
+answer for most members, and for `data` the only correct one. A member passes
+when it is consumed into typed metadata, or when the mapper's plane-boundary
+passage names it in backticks and argues why it belongs in the erasable half.
+The subjects come from the schema files, never from a list in the script:
+every version of the event envelope schema in agent-stack-go
+(`cmd/agent-conform/schemas`) is read and its `properties` unioned, so a member
+added in a newer version is a subject the day it lands. The finding is
+`c12.member:<name>`. A run that finds no schema with properties (`c12.schemas`),
+or cannot find the mapper's `CONSUMED` list or its plane-boundary passage
+(`c12.mapper-unreadable`), says it measured nothing and fails; that is not a
+pass.
+
 **C13, the delegation depth cap counts one thing**
 (`gates/c13-delegation-cap.py`). SPEC 5.1 reads "Maximum chain depth is 32
 entries" and SPEC 5 calls the members of `on_behalf_of` entries, so the bound
@@ -216,6 +248,85 @@ finding a cap at all, so a constant renamed out of the anchor cannot switch it
 off. Run against the estate as it stood on the morning of 2026-08-27 it names
 `agent-stack-go/delegation/chain.go` and `tokenfuse/crates/delegation/src/lib.rs`,
 which is the defect, from the only place in the estate that could have seen it.
+
+**C14, a vendored table is the table**
+(`gates/c14-vendored-tables-are-the-table.py`). Some rules cannot be shared.
+`agent-stack-go/chain` holds what the record accepts of a delegation chain,
+`agent-stack-go/delegation` is a door that `deps-layering.sh` forbids from
+importing it, and `tokenfuse/crates/delegation` is a third implementation in
+another language with no seam to either, so the rules exist three times by
+construction. Three of them were found disagreeing on 2026-08-27, in one
+afternoon. Prose did not hold them, and a gate reading source text could not: a
+regex over two languages says a rule is mentioned, never that it answers. The
+answer was a TABLE each implementation runs, and a table only holds while every
+copy of it is the same table.
+
+The subjects are found by `$source`, which every canonical table carries and
+which names its own path. A copy is any file carrying the same `$source` at a
+different path, so a new language vendoring the table is checked from the day it
+lands rather than the day somebody remembers this file. C6 does the same job for
+the hash vectors through a hand-written list of copies; this is that check with
+the list taken out. Three findings: `c14.copy-drifted:<source>` when a copy
+differs from the canonical by a byte, `c14.canonical-missing:<source>` when
+copies name a path nothing is at, and `c14.copy-unexercised:<repo>` when no file
+with a test declaration in its own language (`#[test]`, `func Test`,
+`def test_` and the like) names the copy, because byte-identical copies of a
+table nobody runs are files that agree about nothing. A reference that merely
+starts with the file name, such as a renamed `.disabled` copy, does not count.
+That last check is evidence that a suite reaches the file, and deliberately not
+a claim that the suite asserts on every vector: nothing a read-only gate can do
+reaches that far, and the distance is stated rather than implied away. A run
+that finds no table at all (`c14.no-tables`) measured nothing and fails, and a
+repository it could not read is named (`c14.unreadable:<repo>`), never skipped
+in silence.
+
+**C15, a declaration a repository proves, read across the estate**
+(`gates/c15-component-manifests.py`, `features/component-manifests.feature`).
+The `runs` field in `estate.json` says which components exist, and nothing reads
+a repository to confirm it. That gap cannot be closed from here: the only thing
+that knows which binaries a repository builds is the repository, so a component
+that was FORGOTTEN is invisible from outside by construction, and `runs: []` is a
+valid answer no central file can contradict. vouchryx was installable by nothing
+for nineteen hours on 2026-08-26 for exactly that reason. Nor can the checks
+that matter most be made from here: what separates a service that exits 2
+without three variables from one that starts happily with an empty environment
+is invisible to every source-reading check and obvious to one that STARTS the
+binary, and this repository builds nothing. So the
+division is that the repository declares and proves, and this one reads across.
+
+Each component repository may carry `components.json` at its root. Everything
+under a component's `checked` key is asserted by that repository's own suite, in
+its own CI. Everything under `declared` is a statement nobody can verify and
+must carry its own `why`. This check owns four things, deliberately modest:
+
+1. The manifests agree with `estate.json`: every component the registry says a
+   repository contributes must be one its own manifest declares
+   (`c15.registry-names-what-the-repo-does-not`), and a manifest naming a schema
+   this reader does not know (`c15.unknown-schema`), or declaring nothing
+   (`c15.manifest-declares-nothing`), is refused rather than misread.
+2. A `declared` entry with no `why` is refused (`c15.declared-without-a-reason`),
+   so a repository that drops its own test does not quietly drop the rule.
+3. The comparison a single repository could never make: the health path a
+   component declares against the path a deployment actually polls
+   (`c15.probe-disagrees`). A launcher that deliberately probes something else
+   says why under the component's `declared` bucket, and the check then reads a
+   decision instead of a disagreement.
+4. A `service` or `daemon` that no launcher installs (`c15.nothing-installs-it`),
+   the question the whole per-repository declaration was for. It was asked by
+   hand on 2026-08-28 and found `tokenfuse-cluster`, a raft-replicated budget
+   ledger installable by nothing for fifty-seven days. `dev-tool` is the class
+   for something nothing should install, and `tool` is not judged. A `declared`
+   entry naming the install decision is the answer.
+
+It does not read source, so it cannot tell a manifest that is complete from one
+that is missing a component. Adoption is incremental and a repository without a
+manifest is a count, not drift; finding none at all is a failure
+(`c15.no-manifest-anywhere`), as are an unreadable manifest, an anchor that
+matches nothing (`c15.probe-unreadable`, `c15.probe-anchor-matched-nothing`) and
+the absence of any launcher manifest or any service to judge
+(`c15.no-launcher-manifest`, `c15.launchers-install-nothing`,
+`c15.no-service-to-judge`), because each of those would otherwise report
+agreement about nothing.
 
 **C16, a launcher's environment reaches a reader**
 (`gates/c16-launcher-env-has-a-reader.py`). C5 compares the three launchers
@@ -472,6 +583,23 @@ about anything a command can decide, and its section 1 is a dated reading of a
 re-check it, because in this estate a `file:line` citation goes stale in days:
 on the day the register was opened, all three citations it tried to follow from
 a four-day-old audit had moved, and all three findings had been fixed.
+
+Three more files record what the gates are not built to decide:
+
+- [`PROVEN.md`](PROVEN.md) records what has actually been run. Every row carries
+  the date, the machine and the artifact, and states its scope, because a run
+  proves what it ran and nothing adjacent. It is appended to by hand, one dated
+  row per run, and never regenerated: it answers "has this ever been executed,
+  and where", which is the question that keeps being answered from memory.
+- [`OUTSIDE-VIEW.md`](OUTSIDE-VIEW.md) is the estate as a stranger finds it:
+  repositories, container images and publish locations. It is regenerated by
+  `scripts/outside-view.py --write OUTSIDE-VIEW.md` from `estate.json` and the
+  image names the stack-k8s manifests pin, stamped with the moment it was taken,
+  and never edited by hand.
+- [`evidence/`](evidence/) holds the raw artifacts individual `PROVEN.md` rows
+  cite (today, the captures, probes and A/B scripts of the idryx eBPF sensor
+  runs of 8 and 9 September), so a row can be re-opened rather than taken on
+  trust.
 
 ## Known uncovered mirrors
 
