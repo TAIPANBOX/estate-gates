@@ -499,6 +499,21 @@ service page, and the result files on this Mac.
 | The same test split through typryx with a local 7B model on CPU | 2026-09-30 | an 8-vCPU CPU VM (`n2-standard-8`), Debian 12 per `vm/setup.sh`, Ollama `qwen2.5:7b` on the VM's loopback | `typryx-evalset/README.md` § "Results" @ `be18dc8`; `typryx-bench-2026-09-30/metrics.txt`, `results/qwen7b.jsonl` | 433 of 434 answered (one `label_mass_too_low`), 70.0% (95% 65.6 to 74.2), ECE 0.273, Brier 0.563, p50 2,130 ms, p95 4,517 ms. One model, one size, one machine; the VM's teardown is not recorded in these sources |
 | Jev judging real agent answers (`eval.outcome_met`, `jev-1.13.0`) through the hub/forge broker: a correct router answer 0.83 (334 ms), a poem instead of the command 0.01 (211 ms); round 3 on four routers' real answers 0.76, 0.71, 0.77 and 0.19 for the lite agent's answer that lacked a hostname (194 to 248 ms) | 2026-10-05, after 10:05 UTC and about 10:50 UTC | hosted Jev through typryx v0.4.0 behind the GCP hub's broker and forge's broker | `go-to-market-2026-09/evidence/r2-matrix-2026-10-05/logs/D20-jev-judges-agent-answers.log` @ `4476367`, `logs/R3-30-jev-judges-four-routers.log` @ `f2a8e1f` | Six hand-picked answers, not an accuracy measurement |
 
+## Rust build disk writes, 2026-10-06, proven
+
+Why this section exists: the Mac's SSD took 3.93 TB of writes in under a week,
+almost all of it Rust builds by agent sessions. Each fix below was measured
+where it ran; the pull-request figures are the PRs' own runs, on a cloud VM,
+not on the Mac.
+
+| What | When | On what | Artifact | Scope |
+|---|---|---|---|---|
+| SSD writes since boot | 2026-10-06, read at about 17:00 UTC | this Mac (M1 Pro), boot 2026-09-29 21:38 | `ioreg -c IOBlockStorageDriver -r -k Statistics` ("Bytes (Write)" = 3,935,535,951,872) | 6 days 20 h of uptime; attributes no bytes to any process; the cause (Rust test binaries, per-worktree `target/`) is read from the build directories, not traced |
+| genaryx: one test binary per crate, before and after | 2026-10-06 | a Claude Code cloud VM, 4 vCPU, Linux | genaryx#92 body (merged `bc269fa`); CI on the PR green | 948 tests passed on both sides; full `--no-run` wrote 8.24 GB before, 2.57 GB after; a rebuild after touching core 5.47 GB before, 1.14 GB after; one run each; both changes (binaries and debug profile) measured together |
+| tokenfuse: one test binary per crate, before and after | 2026-10-06 | a Claude Code cloud VM, 4 vCPU, Linux | tokenfuse#365 body (merged `50eba9a`); all ten CI checks green, `clippy --all-features` included | 1660 passed and the same 2 root-only failures on both sides; 56 test executables (17.8 GB) to 12 (0.64 GB); full `--no-run` 26.9 GB to 4.3 GB; rebuild after touching `crates/gateway/src/lib.rs` 18.8 GB to 1.3 GB, 43 s to 6.5 s; one run each |
+| A shared cargo `build-dir` reuses a dependency across two checkouts | 2026-10-06 | this Mac, cargo 1.96.1, a throwaway two-checkout crate with one registry dependency | the probe recorded in the session's memory note `heavy-builds-run-in-the-cloud` (probe files deleted after) | the dependency was not recompiled in the second checkout and the final binary landed in `./target/debug` and ran; not measured on a real repository |
+| The hook refuses heavy cargo in tokenfuse, trailryx and genaryx on this Mac | 2026-10-06 | this Mac, Claude Code PreToolUse hook | `~/.claude/hooks/rust-builds-go-to-cloud.test.sh` (12 planted cases, red on a neutered hook); a live `cargo test --no-run -p tokenfuse-core` refused in-session | Claude Code sessions only; cargo run from inside a script or `bash -c` is not seen |
+
 ## Deployment, NOT proven, with the scope of the gap
 
 | What | Why it is open | Last touched |
