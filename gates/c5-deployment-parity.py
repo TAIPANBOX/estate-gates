@@ -212,10 +212,26 @@ SERVICE_KIND = {
     # of this dict is what tells the check a name is one it knows, so a plane
     # absent from here is refused rather than compared against nothing.
     "vouchryx": "vouchryx",
-    # Same shape as vouchryx: only stack-up registers it today, and only behind
-    # --with-finops. An estate APP rather than a plane, so its absence from the
-    # two server deployments is a profile decision and not a gap.
+    # Same shape as vouchryx: an estate APP rather than a plane, behind an
+    # opt-in in every launcher that carries it. stack-up registered it first
+    # (--with-finops), stack-k8s applies it from `49-costcrew.yaml` outside the
+    # kustomization, and stack-single brings it up behind the compose profile
+    # `finops` since stack-single#92 (2026-10-07). Each is an `extra` in
+    # expectations/deployment-parity.json rather than a member of `agreed`.
     "costcrew": "costcrew",
+    # stack-single, behind the same `finops` profile: a busybox one-shot that
+    # creates costcrew's data directory and its one stream on the bus, and that
+    # `costcrew` waits for (`service_completed_successfully`). Folded into
+    # `costcrew` rather than given a kind of its own like `init-volumes`,
+    # because it belongs to one component and not to the box: stack-single's
+    # own components.json says it exists so the add-on does not have to edit
+    # init-volumes, and the other two launchers do the same preparation inside
+    # the component's own machinery (a PersistentVolumeClaim in stack-k8s's
+    # `49-costcrew.yaml`, mkdir in stack-up), where this check never sees it as
+    # a component. The services comparison folds names into a SET, so the
+    # collapse cannot double-count, the same argument `scopyx-browser` makes.
+    # @claude 2026-10-08.
+    "costcrew-init": "costcrew",
     # All three deployments carry it since 2026-09-25, each behind its own
     # opt-in (stack-single `--profile typed`, stack-up `--with-typed`,
     # stack-k8s `deploy.sh --with-typed`). Like vouchryx it is recorded as an
