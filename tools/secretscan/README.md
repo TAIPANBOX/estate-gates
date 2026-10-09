@@ -1,8 +1,8 @@
 # secretscan
 
 A gate that refuses a secret on its way into a repository and never prints one.
-Draft, 2026-10-09. **Not wired into any repository yet**; where it would run is
-section 5, and wiring it is a separate decision.
+Since 2026-10-09 it runs in this repository's CI (invariant 23). Other
+repositories wire it themselves, section 5.
 
 ## 1. Why another scanner
 
@@ -74,7 +74,7 @@ load error, because an exception nobody can re-derive is how a gate goes soft.
 not accumulate; `push` does not, since a push carries a few lines and every
 other entry is unused there by definition.
 
-## 5. Where it would run (not done)
+## 5. Where it runs
 
 - **pre-push hook**, every repository, private ones included:
   `secretscan push` reads git's pre-push stdin and scans only the lines being
