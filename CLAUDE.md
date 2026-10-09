@@ -57,10 +57,11 @@ somebody's uncommitted work is a finding they did not make yet.
 ./selftest.py
 ./scripts/no-long-dashes.sh --prove
 ./scripts/features-are-bound.sh --prove
+(cd tools/secretscan && go test -count=1 ./... && go run . -C ../.. tree)
 ./run-gates.py --mode ref --ref origin/main
 ```
 
-CI runs the first three and then `./run-gates.py --mode clone`. Only that
+CI runs the first four and then `./run-gates.py --mode clone`. Only that
 last one is allowed to be red: it is a report about the estate.
 
 ## Hard invariants
@@ -142,7 +143,12 @@ an absent invariant.
 8. **Dependency-free.** python3, bash and git. The estate's gate scripts are
    dependency-free by conviction, and a suite that needs `pip install` before
    it can say the estate is broken is a suite that runs less often.
-   *(not enforced: no import outside the standard library today)*
+   One exception, by decision: `tools/secretscan` is Go, standard library
+   only, because it runs as a pre-push hook in repositories of every language
+   and has to be one static binary with nothing to install beside it
+   (`@decided 2026-10-09`: the secret gate is one Go tool in this repository).
+   *(not enforced: no import outside the standard library today, and
+   `tools/secretscan/go.mod` has no require line)*
 
 9. **Nothing metered.** This repository is public, so standard-runner Actions
    minutes and the nightly cron cost nothing. A matrix, a larger runner, a
@@ -687,3 +693,16 @@ Stop and tell the user, then wait:
     rather than scoring it (`test_eval_command_typed_refusal_still_fails_the_run_and_saves_nothing`),
     which blocks nothing else and is the honest reading of "fails open" for a
     consumer whose answer is the add-on's answer)*
+
+23. **No secret reaches a repository, and the check never prints one.** The
+    2026-10-08 audit found three shapes a vendor-prefix check cannot see: a
+    bare 64-hex value after `API_KEY=`, a Wi-Fi passphrase in a lab note, and
+    keys with no prefix at all. `tools/secretscan` reads vendor formats,
+    assignments whose NAME is a secret word, and passphrases written into
+    prose, and prints a mask and a fingerprint, never a value. An exception is
+    a fingerprint and a path glob in `.secretscan-allow` with a mandatory
+    reason. `tree` and `history` that read nothing exit 3, not 0. What it does
+    not catch is in `tools/secretscan/README.md` section 7.
+    *(gate: CI runs `go test` (15 mutants, each caught by a named test, listed
+    in the README) and `secretscan tree` on this repository. Other
+    repositories are not wired from here, by invariant 5; each wires its own.)*
