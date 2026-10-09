@@ -2,10 +2,10 @@
 
 Feature: A repository says what it contributes, and the estate reads it
 
-  @yurii 2026-08-27
+  @decided 2026-08-27
   """
-  це треба все робити як один спільний продукт, просто з можливістю
-  встановлення за окремими функціоналами, який потрібен користувачам
+  the estate is one product installed by function, so each piece has to say
+  what it is and who installs it
   """
 
   One product installed by function needs one question answered per piece:

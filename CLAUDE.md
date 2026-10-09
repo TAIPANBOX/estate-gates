@@ -179,8 +179,8 @@ This list is debt, and it is here to stay visible rather than to be tidy.
   reason in it is my reading of the three deployment repositories on
   2026-08-06, not a decision anybody stated. Several entries say plainly that
   the divergence is a gap rather than a decision. Do not promote any of them
-  to `@yurii` without the user's words, and do not quietly reword one into
-  sounding decided.
+  to `@decided` without a decision the owner actually made, and do not quietly
+  reword one into sounding decided.
 - **C4's Rust, Go and Python parsers are anchors, not compilers.** Each is
   narrow on purpose and each fails loudly when it stops matching, which is the
   best available answer, not a good one. The real answer is what tokenfuse is
