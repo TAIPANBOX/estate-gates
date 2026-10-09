@@ -60,6 +60,19 @@ jobs:
       - name: No long dashes anywhere
         run: ./scripts/no-long-dashes.sh --prove
 
+      # The secret scanner (invariant 23) proves itself first, then reads this
+      # repository's own tree. Standard library only, so nothing to cache.
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: "1.27.2"
+          cache: false
+
+      - name: The secret scanner's own tests, mutants included
+        run: cd tools/secretscan && go test -count=1 ./...
+
+      - name: No secret in this repository's tree
+        run: cd tools/secretscan && go run . -C ../.. tree
+
       # --prove, not a bare run: the gate plants each of its own faults in a
       # copy and requires itself to find them, and plants a non-fault and
       # requires silence. A binding gate that cannot go red is a paragraph
