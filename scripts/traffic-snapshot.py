@@ -29,7 +29,7 @@ WHAT IT COSTS
 Nothing. It reads the GitHub API with the token `gh` already holds, writes one
 local file, and starts no workflow. There is deliberately no scheduled job
 here: a cron in a private repository is metered, and that is a decision for
-Yurii rather than a default in a script.
+the owner rather than a default in a script.
 
 USAGE
 

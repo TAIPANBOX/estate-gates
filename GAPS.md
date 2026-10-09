@@ -5,8 +5,8 @@ unfinished, ungated, or known-broken: security, the seams between services,
 agent monitoring, and functionality that exists on paper and not in the code.
 It is meant to be re-read and refreshed, not written once.
 
-**Opened:** 2026-08-09. Moved here from `~/Development` the same day
-`@yurii 2026-08-09`, "Перенеси в estate-gates".
+**Opened:** 2026-08-09. Moved here from `~/Development` the same day,
+`@decided 2026-08-09`: the register lives in estate-gates.
 
 **Why it lives in this repository, whose `CLAUDE.md` forbids status.** That
 rule is about `CLAUDE.md` itself, and it is right: an instruction file that
@@ -34,7 +34,7 @@ built, so that a decision does not survive only in the session that made it.
 
 - Unmarked is `@claude`: my reading or judgement. Re-check before acting.
 - `@measured <how> <date>`: established by a run, with a reproducible command.
-- `@yurii <date>`: Yurii's decision, quoted.
+- `@decided <date>`: the owner's decision, paraphrased and never edited afterwards.
 
 ### 0.2 Four rules this file lives by
 
@@ -464,8 +464,8 @@ directions**, which changes what this item is asking for. `@measured`
   name with no way to tell which meant what.
 
 So "stop saying reserved" was not an edit to a row, it was a decision about the
-shape of the vocabulary. `@yurii 2026-08-10`, asked with both shapes measured
-and costed: **"перший, один тип"**. The two shapes were:
+shape of the vocabulary. `@decided 2026-08-10`, asked with both shapes measured
+and costed: **the first shape, one type**. The two shapes were:
 
 - **one type**, `identity_finding`, with the detector name inside `data`. One
   row, one handler downstream, and the 25 names stay idryx's own vocabulary
@@ -500,7 +500,7 @@ canonical form.
 ### G4.4 scopyx emits two types the registry does not carry, and C4 says clean
 
 **The gate half is CLOSED as of 2026-08-09; the registry half is open and is
-Yurii's.** C4 now carries a scopyx producer entry and, more importantly, its Go
+the owner's to decide.** C4 now carries a scopyx producer entry and, more importantly, its Go
 parsers no longer DROP an identifier they cannot resolve: an event type written
 as a variable is reported as a hole rather than as silence. C4 is now red about
 scopyx, with both sides named, and that red is correct. It clears when SPEC 6.2
@@ -603,7 +603,7 @@ changed quietly afterwards.
 
 ~~**Closes when:** the envelope can say a subject was asserted rather than
 established, and idryx writes claimed findings under it.~~ **CLOSED 2026-08-10**,
-`@yurii 2026-08-10`, "зроби basis суб'єкта в конверті".
+`@decided 2026-08-10`: the subject's basis is carried in the envelope.
 
 **The shape it closed in is not the one this entry proposed, and the difference
 is the whole result.** This entry asked for "a subject-basis field on the
@@ -902,7 +902,7 @@ Recorded so a decision does not evaporate between the session that made it and
 the session that would have implemented it.
 
 - **The web-egress enforcement point** (`scopyx`). Full design in
-  `browse-plane-plan.md`. Name decided `@yurii 2026-08-09`. Three open
+  `browse-plane-plan.md`. Name `@decided 2026-08-09`. Three open
   questions in that file's section 14, one of which (fail-closed on an
   unreachable PDP) blocks implementation.
 - ~~**`unrouted_egress` detector** in idryx, plus the emitter G4.1 needs.~~
@@ -921,7 +921,8 @@ the session that would have implemented it.
   half of it, and a register that recorded only what shipped would leave the
   next session re-asking why owner and parent have no detector.
 
-  `@yurii 2026-08-10`, "тепер решту паспорта: власник, атестація, батько".
+  `@decided 2026-08-10`: the rest of the passport next, owner, attestation and
+  parent.
 
   **Attestation gets one detector, `claimed_agent_unattested`.** The binding
   itself is never observable: idryx has no connector to any attestation plane,
@@ -1314,11 +1315,9 @@ allowed to be.
 
 ### D1. Go is the default for new services. Rust stays where it earns it.
 
-`@yurii 2026-08-09`, in his words: "я так розумію, що на наступні якісь
-сервіси, які ми будемо робити, ми будемо використовувати скоріше мову Go...
-Тобто я дивлюсь, що треба використовувати все-таки Go, там якийсь TypeScript,
-якщо треба щось намалювати." Confirmed the same day: "запиши цей дефолт в
-estate-gates".
+`@decided 2026-08-09`: services built from here on default to Go, with
+TypeScript where something has to be drawn, and the default is recorded here
+the same day.
 
 **The decision.** A new service in this estate is written in Go unless there is
 a stated reason it cannot be. TypeScript for anything with a user interface.

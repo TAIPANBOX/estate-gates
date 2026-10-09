@@ -2,12 +2,13 @@
 
 Feature: A launcher hands a variable to something that reads it
 
-  @yurii 2026-08-31
+  @decided 2026-08-31
   """
-  додай гейт, який звіряє змінні лаунчера з тим, що читає бінарник
+  a gate compares every variable a launcher hands over with what the binary
+  it launches actually reads
   """
 
-  He asked for this the day one of its findings cost a database. stack-single
+  It was decided the day one of its findings cost a database. stack-single
   generated a correct DSN, declared depends_on with condition: service_healthy,
   WAITED for policy-db to come up, and handed the value over as WARDRYX_DSN.
   wardryx reads WARDRYX_DB and has never read the other name. So the database

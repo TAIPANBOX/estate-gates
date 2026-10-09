@@ -2,10 +2,10 @@
 
 Feature: Three deployments of one product, and every difference written down
 
-  @yurii 2026-08-27
+  @decided 2026-08-27
   """
-  це треба все робити як один спільний продукт, просто з можливістю
-  встановлення за окремими функціоналами, який потрібен користувачам
+  the estate is one product installed by function, so every place two
+  deployments differ has to be a choice somebody can read
   """
 
   @measured 2026-08-26

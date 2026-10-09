@@ -289,7 +289,7 @@ per-fetch bounds (Retries=3 x 20 s over dozens of files) ran 27 minutes on the
 puts `timeout-minutes: 6` on all three snapshot-pinned steps and drops Retries to 1;
 the ceiling fired in GitHub's runner on its first run, tokenfuse PR #266 run
 34269627993: `System deps` 19:33:19 to 19:39:31, 6 min 12 s, killed by the step
-timeout while the service flapped (it was fully back by 19:36:44). 27 minutes to 6. Falling back to the live archive was then decided: `@yurii 2026-09-08`, "B закриваємо"
+timeout while the service flapped (it was fully back by 19:36:44). 27 minutes to 6. Falling back to the live archive was then decided, `@decided 2026-09-08`: option B closes it
 (no live-archive fallback; the pin stays), and the vendored-debs and digest-pinned-
 container alternatives were judged "трохи зайве" for now. What was taken instead is
 exposure reduction: the radar job runs only when crates/radar, ci.yml or the apt

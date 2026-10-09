@@ -34,10 +34,11 @@
 # gate has one now, so the scope is gone and every finding in the repository is
 # subject to it.
 #
-# WHOSE WORDS. A feature opens with @yurii and a verbatim quote where a decision
-# of his is what put the gate there. Where none is, it opens with @measured and
+# WHOSE DECISION. A feature opens with @decided and a paraphrase where a
+# decision of the owner's is what put the gate there; never a verbatim quote,
+# because this repository is public. Where none is, it opens with @measured and
 # the dated defect that did, because most of these gates come from something the
-# estate got wrong rather than from an instruction. An absent @yurii is that
+# estate got wrong rather than from an instruction. An absent @decided is that
 # statement and not an omission: inventing one would be permanent and
 # unchallengeable, which is the worst failure the provenance scheme has.
 #
