@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 	"testing"
 )
@@ -321,6 +322,125 @@ func TestTreeHistoryAndDiffAgreeOnAFileOverTwoMiB(t *testing.T) {
 		if code != exitFound || out.String() != want {
 			t.Errorf("%s: want exit %d and %q, got exit %d and %q", mode[0], exitFound, want, code, out.String())
 		}
+	}
+}
+
+// The other direction: diff and push read a patch, and what git prints in one
+// is not the file. Measured 2026-10-13, each of these made diff disagree with
+// tree: a file .gitattributes marks -diff (git prints "Binary files differ"),
+// a textconv driver in the repository's config, an added line beginning "++ "
+// (read as a file header, so the value on it went unscanned and the next
+// finding PRINTED it as its path), and three path spellings (quoted, a
+// trailing tab after a space, octal escapes for non-ASCII). The binary file is
+// skipped by every mode by the same NUL test.
+func TestDiffAndPushReadWhatTreeReads(t *testing.T) {
+	dir := t.TempDir()
+	git(t, dir, "init", "-q")
+	git(t, dir, "config", "diff.hide.textconv", "true")
+	os.WriteFile(filepath.Join(dir, "README"), []byte("base\n"), 0o644)
+	git(t, dir, "add", ".")
+	// Submodules: an id names a commit in another repository, which this one
+	// cannot read, and tree passes it over as not a blob. One is changed and
+	// one is added below, which git spells in two different header lines.
+	gitlink := func(path, seed string) {
+		git(t, dir, "update-index", "--add", "--cacheinfo", "160000,"+hexOf(seed)[:40]+","+path)
+	}
+	gitlink("vendor/old", "submodule at base")
+	git(t, dir, "commit", "-q", "-m", "base")
+	base := git(t, dir, "rev-parse", "HEAD")
+	key := func(n string) string { return "API_" + "KEY=" + hexOf(n) }
+	files := map[string]string{
+		".gitattributes": "*.min.js -diff\n*.cfg diff=hide\n",
+		"a.min.js":       key("v1") + "\n",
+		"fix.patch":      "--- a/src/x.c\n+++ b/src/x.c\n@@ -1 +1 @@\n++ counter;\n++ " + key("v2") + "\n" + key("v3") + "\n",
+		"нотатка.md":     key("v4"),
+		"image.bin":      "\x00\x01\n" + key("v5") + "\n",
+		"conv.cfg":       key("v6") + "\n",
+		"say hi.txt":     key("v7") + "\n",
+		"q\"uote.txt":    key("v8") + "\n",
+	}
+	for name, body := range files {
+		os.WriteFile(filepath.Join(dir, name), []byte(body), 0o644)
+	}
+	git(t, dir, "add", ".")
+	gitlink("vendor/old", "submodule moved")
+	gitlink("vendor/lib", "submodule added")
+	git(t, dir, "commit", "-q", "-m", "files")
+	head := git(t, dir, "rev-parse", "HEAD")
+	var want []string
+	for _, w := range []struct {
+		at, v string
+	}{{"a.min.js:1", "v1"}, {"fix.patch:5", "v2"}, {"fix.patch:6", "v3"}, {"нотатка.md:1", "v4"}, {"conv.cfg:1", "v6"}, {"say hi.txt:1", "v7"}, {"q\"uote.txt:1", "v8"}} {
+		want = append(want, w.at+": assignment:api_key "+mask(hexOf(w.v))+" fp="+fingerprint(hexOf(w.v)))
+	}
+	sort.Strings(want)
+	for _, mode := range [][]string{{"push"}, {"diff", base + "..HEAD"}, {"tree"}, {"history"}} {
+		var out, errb bytes.Buffer
+		stdin := strings.NewReader("refs/heads/main " + head + " refs/heads/main " + base + "\n")
+		code := run(append([]string{"-C", dir}, mode...), stdin, &out, &errb)
+		got := strings.Split(strings.TrimSpace(out.String()), "\n")
+		sort.Strings(got)
+		if code != exitFound || strings.Join(got, "\n") != strings.Join(want, "\n") {
+			t.Errorf("%s: want exit %d and\n%s\ngot exit %d and\n%s", mode[0], exitFound, strings.Join(want, "\n"), code, strings.Join(got, "\n"))
+		}
+		for _, n := range []string{"v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8"} {
+			if strings.Contains(out.String()+errb.String(), hexOf(n)[4:60]) {
+				t.Errorf("%s: the value %s reached the output", mode[0], n)
+			}
+		}
+	}
+}
+
+// git log -p shows no diff for a merge commit, so a value written only while
+// merging reached the remote past push and diff (measured 2026-10-13). The
+// value a side branch brought in must still be reported once, not again for
+// the merge that carried it.
+func TestDiffAndPushReadWhatAMergeAdds(t *testing.T) {
+	dir := t.TempDir()
+	git(t, dir, "init", "-q", "-b", "main")
+	os.WriteFile(filepath.Join(dir, "f"), []byte("a\n"), 0o644)
+	git(t, dir, "add", ".")
+	git(t, dir, "commit", "-q", "-m", "base")
+	base := git(t, dir, "rev-parse", "HEAD")
+	git(t, dir, "checkout", "-q", "-b", "side")
+	os.WriteFile(filepath.Join(dir, "side.env"), []byte("API_"+"KEY="+hexOf("side")+"\n"), 0o644)
+	git(t, dir, "add", ".")
+	git(t, dir, "commit", "-q", "-m", "side")
+	git(t, dir, "checkout", "-q", "main")
+	os.WriteFile(filepath.Join(dir, "h"), []byte("c\n"), 0o644)
+	git(t, dir, "add", ".")
+	git(t, dir, "commit", "-q", "-m", "main")
+	git(t, dir, "merge", "-q", "--no-commit", "--no-ff", "side")
+	os.WriteFile(filepath.Join(dir, "merge.env"), []byte("API_"+"KEY="+hexOf("merge")+"\n"), 0o644)
+	git(t, dir, "add", ".")
+	git(t, dir, "commit", "-q", "-m", "merge")
+	head := git(t, dir, "rev-parse", "HEAD")
+	var want []string
+	for _, w := range []string{"merge", "side"} {
+		want = append(want, w+".env:1: assignment:api_key "+mask(hexOf(w))+" fp="+fingerprint(hexOf(w)))
+	}
+	for _, mode := range [][]string{{"push"}, {"diff", base + "..HEAD"}, {"tree"}} {
+		var out, errb bytes.Buffer
+		stdin := strings.NewReader("refs/heads/main " + head + " refs/heads/main " + base + "\n")
+		code := run(append([]string{"-C", dir}, mode...), stdin, &out, &errb)
+		got := strings.Split(strings.TrimSpace(out.String()), "\n")
+		sort.Strings(got)
+		if code != exitFound || strings.Join(got, "\n") != strings.Join(want, "\n") {
+			t.Errorf("%s: want exit %d and\n%s\ngot exit %d and\n%s%s", mode[0], exitFound, strings.Join(want, "\n"), code, out.String(), errb.String())
+		}
+	}
+}
+
+// scanRange asks for -U0, but the hunk counts are what keep the parser in
+// step, so a patch with context lines must still put the value on its line
+// and still read the next file's header as a header.
+func TestAPatchWithContextKeepsTheHunkCounts(t *testing.T) {
+	v, w := hexOf("context"), hexOf("next file")
+	patch := "commit 1\n\ndiff --git a/f b/f\nindex 1..2 100644\n--- a/f\n+++ b/f\n@@ -1,2 +1,3 @@\n ctx\n+++ API_" + "KEY=" + v + "\n ctx\n" +
+		"diff --git a/g b/g\nindex 3..4 100644\n--- a/g\n+++ b/g\n@@ -0,0 +7 @@\n+API_" + "KEY=" + w + "\n"
+	got, units, err := scanPatch(patch, func(string) (bool, error) { return false, nil })
+	if err != nil || units != 2 || len(got) != 2 || got[0].Path != "f" || got[0].Line != 2 || got[0].value != v || got[1].Path != "g" || got[1].Line != 7 || got[1].value != w {
+		t.Fatalf("want f:2 and g:7 from 2 added lines, got %d lines, err %v, %+v", units, err, got)
 	}
 }
 
