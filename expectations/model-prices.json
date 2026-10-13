@@ -1,0 +1,211 @@
+{
+  "comment": [
+    "C23's record of price disagreements a repository chose on purpose. Read by",
+    "gates/c23-model-prices-match-the-vendors.py and by nothing else.",
+    "",
+    "Every entry is printed as an EXCEPTION on every run, with its reason, so a",
+    "recorded choice is never a silent pass. An entry that excuses nothing in a run",
+    "where its subject was measured is red (c23.stale-exception), so this file",
+    "cannot become a graveyard: a dated exception goes red the day its price takes",
+    "effect, because the row then needs no exception.",
+    "",
+    "Keys are copied from the gate's own output ('exception key, if this is a",
+    "recorded choice: ...'). Four kinds:",
+    "  price-differs:<repo>:<row>[:above-<N>]   with 'price_from': the row may carry",
+    "      the vendor's dated price from that day ahead of it.",
+    "  fallback-below-current:<repo>:<model>   the fallback may stay below that",
+    "      current model's price.",
+    "  tier-not-on-page:<repo>:<row>:above-<N>   the vendor's page states no",
+    "      prompt-length price for this model, so the row's long-prompt tier cannot",
+    "      be judged; the row is the book's own. Red as stale once the page states",
+    "      that tier, or the row is gone.",
+    "  not-judged-cause:<cause>   a row no source here can judge, declared by cause. 'rows' is the",
+    "      explicit list of ids it covers: '<repo>:<row>', or 'google-vertex:<model>' for a Vertex",
+    "      model that no table prices. Printed as a declared not-judged count on every run, and never",
+    "      counted as measured. A row no cause declares is NOT MEASURED and counted; a listed row that",
+    "      is no longer not judged is red (c23.stale-exception), so each list can only shrink.",
+    "Each entry carries 'why', 'recorded' and 'provenance'. Provenance says whose",
+    "choice it is and where it is written; a reading of another repository's record",
+    "is @claude, never a decision nobody stated."
+  ],
+  "exceptions": {
+    "price-differs:tokenfuse:google/gemini-3.6-flash": {
+      "price_from": "2027-01-01",
+      "why": "The book has no effective date, so where Vertex AI publishes two dated rates for one id the row carries the dearer one, the standard rate that takes effect on 2027-01-01, and passing the date never leaves the row under-charging. The introductory rate is a credit back on net spend, billed at the standard rate first.",
+      "recorded": "2026-10-13",
+      "provenance": "@claude 2026-10-13: tokenfuse records this as decision 2 of its invariant 99 (tokenfuse#416), itself taken under delegated authority and open to reversal; recorded here so the choice is printed every run rather than read as drift."
+    },
+    "price-differs:verdryx:google/gemini-3.6-flash": {
+      "price_from": "2027-01-01",
+      "why": "The book has no effective date, so where Vertex AI publishes two dated rates for one id the row carries the dearer one, the standard rate that takes effect on 2027-01-01, and passing the date never leaves the row under-charging. The introductory rate is a credit back on net spend, billed at the standard rate first.",
+      "recorded": "2026-10-13",
+      "provenance": "@claude 2026-10-13: verdryx mirrors tokenfuse's book row for row (C3), so it carries tokenfuse's decision 2 of invariant 99 (tokenfuse#416) with it."
+    },
+    "price-differs:tokenfuse:google/gemini-3.7-flash": {
+      "price_from": "2027-01-01",
+      "why": "The book has no effective date, so where Vertex AI publishes two dated rates for one id the row carries the dearer one, the standard rate that takes effect on 2027-01-01, and passing the date never leaves the row under-charging. The introductory rate is a credit back on net spend, billed at the standard rate first.",
+      "recorded": "2026-10-13",
+      "provenance": "@claude 2026-10-13: tokenfuse records this as decision 2 of its invariant 99 (tokenfuse#416), itself taken under delegated authority and open to reversal; recorded here so the choice is printed every run rather than read as drift."
+    },
+    "price-differs:verdryx:google/gemini-3.7-flash": {
+      "price_from": "2027-01-01",
+      "why": "The book has no effective date, so where Vertex AI publishes two dated rates for one id the row carries the dearer one, the standard rate that takes effect on 2027-01-01, and passing the date never leaves the row under-charging. The introductory rate is a credit back on net spend, billed at the standard rate first.",
+      "recorded": "2026-10-13",
+      "provenance": "@claude 2026-10-13: verdryx mirrors tokenfuse's book row for row (C3), so it carries tokenfuse's decision 2 of invariant 99 (tokenfuse#416) with it."
+    },
+    "price-differs:tokenfuse:google/gemini-3.8-flash": {
+      "price_from": "2027-01-01",
+      "why": "The book has no effective date, so where Vertex AI publishes two dated rates for one id the row carries the dearer one, the standard rate that takes effect on 2027-01-01, and passing the date never leaves the row under-charging. The introductory rate is a credit back on net spend, billed at the standard rate first.",
+      "recorded": "2026-10-13",
+      "provenance": "@claude 2026-10-13: tokenfuse records this as decision 2 of its invariant 99 (tokenfuse#416), itself taken under delegated authority and open to reversal; recorded here so the choice is printed every run rather than read as drift."
+    },
+    "price-differs:verdryx:google/gemini-3.8-flash": {
+      "price_from": "2027-01-01",
+      "why": "The book has no effective date, so where Vertex AI publishes two dated rates for one id the row carries the dearer one, the standard rate that takes effect on 2027-01-01, and passing the date never leaves the row under-charging. The introductory rate is a credit back on net spend, billed at the standard rate first.",
+      "recorded": "2026-10-13",
+      "provenance": "@claude 2026-10-13: verdryx mirrors tokenfuse's book row for row (C3), so it carries tokenfuse's decision 2 of invariant 99 (tokenfuse#416) with it."
+    },
+    "fallback-below-current:tokenfuse:gpt-6-astra": {
+      "why": "The fallback stays 15 / 75 / 1.50 / 18.75 / 30 although gpt-6-astra's price for prompts above 272,000 tokens is above it, because raising the fallback moves the price of every unknown model; gpt-6-astra itself is priced from its own row and tier.",
+      "recorded": "2026-10-13",
+      "provenance": "@claude 2026-10-13: tokenfuse records this as decision 6 of its invariant 99 (tokenfuse#416), taken under delegated authority and open to reversal."
+    },
+    "tier-not-on-page:tokenfuse:gpt-5.4:above-272000": {
+      "why": "the vendor page lists no long-prompt tier; the row is the book's own",
+      "recorded": "2026-10-13",
+      "provenance": "@claude 2026-10-13: recorded for PR #131 under the supervisor's instruction; a reading of the vendor's pricing page as it stands today, not a decision the repository's owner made."
+    },
+    "tier-not-on-page:tokenfuse:gpt-5.5:above-272000": {
+      "why": "the vendor page lists no long-prompt tier; the row is the book's own",
+      "recorded": "2026-10-13",
+      "provenance": "@claude 2026-10-13: recorded for PR #131 under the supervisor's instruction; a reading of the vendor's pricing page as it stands today, not a decision the repository's owner made."
+    },
+    "tier-not-on-page:tokenfuse:gpt-5.6-luna:above-272000": {
+      "why": "the vendor page lists no long-prompt tier; the row is the book's own",
+      "recorded": "2026-10-13",
+      "provenance": "@claude 2026-10-13: recorded for PR #131 under the supervisor's instruction; a reading of the vendor's pricing page as it stands today, not a decision the repository's owner made."
+    },
+    "tier-not-on-page:tokenfuse:gpt-5.6-terra:above-272000": {
+      "why": "the vendor page lists no long-prompt tier; the row is the book's own",
+      "recorded": "2026-10-13",
+      "provenance": "@claude 2026-10-13: recorded for PR #131 under the supervisor's instruction; a reading of the vendor's pricing page as it stands today, not a decision the repository's owner made."
+    },
+    "tier-not-on-page:tokenfuse:gpt-6-sol:above-272000": {
+      "why": "the vendor page lists no long-prompt tier; the row is the book's own",
+      "recorded": "2026-10-13",
+      "provenance": "@claude 2026-10-13: recorded for PR #131 under the supervisor's instruction; a reading of the vendor's pricing page as it stands today, not a decision the repository's owner made."
+    },
+    "tier-not-on-page:verdryx:gpt-5.4:above-272000": {
+      "why": "the vendor page lists no long-prompt tier; the row is the book's own",
+      "recorded": "2026-10-13",
+      "provenance": "@claude 2026-10-13: recorded for PR #131 under the supervisor's instruction; a reading of the vendor's pricing page as it stands today, not a decision the repository's owner made."
+    },
+    "tier-not-on-page:verdryx:gpt-5.5:above-272000": {
+      "why": "the vendor page lists no long-prompt tier; the row is the book's own",
+      "recorded": "2026-10-13",
+      "provenance": "@claude 2026-10-13: recorded for PR #131 under the supervisor's instruction; a reading of the vendor's pricing page as it stands today, not a decision the repository's owner made."
+    },
+    "tier-not-on-page:verdryx:gpt-5.6-luna:above-272000": {
+      "why": "the vendor page lists no long-prompt tier; the row is the book's own",
+      "recorded": "2026-10-13",
+      "provenance": "@claude 2026-10-13: recorded for PR #131 under the supervisor's instruction; a reading of the vendor's pricing page as it stands today, not a decision the repository's owner made."
+    },
+    "tier-not-on-page:verdryx:gpt-5.6-terra:above-272000": {
+      "why": "the vendor page lists no long-prompt tier; the row is the book's own",
+      "recorded": "2026-10-13",
+      "provenance": "@claude 2026-10-13: recorded for PR #131 under the supervisor's instruction; a reading of the vendor's pricing page as it stands today, not a decision the repository's owner made."
+    },
+    "tier-not-on-page:verdryx:gpt-6-sol:above-272000": {
+      "why": "the vendor page lists no long-prompt tier; the row is the book's own",
+      "recorded": "2026-10-13",
+      "provenance": "@claude 2026-10-13: recorded for PR #131 under the supervisor's instruction; a reading of the vendor's pricing page as it stands today, not a decision the repository's owner made."
+    },
+    "not-judged-cause:no-reader-deepseek": {
+      "rows": [
+        "tokenfuse:deepseek-flash",
+        "tokenfuse:deepseek-v4-flash",
+        "tokenfuse:deepseek-v4-flash-vision-exp",
+        "tokenfuse:deepseek-v4-pro",
+        "verdryx:deepseek-flash",
+        "verdryx:deepseek-v4-flash",
+        "verdryx:deepseek-v4-flash-vision-exp",
+        "verdryx:deepseek-v4-pro",
+        "costcrew:deepseek/deepseek-chat"
+      ],
+      "why": "No source this gate reads prices DeepSeek. It reads Anthropic's, OpenAI's and Google's pages and OpenRouter's endpoint lists, and none of them is DeepSeek's own price page. resolve() names no vendor for these ids, so no vendor price is compared with them. Re-derive: resolve() returns no target for each id. A reader for DeepSeek's page would judge them and make this entry stale.",
+      "recorded": "2026-10-13",
+      "provenance": "@claude 2026-10-13: recorded for PR #131 under the supervisor's ruling; a reading of the vendor pages and of the gate's resolve() as they stand today, not a decision the repository's owner made."
+    },
+    "not-judged-cause:no-reader-zai": {
+      "rows": [
+        "tokenfuse:glm-5.1",
+        "tokenfuse:glm-5.3",
+        "verdryx:glm-5.1",
+        "verdryx:glm-5.3"
+      ],
+      "why": "No source this gate reads prices Z.ai's GLM models. Z.ai's own price page is not one of the pages it reads, and resolve() names no vendor for these ids. Re-derive: resolve() returns no target for each id. A reader for Z.ai's page would judge them and make this entry stale.",
+      "recorded": "2026-10-13",
+      "provenance": "@claude 2026-10-13: recorded for PR #131 under the supervisor's ruling; a reading of the vendor pages and of the gate's resolve() as they stand today, not a decision the repository's owner made."
+    },
+    "not-judged-cause:no-reader-moonshot": {
+      "rows": [
+        "tokenfuse:kimi-k3",
+        "verdryx:kimi-k3"
+      ],
+      "why": "No source this gate reads prices Moonshot's Kimi models. Moonshot's own price page is not one of the pages it reads, and resolve() names no vendor for these ids (OpenRouter's kimi-k2 is a different id, read through costcrew's openrouter/ rows). Re-derive: resolve() returns no target for each id. A reader for Moonshot's page would judge them and make this entry stale.",
+      "recorded": "2026-10-13",
+      "provenance": "@claude 2026-10-13: recorded for PR #131 under the supervisor's ruling; a reading of the vendor pages and of the gate's resolve() as they stand today, not a decision the repository's owner made."
+    },
+    "not-judged-cause:no-reader-aws-nova": {
+      "rows": [
+        "costcrew:bedrock/eu.amazon.nova-lite-v1:0",
+        "costcrew:bedrock/eu.amazon.nova-micro-v1:0",
+        "costcrew:bedrock/eu.amazon.nova-pro-v1:0"
+      ],
+      "why": "Amazon Nova is priced on AWS's own price list, which this gate does not read. resolve() names no vendor for a bedrock/ id that is not an anthropic. model. Re-derive: resolve() returns no target for each id. A reader for AWS's list would judge them and make this entry stale.",
+      "recorded": "2026-10-13",
+      "provenance": "@claude 2026-10-13: recorded for PR #131 under the supervisor's ruling; a reading of the vendor pages and of the gate's resolve() as they stand today, not a decision the repository's owner made."
+    },
+    "not-judged-cause:alias-without-vendor-id": {
+      "rows": [
+        "tokenfuse:gpt",
+        "verdryx:gpt"
+      ],
+      "why": "The id gpt is a family name, not a model id. resolve() names no vendor for it, so no vendor page is consulted for it and no source here can price it. Re-derive: resolve() returns no target for the id.",
+      "recorded": "2026-10-13",
+      "provenance": "@claude 2026-10-13: recorded for PR #131 under the supervisor's ruling; a reading of the vendor pages and of the gate's resolve() as they stand today, not a decision the repository's owner made."
+    },
+    "not-judged-cause:family-name-not-on-page": {
+      "rows": [
+        "tokenfuse:claude-haiku",
+        "tokenfuse:claude-sonnet",
+        "verdryx:claude-haiku",
+        "verdryx:claude-sonnet"
+      ],
+      "why": "resolve() maps these ids to Anthropic, but Anthropic's page lists its models under versioned ids (for example claude-haiku-5-5), and no listed model has the id claude-haiku or claude-sonnet, so there is no list price to compare with. Re-derive: the id is absent from the Anthropic page's model table. A listed model with this id would judge the row and make this entry stale.",
+      "recorded": "2026-10-13",
+      "provenance": "@claude 2026-10-13: recorded for PR #131 under the supervisor's ruling; a reading of the vendor pages and of the gate's resolve() as they stand today, not a decision the repository's owner made."
+    },
+    "not-judged-cause:vertex-image-output-unpriced": {
+      "rows": [
+        "google-vertex:gemini-2.5-flash-image",
+        "google-vertex:gemini-3-pro-image-(nano-banana-pro)",
+        "google-vertex:gemini-3.1-flash-image-(nano-banana-2)",
+        "google-vertex:gemini-3.1-flash-lite-image-(nano-banana-2-lite)"
+      ],
+      "why": "Vertex AI's page states each of these image models' text prices and also an Image output price per 1M tokens. No price table here has a field for that component, so a row with the text prices alone would leave image output unpriced. Re-derive: the page still states an Image output row for each id, and no table format has a field for it.",
+      "recorded": "2026-10-13",
+      "provenance": "@claude 2026-10-13: recorded for PR #131 under the supervisor's ruling; a reading of the vendor pages and of the gate's resolve() as they stand today, not a decision the repository's owner made."
+    },
+    "not-judged-cause:vertex-listed-without-table-row": {
+      "rows": [
+        "google-vertex:gemini-2.5-pro-computer-use-preview",
+        "google-vertex:gemini-4-argon",
+        "google-vertex:gemini-4-argon-cyber-permissive"
+      ],
+      "why": "Vertex AI's page lists a price for each of these ids (Gemini 4 Argon has a promotional rate through 2026-11-30 and a standard rate from 2026-12-01), and no price table in the estate has a row for it. Vertex AI marks no set of current models, so no table is required to price it. This entry names that gap and does not decide it. Re-derive: the page still lists the id, and no table row resolves to it.",
+      "recorded": "2026-10-13",
+      "provenance": "@claude 2026-10-13: recorded for PR #131 under the supervisor's ruling; a reading of the vendor pages and of the gate's resolve() as they stand today, not a decision the repository's owner made."
+    }
+  }
+}

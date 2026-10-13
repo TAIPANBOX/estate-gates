@@ -491,7 +491,18 @@ CONSTANTS_JSON = """{
         "output_per_mtok_microusd": 10000000,
         "cache_read_per_mtok_microusd": 1250000,
         "cache_write_per_mtok_microusd": 2500000
-      }
+      },
+      { "model": "claude-sonnet-5-5", "input_per_mtok_microusd": 2000000, "output_per_mtok_microusd": 10000000, "cache_read_per_mtok_microusd": 100000, "cache_write_per_mtok_microusd": 2500000, "cache_write_1h_per_mtok_microusd": 4000000 },
+      { "model": "us.anthropic.claude-sonnet-5-5", "input_per_mtok_microusd": 2200000, "output_per_mtok_microusd": 11000000, "cache_read_per_mtok_microusd": 110000, "cache_write_per_mtok_microusd": 2750000, "cache_write_1h_per_mtok_microusd": 4400000 },
+      { "model": "anthropic.claude-sonnet-5-5", "input_per_mtok_microusd": 2200000, "output_per_mtok_microusd": 11000000, "cache_read_per_mtok_microusd": 110000, "cache_write_per_mtok_microusd": 2750000, "cache_write_1h_per_mtok_microusd": 4400000 },
+      { "model": "claude-haiku-5-5", "input_per_mtok_microusd": 100000, "output_per_mtok_microusd": 500000, "cache_read_per_mtok_microusd": 10000, "cache_write_per_mtok_microusd": 125000, "cache_write_1h_per_mtok_microusd": 200000 },
+      { "model": "gpt-6-sol", "input_per_mtok_microusd": 2000000, "output_per_mtok_microusd": 10000000, "cache_read_per_mtok_microusd": 200000, "cache_write_per_mtok_microusd": 2500000 },
+      { "model": "google/gemini-3.8-flash", "input_per_mtok_microusd": 825000, "output_per_mtok_microusd": 4125000, "cache_read_per_mtok_microusd": 82500, "cache_write_per_mtok_microusd": 825000 },
+      { "model": "google/gemini-3.7-flash", "input_per_mtok_microusd": 1650000, "output_per_mtok_microusd": 8250000, "cache_read_per_mtok_microusd": 165000, "cache_write_per_mtok_microusd": 1650000 }
+    ],
+    "long_context": [
+      { "model": "claude-haiku-5-5", "above_prompt_tokens": 100000, "input_per_mtok_microusd": 500000, "output_per_mtok_microusd": 2500000, "cache_read_per_mtok_microusd": 50000, "cache_write_per_mtok_microusd": 625000, "cache_write_1h_per_mtok_microusd": 1000000 },
+      { "model": "gpt-6-sol", "above_prompt_tokens": 272000, "input_per_mtok_microusd": 20000000, "output_per_mtok_microusd": 15000000, "cache_read_per_mtok_microusd": 2000000, "cache_write_per_mtok_microusd": 25000000 }
     ]
   },
   "trace_parquet": {
@@ -582,6 +593,13 @@ class PriceBook:
             cls()
             .with_price("claude-haiku", ModelPrice(0.80, 4.0, 0.08, 1.0))
             .with_price("gpt-4o", ModelPrice(2.50, 10.00, 1.25, 2.50))
+            .with_price("claude-sonnet-5-5", ModelPrice(2.00, 10.00, 0.10, 2.50))
+            .with_price("us.anthropic.claude-sonnet-5-5", ModelPrice(2.20, 11.00, 0.11, 2.75))
+            .with_price("anthropic.claude-sonnet-5-5", ModelPrice(2.20, 11.00, 0.11, 2.75))
+            .with_price("claude-haiku-5-5", ModelPrice(0.10, 0.50, 0.01, 0.125))
+            .with_price("gpt-6-sol", ModelPrice(2.00, 10.00, 0.20, 2.50))
+            .with_price("google/gemini-3.8-flash", ModelPrice(0.825, 4.125, 0.0825, 0.825))
+            .with_price("google/gemini-3.7-flash", ModelPrice(1.65, 8.25, 0.165, 1.65))
             .with_fallback(ModelPrice(15.0, 75.0, 1.5, 18.75))
         )
 '''
@@ -1524,6 +1542,38 @@ func main() {
 """
 
 
+# ------------------------------------------------------------- C23 prices
+
+#: costcrew's engine price map, in the real file's shape. The comment carries a
+#: URL and a brace on purpose: a reader that strips `//` naively, or counts a
+#: brace inside a comment, misreads the table, and the baseline proves it does
+#: not.
+COSTCREW_PRICES_GO = """package engines
+
+// Every entry is a claim about somebody else's price list { and it goes stale.
+// Read from https://platform.claude.com/docs/en/about-claude/pricing.
+type Price struct {
+	InPerM, OutPerM float64
+	Recorded, Source string
+}
+
+var prices = map[string]Price{
+	"anthropic/claude-sonnet-5-5": {
+		InPerM: 2.00, OutPerM: 10.00,
+		Recorded: "2026-10-13", Source: "https://platform.claude.com/docs/en/about-claude/pricing",
+	},
+	"openrouter/moonshotai/kimi-k2": {
+		InPerM: 0.57, OutPerM: 2.30,
+		Recorded: "2026-08-24", Source: "@measured, GET openrouter.ai/api/v1/models",
+	},
+	"bedrock/eu.amazon.nova-micro-v1:0": {
+		InPerM: 0.046, OutPerM: 0.184,
+		Recorded: "2026-09-01", Source: "aws pricing get-products",
+	},
+}
+"""
+
+
 ESTATE: dict[str, dict] = {
     "agent-passport": {
         "scripts/version-compatibility.sh": VERSION_COMPAT_SH,
@@ -1673,6 +1723,7 @@ var wireTypes = []string{
 
 func TestWireTypesIsExactlyWhatTheCallSitesProduce(t *testing.T) {}
 """,
+        "internal/engines/prices.go": COSTCREW_PRICES_GO,
     },
     "vouchryx": {
         # The first component manifest in the estate, and the fixture carries
@@ -2113,3 +2164,215 @@ REGISTRY["repos"]["agent-passport"]["compat"] = {
     "manifest": "SPEC.md",
     "gate": "scripts/version-compatibility.sh",
 }
+
+# C23: the three price tables, declared the way the real estate.json declares
+# them. Only the gateway's book is held to every current model.
+REGISTRY["repos"]["tokenfuse"]["price_table"] = {
+    "path": "contracts/tokenfuse-constants.json",
+    "format": "tokenfuse-constants",
+    "every_current_model": True,
+}
+REGISTRY["repos"]["verdryx"]["price_table"] = {
+    "path": "verdryx/pricing.py",
+    "format": "verdryx-pricebook",
+    "every_current_model": False,
+    "why": "fixture: a mirror C3 holds to the gateway's book",
+}
+REGISTRY["repos"]["costcrew"]["price_table"] = {
+    "path": "internal/engines/prices.go",
+    "format": "go-price-map",
+    "every_current_model": False,
+    "why": "fixture: prices only its own engine catalogue",
+}
+
+# C23's vendor pages, in the real pages' shapes and nothing more: the tables,
+# the anchors, the tabs, the islands. The day the fixture pins as "today", so
+# a dated price is in force or not by construction rather than by the calendar.
+PRICE_TODAY = "2026-10-13"
+
+
+def _ser(v):
+    """Astro's prop serialisation: [0, value], [1, [items]], dicts by value."""
+    if isinstance(v, list):
+        return [1, [_ser(x) for x in v]]
+    if isinstance(v, dict):
+        return [0, {k: _ser(x) for k, x in v.items()}]
+    return [0, v]
+
+
+def _openai_island(tier: str, latest: int | None, rows: list, long_rows: list = ()) -> str:
+    """The real island's shape: props with every row's short price, and the
+    rendered table with a Long context column group for the latest rows."""
+    import html as _html
+    import json as _json
+
+    props = {"tier": _ser(tier), "rows": _ser(rows)}
+    if latest is not None:
+        props["collapsedLatestRowCount"] = _ser(latest)
+    body = "".join(
+        "<tr><td>" + r[0] + "</td>" + "".join(f"<td>${x}</td>" for x in r[1:]) + "</tr>" for r in long_rows
+    )
+    return (
+        f'<astro-island component-export="TextTokenPricingTables" props="{_html.escape(_json.dumps(props))}">'
+        "<table><tr><th></th><th>Short context</th><th>Long context</th></tr>"
+        "<tr><th>Model</th><th>Input</th><th>Cached input</th><th>Cache writes</th><th>Output</th>"
+        "<th>Input</th><th>Cached input</th><th>Cache writes</th><th>Output</th></tr>"
+        + body + "</table></astro-island>\n"
+    )
+
+
+def _openai_grouped() -> str:
+    """The grouped short/long table, which is where the page states the
+    threshold, in a tooltip."""
+    import html as _html
+    import json as _json
+
+    heads = ["Model"] + [f"{s} context {c}" for s in ("Short", "Long") for c in ("input", "cached input", "cache writes", "output")]
+    props = {
+        "headings": heads,
+        "headingGroups": [
+            {"label": "", "colSpan": 1},
+            {"label": {"__pricingTooltipHeading": {"label": "Short context", "tooltip": "\u2264272K input tokens"}}, "colSpan": 4},
+            {"label": {"__pricingTooltipHeading": {"label": "Long context", "tooltip": ">272K input tokens"}}, "colSpan": 4},
+        ],
+        "groups": [{"model": "gpt-5.6-sol", "rows": [[4, 0.4, 5, 20, 8, 0.8, 10, 30]]}],
+    }
+    return f'<astro-island component-export="GroupedPricingTable" props="{_html.escape(_json.dumps({k: _ser(v) for k, v in props.items()}))}"></astro-island>\n'
+
+
+
+def _vertex_rows(name: str, g: tuple, n: tuple) -> str:
+    """One Gemini model, the real page's four-row shape: input and output, each
+    on a Global and a Non-global row, cached input beside the input."""
+    gi, go, gc = g
+    ni, no, nc = n
+    return (
+        f"<tr><td>{name}</td><td>Input (text, image, video, audio)</td><td>Global</td>"
+        f"<td>${gi}</td><td>${gi}</td><td>${gc}</td><td>${gc}</td></tr>\n"
+        f"<tr><td></td><td></td><td>Non-global *</td><td>${ni}</td><td>${ni}</td><td>${nc}</td><td>${nc}</td></tr>\n"
+        f"<tr><td></td><td>Text output (response and reasoning)</td><td>Global</td>"
+        f"<td>${go}</td><td>${go}</td><td>N/A</td><td>N/A</td></tr>\n"
+        f"<tr><td></td><td></td><td>Non-global *</td><td>${no}</td><td>${no}</td><td>N/A</td><td>N/A</td></tr>\n"
+    )
+
+
+_VERTEX_HEAD = (
+    "<tr><th>Model</th><th>Type</th><th>Region</th><th>Price (/1M tokens) &lt;= 200K input tokens</th>"
+    "<th>Price (/1M tokens) &gt; 200K input tokens</th><th>Price (/1M tokens) &lt;= 200K cached input tokens</th>"
+    "<th>Price (/1M tokens) &gt; 200K cached input tokens</th></tr>\n"
+)
+
+PRICE_SOURCES = {
+    "anthropic.html": """<html><body><h2>Model pricing</h2>
+<table><thead>
+<tr><th>Model</th><th colSpan="2">Base tokens</th><th colSpan="3">Prompt caching</th></tr>
+<tr><th>Name</th><th>Input</th><th>Output</th><th>5m writes</th><th>1h writes</th><th>Hits and refreshes</th></tr>
+</thead><tbody>
+<tr><td><a>Claude Sonnet 5.5</a><span>The best combination of speed and intelligence</span></td><td>$2 <span>/ MTok</span></td><td>$10 / MTok</td><td>$2.50 / MTok</td><td>$4 / MTok</td><td>$0.10 / MTok</td></tr>
+<tr><td rowSpan="2"><a>Claude Haiku 5.5</a></td><td>$0.10 / MTok<span>for prompts up to 100,000 tokens</span></td><td>$0.50 / MTok</td><td>$0.125 / MTok</td><td>$0.20 / MTok</td><td>$0.01 / MTok</td></tr>
+<tr><td>$0.50 / MTok<span>for prompts over 100,000 tokens</span></td><td>$2.50 / MTok</td><td>$0.625 / MTok</td><td>$1 / MTok</td><td>$0.05 / MTok</td></tr>
+</tbody><tbody>
+<tr><th scope="rowgroup" colSpan="6" aria-label="Additional models">Additional models</th></tr>
+<tr><td><a>Claude Haiku 3.5</a></td><td>$0.80 / MTok</td><td>$4 / MTok</td><td>$1 / MTok</td><td>$1.60 / MTok</td><td>$0.08 / MTok</td></tr>
+</tbody></table>
+<h2>Cloud platform pricing</h2>
+<p>Regional and multi-region endpoints include a 10% premium over global endpoints.</p>
+</body></html>
+""",
+    "openai.html": "<html><body>\n"
+    + _openai_island("standard", 1, [["gpt-6-sol", 2, 0.2, 2.5, 10], ["gpt-4o", 2.5, 1.25, 10]],
+                     [["gpt-6-sol", "2.00", "0.20", "2.50", "10.00", "20.00", "2.00", "25.00", "15.00"]])
+    + _openai_island("batch", 1, [["gpt-6-sol", 1, 0.1, 1.25, 5], ["gpt-4o", 1.25, 0.625, 5]])
+    + _openai_grouped()
+    + "</body></html>\n",
+    "vertex.html": "<html><body><h1>Google models</h1><h2>Gemini 3</h2>\n"
+    '<div role="tablist"><button role="tab" id="t0" track-metadata-eventdetail="Standard Model">Standard Model</button>'
+    '<button role="tab" id="t1" track-metadata-eventdetail="Priority">Priority</button></div>\n'
+    '<div role="tabpanel" aria-labelledby="t0"><div><table>\n'
+    + _VERTEX_HEAD
+    + _vertex_rows("Gemini 3.8 Flash* through December 31, 2026", ("0.75", "3.75", "0.075"), ("0.825", "4.125", "0.0825"))
+    + _vertex_rows("Gemini 3.8 Flash Starting January 1, 2027", ("1.50", "7.50", "0.15"), ("1.65", "8.25", "0.165"))
+    + _vertex_rows("Gemini 3.7 Flash * through December 31, 2026", ("0.75", "3.75", "0.075"), ("0.825", "4.125", "0.0825"))
+    + _vertex_rows("Gemini 3.7 Flash starting January 1, 2027", ("1.50", "7.50", "0.15"), ("1.65", "8.25", "0.165"))
+    + "</table></div></div>\n"
+    '<div role="tabpanel" aria-labelledby="t1"><div><table>\n'
+    + _VERTEX_HEAD
+    + _vertex_rows("Gemini 3.8 Flash* through December 31, 2026", ("1.35", "6.75", "0.135"), ("1.485", "7.425", "0.1485"))
+    + "</table></div></div>\n</body></html>\n",
+    # Every provider OpenRouter routes kimi-k2 to: the row must equal one of
+    # them exactly, never OpenRouter's one-price model list.
+    "openrouter-endpoints/moonshotai/kimi-k2.json": """{"data": {"id": "moonshotai/kimi-k2", "endpoints": [
+  {"provider_name": "Novita", "tag": "novita/fp8", "status": 0, "pricing": {"prompt": "0.00000057", "completion": "0.0000023"}},
+  {"provider_name": "OtherCo", "tag": "otherco", "status": 0, "pricing": {"prompt": "0.0000006", "completion": "0.0000025"}}
+]}}
+""",
+    "openrouter-endpoints/anthropic/claude-sonnet-5.5.json": """{"data": {"id": "anthropic/claude-sonnet-5.5", "endpoints": [
+  {"provider_name": "Anthropic", "tag": "anthropic", "pricing": {"prompt": "0.000002", "completion": "0.00001", "input_cache_read": "0.0000001", "input_cache_write": "0.0000025", "input_cache_write_1h": "0.000004"}}
+]}}
+""",
+    # The secondary signal asks OpenRouter for these two current models too.
+    # Each answer carries the vendor's own row exactly as the fixture's vendor
+    # page states it, so the secondary agrees, and a missing page cannot pass
+    # silently as an unread one (it is a source outside the estate, exit 2).
+    "openrouter-endpoints/anthropic/claude-haiku-5.5.json": """{"data": {"id": "anthropic/claude-haiku-5.5", "endpoints": [
+  {"provider_name": "Anthropic", "tag": "anthropic", "pricing": {"prompt": "0.0000001", "completion": "0.0000005", "input_cache_read": "0.00000001", "input_cache_write": "0.000000125", "input_cache_write_1h": "0.0000002"}}
+]}}
+""",
+    "openrouter-endpoints/openai/gpt-6-sol.json": """{"data": {"id": "openai/gpt-6-sol", "endpoints": [
+  {"provider_name": "OpenAI", "tag": "openai", "pricing": {"prompt": "0.000002", "completion": "0.00001", "input_cache_read": "0.0000002", "input_cache_write": "0.0000025"}}
+]}}
+""",
+}
+
+
+#: C23's exceptions file for the fixture: each kind in use, so the baseline proves
+#: an applied exception is printed and not red, and that a declared not-judged
+#: row is counted apart from the comparisons and is not PARTIAL.
+PRICE_EXCEPTIONS = {
+    "exceptions": {
+        "price-differs:tokenfuse:google/gemini-3.7-flash": {
+            "price_from": "2027-01-01",
+            "why": "fixture: the dearer of two dated rates, taken ahead of its date",
+            "recorded": "2026-10-13",
+            "provenance": "fixture",
+        },
+        "price-differs:verdryx:google/gemini-3.7-flash": {
+            "price_from": "2027-01-01",
+            "why": "fixture: the mirror carries the gateway's choice",
+            "recorded": "2026-10-13",
+            "provenance": "fixture",
+        },
+        "fallback-below-current:tokenfuse:gpt-6-sol": {
+            "why": "fixture: raising the fallback moves every unknown model's price",
+            "recorded": "2026-10-13",
+            "provenance": "fixture",
+        },
+        "not-judged-cause:no-reader-aws-nova": {
+            "rows": ["costcrew:bedrock/eu.amazon.nova-micro-v1:0"],
+            "why": "fixture: no reader in this gate prices AWS's Nova list, so resolve() names no vendor for the id",
+            "recorded": "2026-10-13",
+            "provenance": "fixture",
+        },
+        "not-judged-cause:family-name-not-on-page": {
+            "rows": ["tokenfuse:claude-haiku", "verdryx:claude-haiku"],
+            "why": "fixture: the vendor page names no model called claude-haiku",
+            "recorded": "2026-10-13",
+            "provenance": "fixture",
+        },
+    }
+}
+PRICE_EXCEPTIONS_FILE = "_price-exceptions.json"
+
+
+def write_price_sources(directory) -> None:
+    import pathlib as _pathlib
+
+    for rel, body in PRICE_SOURCES.items():
+        path = _pathlib.Path(directory) / rel
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(body, encoding="utf-8")
+    import json as _json
+
+    (_pathlib.Path(directory).parent / PRICE_EXCEPTIONS_FILE).write_text(
+        _json.dumps(PRICE_EXCEPTIONS, indent=2) + "\n", encoding="utf-8"
+    )

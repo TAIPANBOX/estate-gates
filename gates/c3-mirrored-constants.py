@@ -77,6 +77,7 @@ import sys
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 
 import _estate as E  # noqa: E402
+import _prices  # noqa: E402
 
 ARTIFACT = "contracts/tokenfuse-constants.json"
 BREAKER_RS = "crates/core/src/breaker.rs"
@@ -94,7 +95,10 @@ VERDRYX_PRICING = "verdryx/pricing.py"
 
 
 def from_artifact(text: str) -> dict:
-    data = json.loads(text)
+    try:
+        data = json.loads(text)
+    except ValueError as e:
+        raise E.Missing(f"{ARTIFACT} is not JSON ({e})") from None
     blocked = data.get("blocked_decisions")
     if not isinstance(blocked, list) or not blocked:
         raise E.Missing(
@@ -102,40 +106,19 @@ def from_artifact(text: str) -> dict:
             f"artifact this check preferred does not carry the thing it was "
             f"preferred for"
         )
-    book = data.get("price_book") or {}
-    models = book.get("models")
-    fallback = book.get("fallback")
-    if not isinstance(models, list) or not models or not isinstance(fallback, dict):
-        raise E.Missing(
-            f"{ARTIFACT} has no usable 'price_book' with models and a fallback"
-        )
-    if book.get("units") != "microusd_per_mtok":
-        raise E.Missing(
-            f"{ARTIFACT} declares price units {book.get('units')!r}, and this "
-            f"check only knows how to convert 'microusd_per_mtok'. Comparing "
-            f"numbers whose unit is unknown is how a 1e6 error ships."
-        )
+    # One reader for the book, shared with C23 (`_prices.tokenfuse_book`):
+    # two gates reading the same file two ways is the drift this suite exists
+    # to find elsewhere.
+    rows, fallback = _prices.tokenfuse_book(data.get("price_book"), ARTIFACT)
     parquet = (data.get("trace_parquet") or {}).get("read_schema")
     if not isinstance(parquet, list) or not parquet:
         raise E.Missing(f"{ARTIFACT} has no 'trace_parquet.read_schema' list")
 
-    prices = {}
-    for m in models:
-        prices[m["model"]] = (
-            m["input_per_mtok_microusd"] / 1e6,
-            m["output_per_mtok_microusd"] / 1e6,
-            m["cache_read_per_mtok_microusd"] / 1e6,
-            m["cache_write_per_mtok_microusd"] / 1e6,
-        )
+    four = lambda r: tuple(r[c] for c in _prices._VERDRYX_ORDER)  # noqa: E731
     return {
         "blocked": set(blocked),
-        "prices": prices,
-        "fallback": (
-            fallback["input_per_mtok_microusd"] / 1e6,
-            fallback["output_per_mtok_microusd"] / 1e6,
-            fallback["cache_read_per_mtok_microusd"] / 1e6,
-            fallback["cache_write_per_mtok_microusd"] / 1e6,
-        ),
+        "prices": {m: four(r) for m, r in rows.items()},
+        "fallback": four(fallback),
         "columns": [f["name"] for f in parquet],
     }
 
@@ -251,11 +234,7 @@ def from_rust(breaker_rs: str, outcomes_rs: str, pricebook_rs: str, sink_rs: str
 # ------------------------------------------------------------------- verdryx
 
 
-def _literal(node):
-    try:
-        return ast.literal_eval(node)
-    except (ValueError, SyntaxError, TypeError):
-        return None
+_literal = _prices._literal
 
 
 def verdryx_blocked(costper_py: str) -> set[str]:
@@ -304,51 +283,9 @@ def verdryx_columns(costper_py: str) -> dict[str, str]:
 
 
 def verdryx_prices(pricing_py: str) -> tuple[dict[str, tuple], tuple | None]:
-    """Walk the chained .with_price(...)/.with_fallback(...) builder.
-
-    Parsed from the AST rather than by regular expression: the arguments are
-    numeric literals in a call chain, and ast gives them exactly.
-    """
-    tree = ast.parse(pricing_py)
-    prices: dict[str, tuple] = {}
-    fallback: tuple | None = None
-
-    def price_args(call: ast.Call) -> tuple | None:
-        if not isinstance(call, ast.Call):
-            return None
-        fn = call.func
-        name = fn.id if isinstance(fn, ast.Name) else getattr(fn, "attr", "")
-        if name != "ModelPrice":
-            return None
-        vals = []
-        for a in call.args:
-            v = _literal(a)
-            if not isinstance(v, (int, float)):
-                return None
-            vals.append(float(v))
-        while len(vals) < 4:
-            vals.append(0.0)
-        return tuple(vals[:4])
-
-    for node in ast.walk(tree):
-        if not isinstance(node, ast.Call):
-            continue
-        attr = getattr(node.func, "attr", "")
-        if attr == "with_price" and len(node.args) == 2:
-            model = _literal(node.args[0])
-            args = price_args(node.args[1])
-            if isinstance(model, str) and args:
-                prices[model] = args
-        elif attr == "with_fallback" and len(node.args) == 1:
-            args = price_args(node.args[0])
-            if args:
-                fallback = args
-    if not prices:
-        raise E.Missing(
-            f"{VERDRYX_PRICING} matched no `.with_price(\"model\", ModelPrice(...))` "
-            f"calls, so no price was read from the mirror"
-        )
-    return prices, fallback
+    """The chained .with_price(...)/.with_fallback(...) builder, through the
+    reader C23 shares (`_prices.verdryx_book`)."""
+    return _prices.verdryx_book(pricing_py, VERDRYX_PRICING)
 
 
 # ------------------------------------------------------- the argument cap, both sides

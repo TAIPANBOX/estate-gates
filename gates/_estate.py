@@ -96,6 +96,7 @@ class Estate:
         self.cache = pathlib.Path(cache) if cache else (REPO_ROOT / ".clones")
         self._cloned: dict[str, pathlib.Path | None] = {}
         self._unavailable: dict[str, str] = {}
+        self._unreachable_sources: dict[str, str] = {}
 
     # -- description -------------------------------------------------------
 
@@ -109,6 +110,20 @@ class Estate:
     def unavailable_repos(self) -> dict[str, str]:
         """Repos this run could not read, and why. Read by the runner."""
         return dict(self._unavailable)
+
+    def source_unreachable(self, name: str, why: str) -> None:
+        """Record a source outside the estate (a vendor's price page) that this
+        run could not fetch.
+
+        Kept apart from the repositories because estate.json excuses some of
+        those and none of these: a page nobody could fetch is never the
+        expected shape of a run, so the runner reports it as incomplete (exit
+        2) rather than as the partial run CI treats as success (exit 3).
+        """
+        self._unreachable_sources[name] = why
+
+    def unreachable_sources(self) -> dict[str, str]:
+        return dict(self._unreachable_sources)
 
     # -- resolution --------------------------------------------------------
 
@@ -296,6 +311,9 @@ class Check:
         self.findings: list[tuple[str, str, str, list[str]]] = []
         self.notes: list[str] = []
         self.measured = 0
+        self.unmeasured_count = 0
+        self.unmeasured_by_repo: dict[str, int] = {}
+        self.declared_not_judged_count = 0
 
     # -- findings ----------------------------------------------------------
 
@@ -329,6 +347,30 @@ class Check:
         the Rust. A comparison that does not say what it compared is one
         somebody will misread later.
         """
+        self.notes.append(line)
+
+    def unmeasured(self, repo: str, count: int, ident: str, message: str) -> None:
+        """Subjects this run tried to judge and could not, and no exception declares.
+
+        NOT MEASURED, a finding in its own right, so the verdict is UNAVAILABLE
+        and the gate is never OK while one is counted. Counted per repository,
+        because run-gates.py takes the exit code from WHERE the subject sits: a
+        repository with no public remote is the expected partial (exit 3), one
+        with a public remote is an unexpected partial (exit 2).
+        """
+        self.unmeasured_count += count
+        self.unmeasured_by_repo[repo] = self.unmeasured_by_repo.get(repo, 0) + count
+        self.findings.append((UNAVAILABLE, ident, message, []))
+
+    def declared_not_judged(self, count: int, line: str) -> None:
+        """Subjects this run could not judge, each one declared not judged by a
+        recorded cause the gate names (C23's expectations file, with the explicit
+        row ids). Printed with the verdict and kept apart from the comparisons
+        that agreed, so the verdict and the exit code do not move. Nothing is
+        silent: a subject that is neither measured nor declared is NOT MEASURED,
+        and is counted there instead.
+        """
+        self.declared_not_judged_count += count
         self.notes.append(line)
 
     # -- verdict -----------------------------------------------------------
@@ -397,6 +439,17 @@ class Check:
             )
         else:
             w(f"OK: {len(greens)} comparisons, every one of them agrees.\n")
+        if self.declared_not_judged_count:
+            w(
+                f"{self.declared_not_judged_count} subject(s) declared not judged, each named "
+                f"above with the cause that declares it. They are not comparisons; each one "
+                f"is measured or declared, and none is silent.\n"
+            )
+        if self.unmeasured_count:
+            w(
+                f"PARTIAL: {self.unmeasured_count} subject(s) went unmeasured, each one "
+                f"named above as NOT MEASURED. That is not a pass.\n"
+            )
         return self.exit_code()
 
 

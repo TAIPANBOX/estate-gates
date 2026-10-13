@@ -41,6 +41,46 @@ And one more that belongs to rule 2 rather than rule 1:
      produced by an actual run. Until this was written, exit 3 had never once
      been returned by anything, because every real run so far also found
      drift, and CI reads the exit code and nothing else.
+  6. A PRICE IS A CLAIM WITH A DATE. C23 reads vendor pages, not repositories:
+     the fixture pins "today", a dated change ahead is printed as a warning,
+     the day it takes effect a row at the old price is red, and a page nobody
+     could fetch is NOT MEASURED and ends the run incomplete. A tier row C23
+     cannot judge and no exception declares is counted, and the summary says
+     PARTIAL with the number: exit 2 in a repository with a public remote, exit 3
+     in one with none. The summary never says every subject was measured while
+     one is counted. A row no source prices, and a Vertex model no table prices,
+     must be declared by cause (expectations/model-prices.json, its explicit
+     row ids); one no cause declares is counted the same way, and the two
+     teeth cases c23.undeclared-not-judged-row-public and
+     c23.undeclared-not-judged-vertex prove it.
+  7. THE PAGE READERS SURVIVE THE PAGES. The readers are run against the
+     vendor pages as saved on 2026-10-13 and against a seeded sweep of hostile
+     bytes (selftest/price_pages.py).
+
+EXPECTED COUNTS
+
+@measured `./selftest.py` 2026-10-13, at 4c77aeb: 260 broken estates and 156 FAIL
+paths. The same command at ab876a4 gave 257 and 155. The difference is the
+OpenRouter /endpoints rule and the exact-match cases beside it: c23.no-endpoints
+is a new FAIL path with two mutations, and the c23.price-differs cases changed
+(one retired, two added, net +1). A later change to either number must name the
+cases it adds or removes here, rather than move the number silently.
+
+@measured `./selftest.py` 2026-10-13, on feat/price-drift after the PARTIAL
+routing change (#131): 261 broken estates and 156 FAIL paths. The same command
+gave 260 and 156 at 7398ea8. The one new case is c23.stale-exception for a
+tier recorded off the page that the page does show. The two teeth cases,
+c23.unmeasured-row-public and c23.unmeasured-row-private, are not MUTATIONS and
+are not counted in that number.
+
+@measured `./selftest.py` 2026-10-13, at c22bf2a (feat/price-drift merged with origin/main at
+607fc74): 271 broken estates and 158 FAIL paths, exit 0. The same command at 490d347 gave 261
+and 156, the same day. The difference is this change's three c23.stale-exception mutations (a
+not-judged cause that names a row no table has, one that names a row the table now prices, and
+one whose id is not repo:row) and origin/main's C3 argument-cap cases (seven mutations, and the
+finding ids c3.argcap-differ and c3.argcap-unreadable). The two new teeth cases,
+c23.undeclared-not-judged-row-public and c23.undeclared-not-judged-vertex, are not counted.
+Only a docstring line changed after that run.
 
 WHAT THIS DOES NOT PROVE
 
@@ -73,6 +113,11 @@ sys.path.insert(0, str(HERE / "selftest"))
 
 import _estate as E  # noqa: E402
 import fixture  # noqa: E402
+import price_pages  # noqa: E402
+
+#: Where each case keeps C23's vendor pages: inside the case, so a mutation can
+#: edit a page the way the others edit a repository.
+PRICE_DIR = "_price-sources"
 
 def _gate_files() -> list[str]:
     """The gate list, read out of `run-gates.py` rather than kept beside it.
@@ -164,6 +209,8 @@ def run_checks(
     import os
 
     os.environ["ESTATE_GATES_EXPECTATIONS"] = str(expectations)
+    os.environ["ESTATE_GATES_PRICE_SOURCES"] = str(root / PRICE_DIR)
+    os.environ["ESTATE_GATES_PRICE_EXCEPTIONS"] = str(root / fixture.PRICE_EXCEPTIONS_FILE)
     # A case may carry its own registry. The shared one is a single file for
     # every case, so a mutation that edited it would leak into every case run
     # after it; a case-local copy is the only way to plant a fault in the
@@ -194,13 +241,14 @@ def run_checks(
     return seen, verdicts, buffer.getvalue()
 
 
-def run_runner(
+def run_runner_proc(
     root: pathlib.Path,
     registry: pathlib.Path,
     expectations: pathlib.Path,
     only: str | None = None,
-) -> int:
-    """`run-gates.py` as a subprocess, for its exit code and nothing else."""
+    sources: pathlib.Path | None = None,
+) -> subprocess.CompletedProcess:
+    """`run-gates.py` as a subprocess: its exit code, stdout and stderr."""
     import os
 
     args = [
@@ -214,7 +262,199 @@ def run_runner(
     if only:
         args += ["--only", only]
     env = dict(os.environ, ESTATE_GATES_EXPECTATIONS=str(expectations))
-    return subprocess.run(args, capture_output=True, text=True, env=env).returncode
+    if sources is None:
+        sources = root / PRICE_DIR
+    env["ESTATE_GATES_PRICE_SOURCES"] = str(sources)
+    env["ESTATE_GATES_PRICE_EXCEPTIONS"] = str(sources.parent / fixture.PRICE_EXCEPTIONS_FILE)
+    return subprocess.run(args, capture_output=True, text=True, env=env)
+
+
+def run_runner(
+    root: pathlib.Path,
+    registry: pathlib.Path,
+    expectations: pathlib.Path,
+    only: str | None = None,
+    sources: pathlib.Path | None = None,
+) -> int:
+    """`run-gates.py` as a subprocess, for its exit code and nothing else."""
+    return run_runner_proc(root, registry, expectations, only, sources).returncode
+
+
+#: The teeth cases for an undeclared row C23 cannot judge. Named here, so that
+#: features/c23-model-prices-match-the-vendors.feature can bind a scenario to
+#: each one (scripts/features-are-bound.sh reads this tuple), and TEETH_RAN
+#: proves main() actually ran every name it lists.
+TEETH_CASES = (
+    "c23.unmeasured-row-public",
+    "c23.unmeasured-row-private",
+    "c23.undeclared-not-judged-row-public",
+    "c23.undeclared-not-judged-vertex",
+)
+TEETH_RAN: list[str] = []
+
+
+def unmeasured_row_is_counted(
+    base: pathlib.Path,
+    work: pathlib.Path,
+    registry: pathlib.Path,
+    expectations: pathlib.Path,
+    name: str,
+    public: bool,
+) -> list[str]:
+    """An undeclared row C23 cannot judge is NOT MEASURED, counted, and PARTIAL.
+
+    The planted row is a long-context tier for gpt-4o on tokenfuse's gateway
+    book, above 128,000 prompt tokens. OpenAI's page states no long-context
+    price for gpt-4o and no exception declares it, so C23 prints the row NOT
+    MEASURED and counts it. Which exit code that earns depends on the
+    repository it sits in (invariant 3, run-gates.py): tokenfuse has a public
+    remote in the fixture, so the run is an UNEXPECTED partial and exits 2; the
+    same row with tokenfuse recorded as having no public remote is the EXPECTED
+    partial and exits 3, which CI reads as success. Either way the summary
+    names the count and never says "every subject was measured".
+    The untouched fixture is run first, so the planted row is the only reason
+    for the PARTIAL line.
+    """
+    TEETH_RAN.append(name)
+    problems: list[str] = []
+    clean = run_runner_proc(base, registry, expectations, "c23")
+    if clean.returncode != 0:
+        return [
+            f"{name}: C23 on the untouched fixture did not come back clean through "
+            f"run-gates.py (exit {clean.returncode}). The planted row cannot be the "
+            f"only cause of what follows until it does.\n{clean.stdout[-600:]}"
+        ]
+    case = work / name
+    shutil.copytree(base, case)
+    path = case / TF_ART
+    book = json.loads(path.read_text(encoding="utf-8"))
+    book["price_book"]["long_context"].append({
+        "model": "gpt-4o",
+        "above_prompt_tokens": 128000,
+        "input_per_mtok_microusd": 5000000,
+        "output_per_mtok_microusd": 20000000,
+        "cache_read_per_mtok_microusd": 2500000,
+        "cache_write_per_mtok_microusd": 5000000,
+    })
+    path.write_text(json.dumps(book, indent=2) + "\n", encoding="utf-8")
+    case_registry, expect, where = registry, 2, "a repository with a public remote"
+    if not public:
+        reg = json.loads(registry.read_text(encoding="utf-8"))
+        reg["repos"]["tokenfuse"]["github"] = None
+        case_registry = work / f"{name}.estate.json"
+        case_registry.write_text(json.dumps(reg, indent=2) + "\n", encoding="utf-8")
+        expect, where = 3, "a repository with no public remote"
+    done = run_runner_proc(case, case_registry, expectations, "c23")
+    out = done.stdout
+    if done.returncode != expect:
+        problems.append(
+            f"{name}: with a gpt-4o tier row C23 cannot judge, in {where}, run-gates.py "
+            f"exited {done.returncode}, and the code for that case is {expect}. An "
+            f"undeclared row is never clean: exit 2 for a public repository, exit 3 for "
+            f"one with no public remote."
+        )
+    if "every subject was measured" in out:
+        problems.append(
+            f"{name}: with a gpt-4o tier row C23 cannot judge, run-gates.py still printed "
+            f"'every subject was measured'. That sentence is false for that run: the row "
+            f"was NOT MEASURED, and the count did not stop it."
+        )
+    if "NOT MEASURED" not in out or "gpt-4o" not in out:
+        problems.append(f"{name}: the planted gpt-4o tier row was not named as NOT MEASURED in the run's output.")
+    if "PARTIAL: 1 " not in out:
+        problems.append(
+            f"{name}: with one unjudged tier row, the summary did not say PARTIAL with the "
+            f"number 1. The summary ends:\n{out[-600:]}"
+        )
+    return problems
+
+
+def plant_undeclared_row(case: pathlib.Path) -> None:
+    """A base row in the gateway's book for an id no source here reads: a
+    row that is not judged and that no recorded cause declares."""
+    path = case / TF_ART
+    book = json.loads(path.read_text(encoding="utf-8"))
+    book["price_book"]["models"].append({
+        "model": "qwen-probe-9",
+        "input_per_mtok_microusd": 1000000,
+        "output_per_mtok_microusd": 2000000,
+        "cache_read_per_mtok_microusd": 100000,
+        "cache_write_per_mtok_microusd": 1250000,
+    })
+    path.write_text(json.dumps(book, indent=2) + "\n", encoding="utf-8")
+
+
+def plant_undeclared_vertex_model(case: pathlib.Path) -> None:
+    """Take Gemini 3.8 Flash out of the gateway's book AND the mirror: the
+    fixture's Vertex page still lists it, and no table then prices it, so it
+    is a Vertex model not judged that no recorded cause declares."""
+    path = case / TF_ART
+    book = json.loads(path.read_text(encoding="utf-8"))
+    book["price_book"]["models"] = [
+        m for m in book["price_book"]["models"] if m.get("model") != "google/gemini-3.8-flash"
+    ]
+    path.write_text(json.dumps(book, indent=2) + "\n", encoding="utf-8")
+    mirror = case / "verdryx" / "verdryx" / "pricing.py"
+    lines = mirror.read_text(encoding="utf-8").splitlines(keepends=True)
+    kept = [ln for ln in lines if 'with_price("google/gemini-3.8-flash"' not in ln]
+    mirror.write_text("".join(kept), encoding="utf-8")
+
+
+def undeclared_not_judged_is_counted(
+    base: pathlib.Path,
+    work: pathlib.Path,
+    registry: pathlib.Path,
+    expectations: pathlib.Path,
+    name: str,
+    plant,
+    subject: str,
+) -> list[str]:
+    """An undeclared subject C23 cannot judge is counted, and the run is PARTIAL.
+
+    Until 2026-10-13 a row no source priced (or whose vendor listed no such
+    model) was printed as "not judged" and counted nowhere: exit 0, and the
+    summary still said the run did not claim full coverage without making it
+    red. Now a not-judged subject must be declared by a cause in
+    expectations/model-prices.json with its explicit id; an undeclared one is
+    NOT MEASURED, counted against its repository, and ends the run as PARTIAL
+    with exit 2 in a repository with a public remote. `plant` makes exactly
+    one such subject in a copy of the fixture, and `subject` is the id the
+    run must name. The untouched fixture is run first, so the planted subject
+    is the only reason for what follows.
+    """
+    TEETH_RAN.append(name)
+    problems: list[str] = []
+    clean = run_runner_proc(base, registry, expectations, "c23")
+    if clean.returncode != 0:
+        return [
+            f"{name}: C23 on the untouched fixture did not come back clean through "
+            f"run-gates.py (exit {clean.returncode}). The planted subject cannot be the "
+            f"only cause of what follows until it does.\n{clean.stdout[-600:]}"
+        ]
+    case = work / name
+    shutil.copytree(base, case)
+    plant(case)
+    done = run_runner_proc(case, registry, expectations, "c23")
+    out = done.stdout
+    if done.returncode != 2:
+        problems.append(
+            f"{name}: with {subject} not judged and declared by no cause, run-gates.py exited "
+            f"{done.returncode}, not 2. An undeclared not-judged subject is never clean: exit 2 "
+            f"for a repository with a public remote."
+        )
+    if "every subject was measured" in out:
+        problems.append(
+            f"{name}: with {subject} not judged and declared by no cause, run-gates.py still "
+            f"printed 'every subject was measured'."
+        )
+    if "NOT MEASURED" not in out or subject not in out:
+        problems.append(f"{name}: {subject} was not named as NOT MEASURED in the run's output.")
+    if "PARTIAL: 1 " not in out:
+        problems.append(
+            f"{name}: with one undeclared not-judged subject, the summary did not say PARTIAL "
+            f"with the number 1. The summary ends:\n{out[-600:]}"
+        )
+    return problems
 
 
 def fired(seen: dict[str, str], ident: str) -> bool:
@@ -368,12 +608,53 @@ def registry_images(root: pathlib.Path, repo: str, images: list[str]) -> None:
     path.write_text(json.dumps(reg, indent=2) + "\n")
 
 
+def registry_price(root: pathlib.Path, repo: str, fn) -> None:
+    """Rewrite one registry entry's `price_table` declaration through `fn`."""
+    path, reg = _case_registry(root)
+    fn(reg["repos"][repo])
+    path.write_text(json.dumps(reg, indent=2) + "\n")
+
+
+def run_c23(root: pathlib.Path, registry: pathlib.Path, **env: str):
+    """C23 alone, with environment overrides: (verdict, finding ids, text)."""
+    import importlib.util
+
+    saved = {k: os.environ.get(k) for k in env}
+    os.environ.update(env)
+    try:
+        estate = E.Estate(json.loads(registry.read_text(encoding="utf-8")), mode="worktree", root=root)
+        path = HERE / "gates" / "c23-model-prices-match-the-vendors.py"
+        spec = importlib.util.spec_from_file_location("c23_alone", path)
+        module = importlib.util.module_from_spec(spec)  # type: ignore[arg-type]
+        spec.loader.exec_module(module)  # type: ignore[union-attr]
+        check = module.run(estate)
+        buffer = io.StringIO()
+        check.render(buffer)
+        return check.verdict(), {(k, i) for k, i, _m, _d in check.findings}, buffer.getvalue(), estate
+    finally:
+        for k, v in saved.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+
+
+def price_exceptions(root: pathlib.Path, fn) -> None:
+    """Rewrite the case's C23 exceptions file through `fn`."""
+    path = root / fixture.PRICE_EXCEPTIONS_FILE
+    data = json.loads(path.read_text())
+    fn(data["exceptions"])
+    path.write_text(json.dumps(data, indent=2) + "\n")
+
+
 def registry_drop_runs(root: pathlib.Path, repo: str) -> None:
     """Take the required `runs` field off one registry entry."""
     path, reg = _case_registry(root)
     del reg["repos"][repo]["runs"]
     path.write_text(json.dumps(reg, indent=2) + "\n")
 
+
+TF_ART = "tokenfuse/contracts/tokenfuse-constants.json"
 
 MUTATIONS: dict[str, list[tuple[str, callable]]] = {
     # ---- C1
@@ -2350,6 +2631,267 @@ MUTATIONS: dict[str, list[tuple[str, callable]]] = {
             "",
         ),
     )],
+    # ---- C23
+    "c23.price-differs": [
+        (
+            # The 2026-10-13 finding itself: the book's Sonnet 5.5 cache read at
+            # 0.20 where the page says 0.10.
+            "the gateway's book carries Sonnet 5.5's cache read at twice the page's",
+            lambda r: edit(r, TF_ART, '"model": "claude-sonnet-5-5", "input_per_mtok_microusd": 2000000, "output_per_mtok_microusd": 10000000, "cache_read_per_mtok_microusd": 100000',
+                           '"model": "claude-sonnet-5-5", "input_per_mtok_microusd": 2000000, "output_per_mtok_microusd": 10000000, "cache_read_per_mtok_microusd": 200000'),
+        ),
+        (
+            # Half a percent is the tolerance; one percent is a price, not a
+            # rounding, and must be red.
+            "a price one percent off",
+            lambda r: edit(r, TF_ART, '"cache_read_per_mtok_microusd": 100000,', '"cache_read_per_mtok_microusd": 101000,'),
+        ),
+        (
+            "the vendor raises a price and the table stays where it was",
+            lambda r: edit(r, f"{PRICE_DIR}/anthropic.html", "<td>$10 / MTok</td><td>$2.50 / MTok</td>", "<td>$12 / MTok</td><td>$2.50 / MTok</td>"),
+        ),
+        (
+            # An id that NAMES a regional endpoint is held to the regional
+            # price, so a profile priced at list is under-charging by ten percent.
+            "a regional Bedrock profile priced at the global list price",
+            lambda r: edit(r, TF_ART,
+                           '"model": "us.anthropic.claude-sonnet-5-5", "input_per_mtok_microusd": 2200000, "output_per_mtok_microusd": 11000000, "cache_read_per_mtok_microusd": 110000, "cache_write_per_mtok_microusd": 2750000, "cache_write_1h_per_mtok_microusd": 4400000',
+                           '"model": "us.anthropic.claude-sonnet-5-5", "input_per_mtok_microusd": 2000000, "output_per_mtok_microusd": 10000000, "cache_read_per_mtok_microusd": 100000, "cache_write_per_mtok_microusd": 2500000, "cache_write_1h_per_mtok_microusd": 4000000'),
+        ),
+        (
+            # An id that names no endpoint may equal either price, but every
+            # component from the SAME one: this check ANDs, so it gets a case.
+            "an id naming no endpoint, its input at the global price and the rest at the regional one",
+            lambda r: edit(r, TF_ART, '"model": "anthropic.claude-sonnet-5-5", "input_per_mtok_microusd": 2200000',
+                           '"model": "anthropic.claude-sonnet-5-5", "input_per_mtok_microusd": 2000000'),
+        ),
+        (
+            "a row taking its input from one prompt-length tier and its output from the other",
+            lambda r: edit(r, TF_ART, '"model": "claude-haiku-5-5", "input_per_mtok_microusd": 100000, "output_per_mtok_microusd": 500000',
+                           '"model": "claude-haiku-5-5", "input_per_mtok_microusd": 100000, "output_per_mtok_microusd": 2500000'),
+        ),
+        (
+            # The book has no effective date: the day a dated price takes
+            # effect, a row still at the old one is wrong.
+            "a dated price change has taken effect and the row kept the old price",
+            lambda r: [
+                edit(r, f"{PRICE_DIR}/vertex.html", "through December 31, 2026", "through October 1, 2026", every=True),
+                edit(r, f"{PRICE_DIR}/vertex.html", "Starting January 1, 2027", "Starting October 2, 2026"),
+            ],
+        ),
+        (
+            # costcrew's 2026-10-13 shape: Sonnet 5 at 3 / 15 against 2 / 10.
+            "costcrew's own table disagrees with the vendor",
+            lambda r: edit(r, "costcrew/internal/engines/prices.go", "InPerM: 2.00, OutPerM: 10.00", "InPerM: 3.00, OutPerM: 15.00"),
+        ),
+        (
+            # A row billed through OpenRouter is the price of the provider that
+            # served the call: no provider charging it is a disagreement.
+            "no OpenRouter provider charges the row's price",
+            lambda r: edit(r, f"{PRICE_DIR}/openrouter-endpoints/moonshotai/kimi-k2.json", '"prompt": "0.00000057"', '"prompt": "0.0000006"'),
+        ),
+        (
+            # The match is per provider, every component from the same one: a
+            # row whose input one provider charges and whose output another does
+            # is a price nobody charges.
+            "a row matching one provider's input and another provider's output",
+            lambda r: [
+                edit(r, f"{PRICE_DIR}/openrouter-endpoints/moonshotai/kimi-k2.json", '"completion": "0.0000023"', '"completion": "0.0000024"'),
+                edit(r, f"{PRICE_DIR}/openrouter-endpoints/moonshotai/kimi-k2.json", '"completion": "0.0000025"', '"completion": "0.0000023"'),
+            ],
+        ),
+        (
+            "the mirror carries a price the vendor does not",
+            lambda r: edit(r, "verdryx/verdryx/pricing.py", "ModelPrice(0.10, 0.50, 0.01, 0.125)", "ModelPrice(0.10, 0.50, 0.02, 0.125)"),
+        ),
+        (
+            # The exception is what made the row green; without it the dated
+            # price ahead of its date is a disagreement like any other.
+            "a row at a dated price ahead of its date with its exception removed",
+            lambda r: price_exceptions(r, lambda e: e.pop("price-differs:tokenfuse:google/gemini-3.7-flash")),
+        ),
+        (
+            "a long-prompt tier's price differs from the vendor's",
+            lambda r: edit(r, TF_ART, '"above_prompt_tokens": 100000, "input_per_mtok_microusd": 500000', '"above_prompt_tokens": 100000, "input_per_mtok_microusd": 600000'),
+        ),
+        (
+            "a long-prompt tier starts at another threshold than the vendor's",
+            lambda r: edit(r, TF_ART, '"above_prompt_tokens": 100000', '"above_prompt_tokens": 200000'),
+        ),
+        (
+            # A book that can carry a tier and carries none bills every long
+            # prompt of that model at the base rate.
+            "a table that carries tiers has none for a model the vendor prices by prompt length",
+            lambda r: edit(r, TF_ART, '      { "model": "claude-haiku-5-5", "above_prompt_tokens": 100000, "input_per_mtok_microusd": 500000, "output_per_mtok_microusd": 2500000, "cache_read_per_mtok_microusd": 50000, "cache_write_per_mtok_microusd": 625000, "cache_write_1h_per_mtok_microusd": 1000000 },\n', ""),
+        ),
+        (
+            "a tier for a model the vendor prices at one rate",
+            lambda r: edit(r, TF_ART, '    "long_context": [\n', '    "long_context": [\n      { "model": "claude-sonnet-5-5", "above_prompt_tokens": 200000, "input_per_mtok_microusd": 4000000, "output_per_mtok_microusd": 15000000, "cache_read_per_mtok_microusd": 400000, "cache_write_per_mtok_microusd": 5000000 },\n'),
+        ),
+        (
+            # In a table that carries tiers the base row must be the base price:
+            # "either tier" is only for a flat table.
+            "a base row at the long-prompt price in a table that carries tiers",
+            lambda r: edit(r, TF_ART,
+                           '"model": "claude-haiku-5-5", "input_per_mtok_microusd": 100000, "output_per_mtok_microusd": 500000, "cache_read_per_mtok_microusd": 10000, "cache_write_per_mtok_microusd": 125000, "cache_write_1h_per_mtok_microusd": 200000',
+                           '"model": "claude-haiku-5-5", "input_per_mtok_microusd": 500000, "output_per_mtok_microusd": 2500000, "cache_read_per_mtok_microusd": 50000, "cache_write_per_mtok_microusd": 625000, "cache_write_1h_per_mtok_microusd": 1000000'),
+        ),
+    ],
+    "c23.current-model-missing": [
+        (
+            # The 2026-10-13 finding: Haiku 5.5 released, no row, billed at the
+            # fallback, about 150 times its price.
+            "the gateway's book has no row for a current model",
+            lambda r: edit(r, TF_ART, '      { "model": "claude-haiku-5-5", "input_per_mtok_microusd": 100000, "output_per_mtok_microusd": 500000, "cache_read_per_mtok_microusd": 10000, "cache_write_per_mtok_microusd": 125000, "cache_write_1h_per_mtok_microusd": 200000 },\n', ""),
+        ),
+        (
+            "the vendor's page lists a new current model the book has never heard of",
+            lambda r: edit(r, f"{PRICE_DIR}/anthropic.html", "</thead><tbody>\n",
+                           "</thead><tbody>\n<tr><td><a>Claude Opus 9</a></td><td>$5 / MTok</td><td>$25 / MTok</td><td>$6.25 / MTok</td><td>$10 / MTok</td><td>$0.50 / MTok</td></tr>\n"),
+        ),
+    ],
+    "c23.fallback-below-current": [
+        (
+            "the gateway's fallback lowered below a current model's input price",
+            lambda r: edit(r, TF_ART, '"input_per_mtok_microusd": 15000000', '"input_per_mtok_microusd": 1500000'),
+        ),
+        (
+            "the recorded fallback exception is removed",
+            lambda r: price_exceptions(r, lambda e: e.pop("fallback-below-current:tokenfuse:gpt-6-sol")),
+        ),
+        (
+            # And the other direction: the table did not move, the vendor did.
+            "a vendor raises a current model above the fallback",
+            lambda r: edit(r, f"{PRICE_DIR}/anthropic.html", "<td>$10 / MTok</td><td>$2.50 / MTok</td>", "<td>$80 / MTok</td><td>$2.50 / MTok</td>"),
+        ),
+    ],
+    "c23.source-unparseable": [
+        ("Anthropic renames a column the table is read by",
+         lambda r: edit(r, f"{PRICE_DIR}/anthropic.html", "<th>Hits and refreshes</th>", "<th>Cache hits</th>")),
+        ("Anthropic's page stops separating its current models from the rest",
+         lambda r: edit(r, f"{PRICE_DIR}/anthropic.html", 'aria-label="Additional models">Additional models', 'aria-label="Older models">Older models')),
+        ("the sentence stating the regional premium is gone",
+         lambda r: edit(r, f"{PRICE_DIR}/anthropic.html", "Regional and multi-region endpoints include a 10% premium over global endpoints.", "Regional endpoints are priced separately.")),
+        ("OpenAI's standard table is no longer marked standard",
+         lambda r: edit(r, f"{PRICE_DIR}/openai.html", "&quot;standard&quot;", "&quot;default&quot;")),
+        # The columns are read by position after the headings are checked, so
+        # a reorder under the same values must stop the read, not shift it.
+        ("OpenAI's column headings change order",
+         lambda r: edit(r, f"{PRICE_DIR}/openai.html", "<th>Cached input</th><th>Cache writes</th>", "<th>Cache writes</th><th>Cached input</th>")),
+        ("OpenAI's page stops saying which rows are the latest models",
+         lambda r: edit(r, f"{PRICE_DIR}/openai.html", "&quot;collapsedLatestRowCount&quot;", "&quot;collapsedRowCount&quot;")),
+        ("Vertex AI's Standard tab is renamed, so every table reads as another tier",
+         lambda r: edit(r, f"{PRICE_DIR}/vertex.html", 'track-metadata-eventdetail="Standard Model">Standard Model', 'track-metadata-eventdetail="On demand">On demand')),
+        ("OpenRouter's provider list is not JSON",
+         lambda r: edit(r, f"{PRICE_DIR}/openrouter-endpoints/moonshotai/kimi-k2.json", '{"data": {', "<html><body>")),
+    ],
+    "c23.table-unreadable": [
+        ("costcrew's price map is renamed",
+         lambda r: edit(r, "costcrew/internal/engines/prices.go", "var prices = map[string]Price{", "var rates = map[string]Price{")),
+        ("costcrew sets a price to an expression this gate cannot evaluate",
+         lambda r: edit(r, "costcrew/internal/engines/prices.go", "InPerM: 0.57,", "InPerM: 0.57 * 2,")),
+        ("the gateway's artifact changes its price unit",
+         lambda r: edit(r, TF_ART, '"units": "microusd_per_mtok"', '"units": "usd_per_mtok"')),
+        ("estate.json declares a format this gate has no reader for",
+         lambda r: registry_price(r, "costcrew", lambda e: e["price_table"].update(format="yaml-prices"))),
+        ("estate.json exempts a table from current models without saying why",
+         lambda r: registry_price(r, "verdryx", lambda e: e["price_table"].pop("why"))),
+        ("the declared table file is gone",
+         lambda r: drop(r, "costcrew/internal/engines/prices.go")),
+        ("the long-prompt tiers are not a list",
+         lambda r: edit(r, TF_ART, '    "long_context": [\n', '    "long_context": "see long_context_rows",\n    "long_context_rows": [\n')),
+        ("a long-prompt tier with no threshold",
+         lambda r: edit(r, TF_ART, '"above_prompt_tokens": 272000', '"above_prompt_tokens": "lots"')),
+        ("the mirror gains a long-prompt tier in a shape the reader cannot read",
+         lambda r: edit(r, "verdryx/verdryx/pricing.py", '.with_price("gpt-6-sol"', '.with_long_context("gpt-6-sol", "long")\n            .with_price("gpt-6-sol"')),
+    ],
+    "c23.stale-exception": [
+        (
+            "an exception for a row that agrees with today's price",
+            lambda r: price_exceptions(r, lambda e: e.update({"price-differs:tokenfuse:google/gemini-3.8-flash": {
+                "price_from": "2027-01-01", "why": "x", "recorded": "2026-10-13", "provenance": "x"}})),
+        ),
+        (
+            "an exception whose date has passed",
+            lambda r: price_exceptions(r, lambda e: e["price-differs:tokenfuse:google/gemini-3.7-flash"].update(price_from="2026-10-01")),
+        ),
+        (
+            "an exception with no reason",
+            lambda r: price_exceptions(r, lambda e: e["price-differs:tokenfuse:google/gemini-3.7-flash"].pop("why")),
+        ),
+        (
+            # The row moved to a price neither date has: the exception now
+            # describes nothing, and the row is red in its own right.
+            "an excepted row changes to a price neither date has",
+            lambda r: edit(r, TF_ART, '"model": "google/gemini-3.7-flash", "input_per_mtok_microusd": 1650000', '"model": "google/gemini-3.7-flash", "input_per_mtok_microusd": 9990000'),
+        ),
+        (
+            "a fallback exception for a model the fallback is not below",
+            lambda r: price_exceptions(r, lambda e: e.update({"fallback-below-current:tokenfuse:claude-sonnet-5-5": {
+                "why": "x", "recorded": "2026-10-13", "provenance": "x"}})),
+        ),
+        (
+            "an exception for a row the table no longer has",
+            lambda r: price_exceptions(r, lambda e: e.update({"price-differs:tokenfuse:google/gemini-1.0-flash": {
+                "price_from": "2027-01-01", "why": "x", "recorded": "2026-10-13", "provenance": "x"}})),
+        ),
+        (
+            # A declared not-judged row that no table carries: the cause's list
+            # must shrink with the table, so the id it names excuses nothing.
+            "a not-judged cause that names a row no table has",
+            lambda r: price_exceptions(r, lambda e: e["not-judged-cause:family-name-not-on-page"]["rows"].append("tokenfuse:claude-opus-9")),
+        ),
+        (
+            # The declared id is priced now: its row is judged, so the cause
+            # no longer describes it and must be removed.
+            "a not-judged cause that names a row the table now prices",
+            lambda r: price_exceptions(r, lambda e: e["not-judged-cause:family-name-not-on-page"]["rows"].append("tokenfuse:claude-haiku-5-5")),
+        ),
+        (
+            "a not-judged cause that names a row id which is not repo:row",
+            lambda r: price_exceptions(r, lambda e: e["not-judged-cause:family-name-not-on-page"]["rows"].append("claude-opus-9")),
+        ),
+        (
+            # OpenAI's page states gpt-6-astra's long-prompt price, so a
+            # declaration that the page shows no tier for it excuses nothing.
+            "a tier declared off the page for a tier the page does show",
+            lambda r: price_exceptions(r, lambda e: e.update({"tier-not-on-page:tokenfuse:gpt-6-astra:above-272000": {
+                "why": "x", "recorded": "2026-10-13", "provenance": "x"}})),
+        ),
+        (
+            "an exception of a kind the gate does not excuse",
+            lambda r: price_exceptions(r, lambda e: e.update({"current-model-missing:tokenfuse:claude-opus-9": {
+                "why": "x", "recorded": "2026-10-13", "provenance": "x"}})),
+        ),
+        (
+            "the exceptions file is not JSON",
+            lambda r: (r / fixture.PRICE_EXCEPTIONS_FILE).write_text("{ not json"),
+        ),
+    ],
+    "c23.no-endpoints": [
+        (
+            "OpenRouter lists no provider for a model a row is billed through",
+            lambda r: (r / PRICE_DIR / "openrouter-endpoints/moonshotai/kimi-k2.json").write_text(
+                '{"data": {"id": "moonshotai/kimi-k2", "endpoints": []}}\n'),
+        ),
+        (
+            # OpenRouter's own 404 for a model it does not know.
+            "OpenRouter does not know the model a row is billed through",
+            lambda r: (r / PRICE_DIR / "openrouter-endpoints/moonshotai/kimi-k2.json").write_text(
+                '{"error": {"message": "Not Found", "code": 404}}\n'),
+        ),
+    ],
+    "c23.nothing-matched": [(
+        "not one row of a table maps to a price on a page this gate reads",
+        lambda r: [
+            edit(r, "costcrew/internal/engines/prices.go", '"anthropic/claude-sonnet-5-5"', '"deepseek/deepseek-chat"'),
+            edit(r, "costcrew/internal/engines/prices.go", '"openrouter/moonshotai/kimi-k2"', '"bedrock/eu.amazon.nova-lite-v1:0"'),
+        ],
+    )],
+    "c23.no-subjects": [(
+        "no repository declares a price table",
+        lambda r: [registry_price(r, repo, lambda e: e.pop("price_table")) for repo in ("tokenfuse", "verdryx", "costcrew")],
+    )],
 }
 
 
@@ -2434,6 +2976,8 @@ def main() -> int:
         base = work / "baseline"
         base.mkdir()
         build_estate(base)
+        fixture.write_price_sources(base / PRICE_DIR)
+        os.environ["ESTATE_GATES_TODAY"] = fixture.PRICE_TODAY
 
         registry = work / "estate.json"
         registry.write_text(json.dumps(fixture.REGISTRY, indent=2), encoding="utf-8")
@@ -2489,7 +3033,12 @@ def main() -> int:
                     ],
                     capture_output=True,
                     text=True,
-                    env=dict(os.environ, ESTATE_GATES_EXPECTATIONS=str(expectations)),
+                    env=dict(
+                        os.environ,
+                        ESTATE_GATES_EXPECTATIONS=str(expectations),
+                        ESTATE_GATES_PRICE_SOURCES=str(base / PRICE_DIR),
+                        ESTATE_GATES_PRICE_EXCEPTIONS=str(base / fixture.PRICE_EXCEPTIONS_FILE),
+                    ),
                 )
                 # Exactly clean, because the fixture IS clean and every gate
                 # just reported so through the runner. Accepting "any exit code
@@ -2574,11 +3123,16 @@ def main() -> int:
         # real run so far also found drift. A documented exit code no run has
         # ever returned is a comment.
         if not problems:
-            for label, expect, root, only in [
-                ("a clean, complete estate", 0, base, None),
-                ("an estate that drifted", 1, None, None),
-                ("a repository that should have been reachable", 2, work / "nowhere", None),
-                ("only a repo with no public remote unread", 3, unavailable_case, "c4"),
+            no_pages = work / "no-pages"
+            no_pages.mkdir()
+            for label, expect, root, only, sources in [
+                ("a clean, complete estate", 0, base, None, None),
+                ("an estate that drifted", 1, None, None, None),
+                ("a repository that should have been reachable", 2, work / "nowhere", None, base / PRICE_DIR),
+                ("only a repo with no public remote unread", 3, unavailable_case, "c4", None),
+                # A vendor page is never excused the way a private repository
+                # is: a run that could not fetch one is incomplete, not partial.
+                ("a vendor price page nobody could fetch", 2, base, "c23", no_pages),
             ]:
                 if root is None:  # the drift case needs a broken estate
                     root = fresh_copy(base, work, 900)
@@ -2588,13 +3142,90 @@ def main() -> int:
                         '"prev_hash"',
                         '"previous_hash"',
                     )
-                got = run_runner(root, registry, expectations, only)
+                got = run_runner(root, registry, expectations, only, sources)
                 if got != expect:
                     problems.append(
                         f"run-gates.py returned {got} for {label}, and README and "
                         f"the workflow both say {expect}. CI reads the exit code "
                         f"and nothing else."
                     )
+
+        # -- 6. a price is a claim with a date, and a page can be missing ---
+        if not problems:
+            pages = base / PRICE_DIR
+            excs = str(base / fixture.PRICE_EXCEPTIONS_FILE)
+            verdict, _ids, text, _ = run_c23(base, registry, ESTATE_GATES_TODAY="2026-12-10",
+                                             ESTATE_GATES_PRICE_SOURCES=str(pages),
+                                             ESTATE_GATES_PRICE_EXCEPTIONS=excs)
+            if verdict != E.OK or "WARN: Google Vertex AI Gemini 3.8 Flash changes price on 2027-01-01" not in text:
+                problems.append(
+                    "C23 on 2026-12-10, three weeks before a dated Vertex price change, "
+                    f"did not stay clean and print the WARN line (verdict {verdict}).\n{text[-600:]}"
+                )
+            verdict, ids, text, _ = run_c23(base, registry, ESTATE_GATES_TODAY="2027-01-02",
+                                            ESTATE_GATES_PRICE_SOURCES=str(pages),
+                                            ESTATE_GATES_PRICE_EXCEPTIONS=excs)
+            if (E.DRIFT, "c23.price-differs") not in ids or "google/gemini-3.8-flash" not in text:
+                problems.append(
+                    "C23 on 2027-01-02 did not turn the fixture's Gemini row red, though the "
+                    "price it carries ended on 2026-12-31. A dated change nobody acts on must "
+                    "be red the day it lands."
+                )
+            if (E.MISSING, "c23.stale-exception") not in ids or "price-differs:tokenfuse:google/gemini-3.7-flash" not in text:
+                problems.append(
+                    "C23 on 2027-01-02 did not report the Gemini 3.7 exception as stale, though "
+                    "the price it accepted early is in effect from that day, so it excuses nothing."
+                )
+            partial = work / "pages-without-anthropic"
+            shutil.copytree(pages, partial)
+            (partial / "anthropic.html").unlink()
+            verdict, ids, text, est = run_c23(base, registry, ESTATE_GATES_PRICE_SOURCES=str(partial),
+                                              ESTATE_GATES_PRICE_EXCEPTIONS=excs)
+            if verdict != E.UNAVAILABLE or "NOT MEASURED [c23.source-unreachable:anthropic]" not in text \
+                    or "measured nothing for Anthropic" not in text or "Anthropic" not in est.unreachable_sources():
+                problems.append(
+                    "with Anthropic's page unfetchable, C23 did not report NOT MEASURED for "
+                    f"Anthropic and record the source for the runner (verdict {verdict})."
+                )
+            if "c23.row:tokenfuse:claude-sonnet-5-5" in text:
+                problems.append("with Anthropic's page unfetchable, C23 still reported a Claude row as agreeing.")
+            if (E.MISSING, "c23.stale-exception") in ids:
+                problems.append(
+                    "with Anthropic's page unfetchable, C23 called an exception stale. An exception "
+                    "whose subject was not measured was not evaluated, and must say so instead."
+                )
+
+        # -- 6b. a tier row nobody can judge is counted, not summarised as clean
+        #
+        # C23 printed a long-prompt tier row it could not judge as NOT MEASURED,
+        # counted it nowhere, and the runner still said "every subject was
+        # measured" with exit 0. This plants exactly that row and requires the
+        # summary to stop claiming it, while the exit code stays 0.
+        if not problems:
+            problems += unmeasured_row_is_counted(base, work, registry, expectations,
+                                                  "c23.unmeasured-row-public", public=True)
+        if not problems:
+            problems += unmeasured_row_is_counted(base, work, registry, expectations,
+                                                  "c23.unmeasured-row-private", public=False)
+        # -- 6c. a not-judged subject nobody declares is counted, not printed as
+        # a note: a row no source prices, and a Vertex model no table prices.
+        if not problems:
+            problems += undeclared_not_judged_is_counted(
+                base, work, registry, expectations, "c23.undeclared-not-judged-row-public",
+                plant_undeclared_row, "qwen-probe-9")
+        if not problems:
+            problems += undeclared_not_judged_is_counted(
+                base, work, registry, expectations, "c23.undeclared-not-judged-vertex",
+                plant_undeclared_vertex_model, "gemini-3.8-flash")
+        if not problems and sorted(TEETH_RAN) != sorted(TEETH_CASES):
+            problems.append(
+                f"the teeth cases that ran were {TEETH_RAN}, not the {list(TEETH_CASES)} "
+                f"that features/ binds to. A scenario bound to a case that never runs proves nothing."
+            )
+
+        # -- 7. the page readers survive real pages and hostile bytes ------
+        if not problems:
+            problems += price_pages.run()
     finally:
         shutil.rmtree(work, ignore_errors=True)
 
@@ -2618,6 +3249,11 @@ def main() -> int:
     )
     print("    read comes back partial rather than clean.")
     print("    All four of run-gates.py's exit codes were produced by a real run.")
+    print("    C23 warned before a dated price change, went red the day it took effect,")
+    print("    said NOT MEASURED for a page nobody could fetch, and for an undeclared tier")
+    print("    row said PARTIAL with the count, exit 2 in a public repository, exit 3 in a")
+    print("    private one. Its page readers")
+    print("    read the 2026-10-13 pages and survived a seeded sweep of hostile bytes.")
     return 0
 
 

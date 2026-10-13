@@ -719,3 +719,75 @@ Stop and tell the user, then wait:
     and breaks the expression of each, and requires the matching finding every
     time. A comment next to each constant quotes the old value, and the
     baseline must stay green with it.)*
+
+25. **A price is a claim about somebody else's list, true on the day it was
+    copied, so the copy is compared with the list every day.** Measured
+    2026-10-13 (`./run-gates.py --mode ref --ref origin/main --only c23`
+    against tokenfuse `d3e1f65`, verdryx `bef9589`, costcrew `e51de87`): the
+    gateway's book had no row for Claude Haiku 5.5, a current model, and billed
+    it at the 15 / 75 fallback, about 150 times its price; Sonnet 5.5's cache
+    read was 0.20 against 0.10; none of OpenAI's latest models had a row;
+    Gemini 3.x Flash was at its 2027 rate while the introductory one was in
+    force; costcrew carried Sonnet 5 and Opus 5 at their old prices. Every
+    repository was consistent with itself, which is the shape this suite
+    exists for: the other side of the comparison is a vendor's page.
+
+    C23 is the one gate that reads outside the estate. Its subjects still come
+    from `estate.json` (`price_table`: path, format, `every_current_model`,
+    and a `why` when false), its readers live in `gates/_prices.py`, shared
+    with C3 so the gateway's book and verdryx's mirror have one reader each,
+    and its sources are public pages fetched with no key, which costs nothing
+    (invariant 9). A page nobody could fetch is NOT MEASURED and ends the run
+    at exit 2, never 3: `estate.json` can excuse a private repository, and
+    nothing excuses a vendor page that did not answer (invariant 3, extended).
+    A row no source here can judge is declared by cause in
+    `expectations/model-prices.json` (`not-judged-cause:<cause>`, with its
+    explicit row ids), printed on every run as declared not judged, and never
+    counted as measured; a row no cause declares is NOT MEASURED and counted,
+    exit 2 in a public repository. A declared row that is priced now, or gone,
+    is red, so each list can only shrink.
+    A page whose shape stopped parsing is red, because then the reader needs a
+    change. `@claude` 2026-10-13, the matching rules, each a reading rather
+    than a decision anybody stated: a row is compared with the price in effect
+    today; an id naming a regional endpoint pays the premium the vendor's page
+    states, and an id naming none (or a model priced in prompt-length tiers)
+    must equal one of the prices with every component from the same one;
+    "current" is only what a vendor's page marks (Anthropic's rows above
+    "Additional models", OpenAI's latest rows), so Vertex AI's Gemini models
+    are not current-model findings: a Gemini model no table prices is declared
+    by cause or NOT MEASURED against the gateway's book. A missing current model
+    is red rather than a warning, because the fallback bills it at many times
+    its price and this suite has no warning level. Prompt-length tiers are
+    compared on both sides once a table can express them (tokenfuse's
+    `long_context`, from
+    tokenfuse#416): the vendor's threshold, the long price, and no tier the
+    vendor does not have; a flat table may carry either tier.
+
+    **A choice a repository made on purpose is recorded, never absorbed.**
+    `expectations/model-prices.json` holds each one with its reason and its
+    provenance, the bargain invariant 7 makes for the deployments: printed as
+    an EXCEPTION on every run, red as stale once it excuses nothing. The first
+    two are tokenfuse's own (its invariant 99, decisions 2 and 6, themselves
+    `@claude` under delegated authority): Gemini 3.6 to 3.8 Flash at the
+    standard rate that takes effect on 2027-01-01, and the fallback kept below
+    gpt-6-astra's long price. Recording them here is a reading of tokenfuse's
+    record, not a decision of this repository's.
+    A row billed through OpenRouter is held to the providers its
+    `/models/{id}/endpoints` lists, exactly, one provider for every component,
+    and never to OpenRouter's model list: measured 2026-10-13, that list showed
+    DeepInfra's 0.32 / 0.89 for deepseek-chat while StreamLake served the same
+    model at 0.2574 / 1.0287, costcrew's row, so a rule against the list would
+    flap with whichever provider it shows.
+    *(gate: `gates/c23-model-prices-match-the-vendors.py`, fifty-one cases
+    across nine findings in `selftest.py`, among them a price one percent
+    off, a regional profile at the list price, an unnamed-endpoint row and a
+    tiered row each mixing two prices, a dated change taking effect, a tier at
+    the wrong threshold, a tier for a one-rate model, a tiered model with no
+    tier, a row matching no OpenRouter provider or one provider's input and
+    another's output, a model OpenRouter lists no provider for or does not
+    know, each of four page anchors going away, and eight stale or unreadable
+    exceptions; property 6 of `selftest.py` proves the WARN line before a
+    dated change, the red and the stale exception the day after, and NOT
+    MEASURED plus exit 2 for a page nobody could fetch; property 7 runs
+    `selftest/price_pages.py`, the readers against the pages as saved on
+    2026-10-13 and against a seeded sweep of hostile bytes)*

@@ -1,0 +1,27 @@
+{
+ "data": {
+  "id": "deepseek/deepseek-chat",
+  "endpoints": [
+   {
+    "provider_name": "StreamLake",
+    "tag": "streamlake",
+    "status": 0,
+    "pricing": {
+     "prompt": "0.0000002574",
+     "completion": "0.0000010287",
+     "discount": 0.1
+    }
+   },
+   {
+    "provider_name": "DeepInfra",
+    "tag": "deepinfra/fp4",
+    "status": 0,
+    "pricing": {
+     "prompt": "0.00000032",
+     "completion": "0.00000089",
+     "discount": 0
+    }
+   }
+  ]
+ }
+}
