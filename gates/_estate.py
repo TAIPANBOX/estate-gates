@@ -96,6 +96,7 @@ class Estate:
         self.cache = pathlib.Path(cache) if cache else (REPO_ROOT / ".clones")
         self._cloned: dict[str, pathlib.Path | None] = {}
         self._unavailable: dict[str, str] = {}
+        self._unreachable_sources: dict[str, str] = {}
 
     # -- description -------------------------------------------------------
 
@@ -109,6 +110,20 @@ class Estate:
     def unavailable_repos(self) -> dict[str, str]:
         """Repos this run could not read, and why. Read by the runner."""
         return dict(self._unavailable)
+
+    def source_unreachable(self, name: str, why: str) -> None:
+        """Record a source outside the estate (a vendor's price page) that this
+        run could not fetch.
+
+        Kept apart from the repositories because estate.json excuses some of
+        those and none of these: a page nobody could fetch is never the
+        expected shape of a run, so the runner reports it as incomplete (exit
+        2) rather than as the partial run CI treats as success (exit 3).
+        """
+        self._unreachable_sources[name] = why
+
+    def unreachable_sources(self) -> dict[str, str]:
+        return dict(self._unreachable_sources)
 
     # -- resolution --------------------------------------------------------
 

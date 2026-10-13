@@ -706,3 +706,44 @@ Stop and tell the user, then wait:
     *(gate: CI runs `go test` (15 mutants, each caught by a named test, listed
     in the README) and `secretscan tree` on this repository. Other
     repositories are not wired from here, by invariant 5; each wires its own.)*
+
+24. **A price is a claim about somebody else's list, true on the day it was
+    copied, so the copy is compared with the list every day.** Measured
+    2026-10-13 (`./run-gates.py --mode ref --ref origin/main --only c23`
+    against tokenfuse `d3e1f65`, verdryx `bef9589`, costcrew `e51de87`): the
+    gateway's book had no row for Claude Haiku 5.5, a current model, and billed
+    it at the 15 / 75 fallback, about 150 times its price; Sonnet 5.5's cache
+    read was 0.20 against 0.10; none of OpenAI's latest models had a row;
+    Gemini 3.x Flash was at its 2027 rate while the introductory one was in
+    force; costcrew carried Sonnet 5 and Opus 5 at their old prices. Every
+    repository was consistent with itself, which is the shape this suite
+    exists for: the other side of the comparison is a vendor's page.
+
+    C23 is the one gate that reads outside the estate. Its subjects still come
+    from `estate.json` (`price_table`: path, format, `every_current_model`,
+    and a `why` when false), its readers live in `gates/_prices.py`, shared
+    with C3 so the gateway's book and verdryx's mirror have one reader each,
+    and its sources are public pages fetched with no key, which costs nothing
+    (invariant 9). A page nobody could fetch is NOT MEASURED and ends the run
+    at exit 2, never 3: `estate.json` can excuse a private repository, and
+    nothing excuses a vendor page that did not answer (invariant 3, extended).
+    A page whose shape stopped parsing is red, because then the reader needs a
+    change. `@claude` 2026-10-13, the matching rules, each a reading rather
+    than a decision anybody stated: a row is compared with the price in effect
+    today; an id naming a regional endpoint pays the premium the vendor's page
+    states, and an id naming none (or a model priced in prompt-length tiers)
+    must equal one of the prices with every component from the same one;
+    "current" is only what a vendor's page marks (Anthropic's rows above
+    "Additional models", OpenAI's latest rows), so Vertex AI's Gemini models
+    are listed and not judged; a missing current model is red rather than a
+    warning, because the fallback bills it at many times its price and this
+    suite has no warning level.
+    *(gate: `gates/c23-model-prices-match-the-vendors.py`, thirty cases across
+    seven findings in `selftest.py`, among them a price one percent off, a
+    regional profile at the list price, an unnamed-endpoint row and a tiered
+    row each mixing two prices, a dated change taking effect, and each of four
+    page anchors going away; property 6 of `selftest.py` proves the WARN line
+    before a dated change, the red the day after, and NOT MEASURED plus exit 2
+    for a page nobody could fetch; property 7 runs `selftest/price_pages.py`,
+    the readers against the pages as saved on 2026-10-13 and against a seeded
+    sweep of hostile bytes)*

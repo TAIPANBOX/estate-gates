@@ -114,5 +114,5 @@ jobs:
       - name: What an incomplete run means
         if: failure() && steps.gates.outputs.code == '2'
         run: |
-          echo "::error title=Incomplete run::A repository that should have been reachable was not, so some comparisons were never made. An unread repository is not a clean one."
+          echo "::error title=Incomplete run::A repository that should have been reachable was not, or a vendor price page C23 reads could not be fetched, so some comparisons were never made. An unread subject is not a clean one."
           exit 1

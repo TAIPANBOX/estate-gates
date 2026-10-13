@@ -11,8 +11,9 @@ EXIT CODES, and why there are four of them
   0  every subject was measured and every comparison agrees.
   1  at least one comparison disagrees. The estate drifted.
   2  nothing disagrees, but a repository that SHOULD have been reachable was
-     not. An unread repository is not a clean one, and this is the code that
-     says so.
+     not, or a source outside the estate (a vendor's price page, read by C23)
+     could not be fetched. An unread subject is not a clean one, and this is
+     the code that says so.
   3  nothing disagrees, and the only unread repositories are the ones
      estate.json records as having no public remote (bank-in-a-box today).
      CI treats 3 as success and prints what went unmeasured. It is a separate
@@ -116,6 +117,10 @@ def main() -> int:
         if not estate.repos.get(r, {}).get("github")
     }
     unexpected_unread = {r: why for r, why in unread.items() if r not in expected_unread}
+    # A source outside the estate is never excused: estate.json can record why a
+    # repository has no public remote, and nothing records why a vendor's page
+    # did not answer. So an unreachable source is incomplete, never exit 3.
+    sources = estate.unreachable_sources()
 
     reds = [k for k, v, _ in results if v in (E.DRIFT, E.MISSING)]
     partials = [k for k, v, _ in results if v == E.UNAVAILABLE]
@@ -138,6 +143,12 @@ def main() -> int:
             print(f"  {repo}: {why}")
         print()
 
+    if sources:
+        print("Sources outside the estate this run could not fetch:")
+        for name, why in sorted(sources.items()):
+            print(f"  {name}: {why}")
+        print()
+
     if reds:
         print(f"{len(reds)} of {len(results)} gates found the estate drifted: "
               f"{', '.join(reds)}.")
@@ -146,10 +157,11 @@ def main() -> int:
         print("repository is broken.")
         return E.EXIT_DRIFT
 
-    if unexpected_unread:
+    if unexpected_unread or sources:
         print(f"No gate found a disagreement, and {len(unexpected_unread)} "
-              f"repository/ies that should have been reachable were not.")
-        print("Nothing here reports clean about a repository it never opened.")
+              f"repository/ies that should have been reachable were not, and "
+              f"{len(sources)} source(s) outside the estate could not be fetched.")
+        print("Nothing here reports clean about a subject it never opened.")
         return E.EXIT_INCOMPLETE
 
     if partials:

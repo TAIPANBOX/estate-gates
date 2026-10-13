@@ -40,7 +40,13 @@
     "NOT prefixed by its own name (agent-stack-go publishes agent-conform, a",
     "command inside the module). C20 owns an image by the longest repository-name",
     "prefix; this field is the explicit exception, exact names only, and a name",
-    "another repository also owns is c20.image-ambiguous."
+    "another repository also owns is c20.image-ambiguous.",
+    "",
+    "'price_table' marks a built-in model price table C23 compares with the vendors'",
+    "own pages every day: 'path', 'format' (one of the readers in gates/_prices.py),",
+    "and 'every_current_model', true for a table that must price every model a",
+    "vendor's page marks current (the gateway's book), false with a 'why' for one",
+    "that must not (a mirror, or a console pricing only its own catalogue)."
   ],
   "repos": {
     "agent-passport": {
@@ -80,7 +86,12 @@
         "focus-export"
       ],
       "major": 1,
-      "request_path": true
+      "request_path": true,
+      "price_table": {
+        "path": "contracts/tokenfuse-constants.json",
+        "format": "tokenfuse-constants",
+        "every_current_model": true
+      }
     },
     "verdryx": {
       "github": "TAIPANBOX/verdryx",
@@ -89,7 +100,13 @@
       "runs": [
         "verdryx-drift",
         "verdryx"
-      ]
+      ],
+      "price_table": {
+        "path": "verdryx/pricing.py",
+        "format": "verdryx-pricebook",
+        "every_current_model": false,
+        "why": "a by-value mirror of the gateway's book; C3 holds it to that book row for row, so its coverage is the gateway's"
+      }
     },
     "engram": {
       "github": "TAIPANBOX/engram",
@@ -210,7 +227,13 @@
       "runs": [
         "costcrew",
         "costcrew-run"
-      ]
+      ],
+      "price_table": {
+        "path": "internal/engines/prices.go",
+        "format": "go-price-map",
+        "every_current_model": false,
+        "why": "prices only the models its engine catalogue offers, and its estimator refuses any other model rather than pricing it"
+      }
     },
     "catalog": {
       "github": "TAIPANBOX/catalog",

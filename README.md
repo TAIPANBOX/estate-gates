@@ -495,6 +495,42 @@ wardryx) names a repository marked `"addon": true`, or any component its
 an add-on is wired, by configuration, and are not read. It does not catch a
 dependency that never spells the name, such as a hard-coded address or port.
 
+**C23, every built-in model price table matches the vendors' current prices**
+(`gates/c23-model-prices-match-the-vendors.py`, readers in `gates/_prices.py`).
+On 2026-10-13 the gateway's book had no row for Claude Haiku 5.5, a current
+model at 0.10 / 0.50 per million tokens, so the gateway billed it at the 15 /
+75 fallback; its Sonnet 5.5 cache read was 0.20 where the page said 0.10; it
+had none of OpenAI's latest models; it priced Gemini 3.x Flash at the 2027
+rate while the introductory rate was in force; and costcrew carried Sonnet 5
+and Opus 5 at their old prices. A price is a claim about somebody else's list,
+and nothing compared the copy with the list. This gate does, in the existing
+daily run. Subjects come from `estate.json`: each repository declaring a
+`price_table` (path, format, and whether it must price every current model).
+It reads, live and with no key, Anthropic's pricing page (the model table by
+its column headers, and the sentence stating the regional premium), OpenAI's
+(the text-token table marked tier `standard`, read in the order its own
+headings state), and Vertex AI's (the Standard tabs under "Google models",
+Global and Non-global rows, dated rows). OpenRouter's model list is the price
+for a row billed through OpenRouter and a secondary signal for the rest, from
+each model's own vendor endpoint row; where it disagrees with a vendor page,
+the page wins and the disagreement is printed. A row is compared with the
+price in effect today: an id naming the global endpoint with the list, one
+naming a regional endpoint with the list plus the stated premium, and one
+naming no endpoint (or a model priced in prompt-length tiers) must equal one
+of the prices, every component from the same one. Only components both sides
+state are compared, within half a percent. A dated change within 30 days is a
+WARN line on every run, and red the day it takes effect. Red for: a price
+that differs (with the row as it should read), a model the vendor's page marks
+current missing from a table declared to price every current model (with the
+row to add), a fallback below a current model's price, a page whose shape no
+longer parses, a table that cannot be read, a table none of whose rows maps to
+a vendor price, and no declaration at all. A page that could not be fetched is
+NOT MEASURED and the run ends incomplete (exit 2), never partial. "Current" is
+what the vendor's page marks: Anthropic's rows above "Additional models",
+OpenAI's latest rows; Vertex AI marks none, so an unpriced Gemini model is
+listed every run and not judged. It does not read Bedrock's, DeepSeek's or
+AWS's own price lists, so rows priced from those are listed as not judged.
+
 ## Running it
 
 Locally, against the sibling checkouts in the parent directory:
@@ -519,7 +555,8 @@ tree mid-edit will report drift that is somebody's uncommitted fix, and
 `origin/main` answers the question the nightly run answers.
 
 Exit codes: `0` clean and complete, `1` the estate drifted, `2` a repository
-that should have been reachable was not, `3` clean but some repository with no
+that should have been reachable was not, or a vendor price page C23 reads could
+not be fetched, `3` clean but some repository with no
 public remote went unread. CI treats 3 as success with a notice and fails on
 everything else.
 
@@ -563,6 +600,11 @@ covered one.
   asked. Noticed 2026-08-09 while adding scopyx; not modelled, because a family
   for it would have to distinguish "opt-in for a security reason" from "not
   wired up yet", and those look identical from the outside.
+- **Prices nobody publishes where C23 reads.** Bedrock's and AWS's own price
+  lists, DeepSeek's page, and the data residency multipliers of first-party
+  APIs. Rows priced from those are printed as not judged on every run, and a
+  vendor page is the source of truth by definition: C23 cannot tell a wrong
+  page from a right one.
 - **The estate's OWN gates.** Nothing here checks that the per-repo gates
   still run or still mean what they say. That belongs to each repository.
 - **A coverage statement.** `estate.json` lists the estate, and there is no
