@@ -73,6 +73,15 @@ tier recorded off the page that the page does show. The two teeth cases,
 c23.unmeasured-row-public and c23.unmeasured-row-private, are not MUTATIONS and
 are not counted in that number.
 
+@measured `./selftest.py` 2026-10-13, at c22bf2a (feat/price-drift merged with origin/main at
+607fc74): 271 broken estates and 158 FAIL paths, exit 0. The same command at 490d347 gave 261
+and 156, the same day. The difference is this change's three c23.stale-exception mutations (a
+not-judged cause that names a row no table has, one that names a row the table now prices, and
+one whose id is not repo:row) and origin/main's C3 argument-cap cases (seven mutations, and the
+finding ids c3.argcap-differ and c3.argcap-unreadable). The two new teeth cases,
+c23.undeclared-not-judged-row-public and c23.undeclared-not-judged-vertex, are not counted.
+Only a docstring line changed after that run.
+
 WHAT THIS DOES NOT PROVE
 
 That the fixture still looks like the real estate. It cannot: the fixture is
