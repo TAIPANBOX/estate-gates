@@ -8,9 +8,10 @@ and it is the only place that decides what an INCOMPLETE run means.
 
 EXIT CODES, and why there are four of them
 
-  0  every comparison agrees, and every subject was measured or is listed as not
-     judged. A subject that a source states no price for is listed by name as not
-     judged, and then the summary does not say every subject was measured.
+  0  every comparison agrees, and every subject was measured or declared not
+     judged by a recorded cause that names it by id (C23's expectations file). A
+     declared subject is listed by name and counted apart, and then the summary
+     says every subject was measured or declared, not that every one was measured.
   1  at least one comparison disagrees. The estate drifted.
   2  nothing disagrees, but a repository that SHOULD have been reachable was not,
      or a source outside the estate (a vendor's price page, read by C23) could
@@ -118,7 +119,7 @@ def main() -> int:
             counted[check.key] = check.unmeasured_count
         for repo, n in check.unmeasured_by_repo.items():
             row_gaps[repo] = row_gaps.get(repo, 0) + n
-        not_judged += check.not_judged_count
+        not_judged += check.declared_not_judged_count
         print("-" * 78)
         print()
 
@@ -204,8 +205,9 @@ def main() -> int:
         return EXIT_PARTIAL_EXPECTED
 
     if not_judged:
-        print(f"All {len(results)} gates clean. {not_judged} subject(s) are listed as not "
-              f"judged above, so this run does not claim full coverage.")
+        print(f"All {len(results)} gates clean. {not_judged} subject(s) are declared not "
+              f"judged above, each with the cause that declares it, so every subject was "
+              f"measured or declared.")
         return E.EXIT_CLEAN
 
     print(f"All {len(results)} gates clean, and every subject was measured.")

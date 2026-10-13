@@ -2297,8 +2297,9 @@ PRICE_SOURCES = {
 }
 
 
-#: C23's exceptions file for the fixture: the two kinds, each in use, so the
-#: baseline proves an applied exception is printed and not red.
+#: C23's exceptions file for the fixture: each kind in use, so the baseline proves
+#: an applied exception is printed and not red, and that a declared not-judged
+#: row is counted apart from the comparisons and is not PARTIAL.
 PRICE_EXCEPTIONS = {
     "exceptions": {
         "price-differs:tokenfuse:google/gemini-3.7-flash": {
@@ -2315,6 +2316,18 @@ PRICE_EXCEPTIONS = {
         },
         "fallback-below-current:tokenfuse:gpt-6-sol": {
             "why": "fixture: raising the fallback moves every unknown model's price",
+            "recorded": "2026-10-13",
+            "provenance": "fixture",
+        },
+        "not-judged-cause:no-reader-aws-nova": {
+            "rows": ["costcrew:bedrock/eu.amazon.nova-micro-v1:0"],
+            "why": "fixture: no reader in this gate prices AWS's Nova list, so resolve() names no vendor for the id",
+            "recorded": "2026-10-13",
+            "provenance": "fixture",
+        },
+        "not-judged-cause:family-name-not-on-page": {
+            "rows": ["tokenfuse:claude-haiku", "verdryx:claude-haiku"],
+            "why": "fixture: the vendor page names no model called claude-haiku",
             "recorded": "2026-10-13",
             "provenance": "fixture",
         },

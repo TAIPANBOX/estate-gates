@@ -48,7 +48,11 @@ And one more that belongs to rule 2 rather than rule 1:
      cannot judge and no exception declares is counted, and the summary says
      PARTIAL with the number: exit 2 in a repository with a public remote, exit 3
      in one with none. The summary never says every subject was measured while
-     one is counted.
+     one is counted. A row no source prices, and a Vertex model no table prices,
+     must be declared by cause (expectations/model-prices.json, its explicit
+     row ids); one no cause declares is counted the same way, and the two
+     teeth cases c23.undeclared-not-judged-row-public and
+     c23.undeclared-not-judged-vertex prove it.
   7. THE PAGE READERS SURVIVE THE PAGES. The readers are run against the
      vendor pages as saved on 2026-10-13 and against a seeded sweep of hostile
      bytes (selftest/price_pages.py).
@@ -271,7 +275,12 @@ def run_runner(
 #: features/c23-model-prices-match-the-vendors.feature can bind a scenario to
 #: each one (scripts/features-are-bound.sh reads this tuple), and TEETH_RAN
 #: proves main() actually ran every name it lists.
-TEETH_CASES = ("c23.unmeasured-row-public", "c23.unmeasured-row-private")
+TEETH_CASES = (
+    "c23.unmeasured-row-public",
+    "c23.unmeasured-row-private",
+    "c23.undeclared-not-judged-row-public",
+    "c23.undeclared-not-judged-vertex",
+)
 TEETH_RAN: list[str] = []
 
 
@@ -347,6 +356,94 @@ def unmeasured_row_is_counted(
         problems.append(
             f"{name}: with one unjudged tier row, the summary did not say PARTIAL with the "
             f"number 1. The summary ends:\n{out[-600:]}"
+        )
+    return problems
+
+
+def plant_undeclared_row(case: pathlib.Path) -> None:
+    """A base row in the gateway's book for an id no source here reads: a
+    row that is not judged and that no recorded cause declares."""
+    path = case / TF_ART
+    book = json.loads(path.read_text(encoding="utf-8"))
+    book["price_book"]["models"].append({
+        "model": "qwen-probe-9",
+        "input_per_mtok_microusd": 1000000,
+        "output_per_mtok_microusd": 2000000,
+        "cache_read_per_mtok_microusd": 100000,
+        "cache_write_per_mtok_microusd": 1250000,
+    })
+    path.write_text(json.dumps(book, indent=2) + "\n", encoding="utf-8")
+
+
+def plant_undeclared_vertex_model(case: pathlib.Path) -> None:
+    """Take Gemini 3.8 Flash out of the gateway's book AND the mirror: the
+    fixture's Vertex page still lists it, and no table then prices it, so it
+    is a Vertex model not judged that no recorded cause declares."""
+    path = case / TF_ART
+    book = json.loads(path.read_text(encoding="utf-8"))
+    book["price_book"]["models"] = [
+        m for m in book["price_book"]["models"] if m.get("model") != "google/gemini-3.8-flash"
+    ]
+    path.write_text(json.dumps(book, indent=2) + "\n", encoding="utf-8")
+    mirror = case / "verdryx" / "verdryx" / "pricing.py"
+    lines = mirror.read_text(encoding="utf-8").splitlines(keepends=True)
+    kept = [ln for ln in lines if 'with_price("google/gemini-3.8-flash"' not in ln]
+    mirror.write_text("".join(kept), encoding="utf-8")
+
+
+def undeclared_not_judged_is_counted(
+    base: pathlib.Path,
+    work: pathlib.Path,
+    registry: pathlib.Path,
+    expectations: pathlib.Path,
+    name: str,
+    plant,
+    subject: str,
+) -> list[str]:
+    """An undeclared subject C23 cannot judge is counted, and the run is PARTIAL.
+
+    Until 2026-10-13 a row no source priced (or whose vendor listed no such
+    model) was printed as "not judged" and counted nowhere: exit 0, and the
+    summary still said the run did not claim full coverage without making it
+    red. Now a not-judged subject must be declared by a cause in
+    expectations/model-prices.json with its explicit id; an undeclared one is
+    NOT MEASURED, counted against its repository, and ends the run as PARTIAL
+    with exit 2 in a repository with a public remote. `plant` makes exactly
+    one such subject in a copy of the fixture, and `subject` is the id the
+    run must name. The untouched fixture is run first, so the planted subject
+    is the only reason for what follows.
+    """
+    TEETH_RAN.append(name)
+    problems: list[str] = []
+    clean = run_runner_proc(base, registry, expectations, "c23")
+    if clean.returncode != 0:
+        return [
+            f"{name}: C23 on the untouched fixture did not come back clean through "
+            f"run-gates.py (exit {clean.returncode}). The planted subject cannot be the "
+            f"only cause of what follows until it does.\n{clean.stdout[-600:]}"
+        ]
+    case = work / name
+    shutil.copytree(base, case)
+    plant(case)
+    done = run_runner_proc(case, registry, expectations, "c23")
+    out = done.stdout
+    if done.returncode != 2:
+        problems.append(
+            f"{name}: with {subject} not judged and declared by no cause, run-gates.py exited "
+            f"{done.returncode}, not 2. An undeclared not-judged subject is never clean: exit 2 "
+            f"for a repository with a public remote."
+        )
+    if "every subject was measured" in out:
+        problems.append(
+            f"{name}: with {subject} not judged and declared by no cause, run-gates.py still "
+            f"printed 'every subject was measured'."
+        )
+    if "NOT MEASURED" not in out or subject not in out:
+        problems.append(f"{name}: {subject} was not named as NOT MEASURED in the run's output.")
+    if "PARTIAL: 1 " not in out:
+        problems.append(
+            f"{name}: with one undeclared not-judged subject, the summary did not say PARTIAL "
+            f"with the number 1. The summary ends:\n{out[-600:]}"
         )
     return problems
 
@@ -2668,6 +2765,22 @@ MUTATIONS: dict[str, list[tuple[str, callable]]] = {
                 "price_from": "2027-01-01", "why": "x", "recorded": "2026-10-13", "provenance": "x"}})),
         ),
         (
+            # A declared not-judged row that no table carries: the cause's list
+            # must shrink with the table, so the id it names excuses nothing.
+            "a not-judged cause that names a row no table has",
+            lambda r: price_exceptions(r, lambda e: e["not-judged-cause:family-name-not-on-page"]["rows"].append("tokenfuse:claude-opus-9")),
+        ),
+        (
+            # The declared id is priced now: its row is judged, so the cause
+            # no longer describes it and must be removed.
+            "a not-judged cause that names a row the table now prices",
+            lambda r: price_exceptions(r, lambda e: e["not-judged-cause:family-name-not-on-page"]["rows"].append("tokenfuse:claude-haiku-5-5")),
+        ),
+        (
+            "a not-judged cause that names a row id which is not repo:row",
+            lambda r: price_exceptions(r, lambda e: e["not-judged-cause:family-name-not-on-page"]["rows"].append("claude-opus-9")),
+        ),
+        (
             # OpenAI's page states gpt-6-astra's long-prompt price, so a
             # declaration that the page shows no tier for it excuses nothing.
             "a tier declared off the page for a tier the page does show",
@@ -3023,6 +3136,16 @@ def main() -> int:
         if not problems:
             problems += unmeasured_row_is_counted(base, work, registry, expectations,
                                                   "c23.unmeasured-row-private", public=False)
+        # -- 6c. a not-judged subject nobody declares is counted, not printed as
+        # a note: a row no source prices, and a Vertex model no table prices.
+        if not problems:
+            problems += undeclared_not_judged_is_counted(
+                base, work, registry, expectations, "c23.undeclared-not-judged-row-public",
+                plant_undeclared_row, "qwen-probe-9")
+        if not problems:
+            problems += undeclared_not_judged_is_counted(
+                base, work, registry, expectations, "c23.undeclared-not-judged-vertex",
+                plant_undeclared_vertex_model, "gemini-3.8-flash")
         if not problems and sorted(TEETH_RAN) != sorted(TEETH_CASES):
             problems.append(
                 f"the teeth cases that ran were {TEETH_RAN}, not the {list(TEETH_CASES)} "

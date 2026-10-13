@@ -89,6 +89,15 @@ EXCEPTION on every run, never a silent pass; one that excuses nothing in a
 run where its subject was measured is red, so the dated one goes red the day
 its price takes effect and has to be removed, and none can outlive its reason.
 
+NOT JUDGED ROWS BY CAUSE. A row no source here prices, and a model Vertex AI
+lists that no table prices, is judged by nobody. The same file declares each
+such group under `not-judged-cause:<cause>`, with the explicit list of its
+row ids (`<repo>:<row>`, or `google-vertex:<model>`) and a reason a later run
+can re-derive. A declared row is printed under its cause and counted apart
+from the comparisons, so the run says every subject was measured or declared.
+A row no cause declares is NOT MEASURED and counted, exactly as an undeclared
+tier row is. A cause that names a row this run judged, or that is gone, is red.
+
 WHAT COUNTS AS A FAILURE
 
   c23.price-differs            a row disagrees with the vendor beyond half a
@@ -114,17 +123,21 @@ WHAT COUNTS AS A FAILURE
                                measured nothing for that table
   c23.stale-exception          a recorded exception excused nothing (its row
                                agrees, matches neither price, or is gone; its
-                               date has passed), or it cannot be read
+                               date has passed), a not-judged cause names a row
+                               this run judged or did not find, or the file
+                               cannot be read
   c23.no-subjects              no repository declares a price table
 
 A page nobody could FETCH is NOT MEASURED, never OK, and the runner exits 2 for
 it (a repository estate.json excuses may end a run at 3; a vendor page never).
-A row that no source here can judge, and that no recorded exception declares,
-is NOT MEASURED too, counted against its repository: exit 2 where that
-repository has a public remote, exit 3 where it has none. A row whose source
-states no price for it, or whose vendor lists no such model, is "not judged":
-listed by name, never counted, and the run does not say every subject was
-measured while one is listed.
+A row that no source here can judge is NOT MEASURED too, counted against its
+repository: exit 2 where that repository has a public remote, exit 3 where it
+has none. A row whose source states no price for it, or whose vendor lists no
+such model, is "not judged", and it is NOT MEASURED too unless a recorded cause
+declares it not judged, by its explicit id. A declared row is printed under its
+cause and counted apart from the comparisons; the run then says every subject
+was measured or declared, never that every subject was measured while one is
+declared.
 
 WHY A MISSING CURRENT MODEL IS RED AND NOT A WARNING
 
@@ -136,7 +149,8 @@ money that was never spent is a wrong answer about money, the class this
 estate gates hardest. "Current" is what the vendor's own page marks: the rows
 above Anthropic's "Additional models" group, and the first
 collapsedLatestRowCount rows of OpenAI's standard table. Vertex marks no set,
-so a Gemini model no table prices is listed every run, not judged. Older
+so a Gemini model no table prices is not a current-model finding: it is declared
+by cause, or NOT MEASURED against the gateway's book. Older
 models a vendor still lists are printed, not red. Only tables declared
 `every_current_model: true` are asked (the gateway's book); costcrew prices
 its own engine catalogue and refuses anything else, and verdryx's mirror is
@@ -249,6 +263,11 @@ class Table:
 
 EXCEPTIONS_DEFAULT = E.REPO_ROOT / "expectations" / "model-prices.json"
 _EXCEPTION_KEY = re.compile(r"^(price-differs|fallback-below-current|tier-not-on-page):([^:\s]+):(\S+)$")
+_CAUSE_KEY = re.compile(r"^not-judged-cause:([a-z0-9][a-z0-9-]*)$")
+_ROW_ID = re.compile(r"^[A-Za-z0-9._-]+:\S+$")
+#: The row-id prefix of a Google Vertex AI model. Vertex belongs to no repository,
+#: so its ids are `google-vertex:<model>` and it is attributed to the gateway's book.
+VERTEX_ROWS = "google-vertex"
 
 
 class Exceptions:
@@ -281,6 +300,11 @@ class Exceptions:
         self.entries: dict[str, dict] = {}
         self.seen: set[str] = set()
         self.used: set[str] = set()
+        #: `not-judged-cause:<cause>` entries: each names the rows it declares
+        #: not judged, explicitly, as `<repo>:<row>` (or `google-vertex:<model>`).
+        self.causes: dict[str, dict] = {}
+        self.row_cause: dict[str, str] = {}
+        self.declared_now: set[str] = set()
         if not self.path.is_file():
             c.note(f"No exceptions file at {self.path}: no disagreement below is excused.")
             return
@@ -297,11 +321,43 @@ class Exceptions:
             )
             return
         for key, entry in sorted(entries.items()):
+            if key.startswith("not-judged-cause:"):
+                problem = self._cause_problem(key, entry, self.row_cause)
+                if problem:
+                    c.missing("c23.stale-exception", f"the exception {key!r} {problem}.", [f"  file: {self.path}"])
+                    continue
+                self.causes[key] = entry
+                for rid in entry["rows"]:
+                    self.row_cause[rid] = key
+                continue
             problem = self._problem(key, entry, day)
             if problem:
                 c.missing("c23.stale-exception", f"the exception {key!r} {problem}.", [f"  file: {self.path}"])
                 continue
             self.entries[key] = entry
+
+    @staticmethod
+    def _cause_problem(key: str, entry, claimed: dict[str, str]) -> str | None:
+        if not _CAUSE_KEY.match(key):
+            return "is not keyed `not-judged-cause:<cause>`"
+        if not isinstance(entry, dict):
+            return "is not an object"
+        for field in ("why", "recorded", "provenance"):
+            if not str(entry.get(field, "")).strip():
+                return f"has no `{field}`"
+        rows = entry.get("rows")
+        if not isinstance(rows, list) or not rows:
+            return "names no `rows`: the explicit list of row ids it declares not judged"
+        listed: set[str] = set()
+        for rid in rows:
+            if not isinstance(rid, str) or not _ROW_ID.match(rid):
+                return f"names a row id that is not `<repo>:<row>`: {rid!r}"
+            if rid in listed:
+                return f"lists {rid!r} twice"
+            if rid in claimed:
+                return f"declares {rid!r}, which the cause {claimed[rid]!r} already declares"
+            listed.add(rid)
+        return None
 
     @staticmethod
     def _problem(key: str, entry, day: datetime.date) -> str | None:
@@ -346,6 +402,41 @@ class Exceptions:
                 )
             else:
                 c.note(f"exception {key}: its subject was not measured this run, so it was not evaluated.")
+
+    def cause_of(self, rid: str) -> str | None:
+        """The cause that declares this row not judged, or None. Asked only of a
+        row this run found not judged, so an answer marks that row declared."""
+        cause = self.row_cause.get(rid)
+        if cause:
+            self.declared_now.add(rid)
+        return cause
+
+    def finish_causes(self, c: E.Check, evaluable_row) -> None:
+        """Each cause prints the rows it declared, as a declared not-judged count.
+        A row a cause names that this run did NOT find not judged is red when its
+        subject was measured: it is priced now, or gone, and the list must shrink."""
+        for key in sorted(self.causes):
+            entry = self.causes[key]
+            named = [rid for rid in entry["rows"] if rid in self.declared_now]
+            for rid in entry["rows"]:
+                if rid in self.declared_now:
+                    continue
+                if evaluable_row(rid):
+                    c.missing(
+                        "c23.stale-exception",
+                        f"the exception {key!r} declares {rid} not judged, but this run did not find it "
+                        f"not judged: its price is in a table or a source now, or the row is gone. "
+                        f"Remove that id from the cause's rows.",
+                        [f"  file: {self.path}", f"  why it was recorded: {entry['why']}"],
+                    )
+                else:
+                    c.note(f"exception {key}: {rid} was not evaluated this run, because its subject was not measured.")
+            if named:
+                c.declared_not_judged(
+                    len(named),
+                    f"EXCEPTION {key}: {len(named)} row(s) declared not judged, named here: "
+                    f"{', '.join(named)}. {entry['why']} (recorded {entry['recorded']}; {entry['provenance']}).",
+                )
 
 
 # ----------------------------------------------------------- row printing
@@ -525,7 +616,8 @@ def run(estate: E.Estate) -> E.Check:
         return c
 
     resolved = {t.repo: {k: P.resolve(k) for k in set(t.rows) | set(t.long or {})} for t in tables}
-    needed = sorted({tg.vendor for rs in resolved.values() for tg in rs.values() if tg and tg.vendor != "openrouter"})
+    # Google is always read: the Vertex check below must not go silent because no table prices Gemini.
+    needed = sorted({tg.vendor for rs in resolved.values() for tg in rs.values() if tg and tg.vendor != "openrouter"} | {"google"})
     vendors, unmeasured = _fetch_vendors(c, estate, fetch, needed)
 
     compared: dict[tuple[str, str], P.Vendor] = {}
@@ -661,10 +753,23 @@ def run(estate: E.Estate) -> E.Check:
                     continue
                 if not _differs(c, t, key, row, v, label, same, exc, ekey, "long", day, above):
                     failed_models.add((tg.vendor, tg.model))
-        if nosource:
-            c.not_judged(len(nosource), f"{t.repo}: {len(nosource)} row(s) no source here prices, not judged: {', '.join(nosource)}.")
-        if notlisted:
-            c.not_judged(len(notlisted), f"{t.repo}: {len(notlisted)} row(s) whose vendor page lists no such model, not judged: {', '.join(notlisted)}.")
+        # A row no source here prices, or whose vendor lists no such model, is
+        # judged by nobody. A recorded cause declares it so (printed, not counted);
+        # one no cause declares is NOT MEASURED, counted against its repository.
+        undeclared = [
+            name for name in nosource + notlisted
+            if exc.cause_of(f"{t.repo}:{name.removesuffix(' (tier)')}") is None
+        ]
+        if undeclared:
+            c.unmeasured(
+                t.repo,
+                len(undeclared),
+                f"c23.not-judged-undeclared:{t.repo}",
+                f"{t.repo}: {len(undeclared)} row(s) NOT MEASURED: no source here prices them, or their vendor "
+                f"lists no such model, and no recorded cause declares them not judged: {', '.join(undeclared)}. "
+                f"Price each one, or declare it in expectations/model-prices.json under a not-judged cause "
+                f"with its id.",
+            )
         if unjudged:
             c.unmeasured(
                 t.repo,
@@ -792,11 +897,31 @@ def run(estate: E.Estate) -> E.Check:
     # -- secondary signal --------------------------------------------------------
     _secondary(c, estate, fetch, vendors, sorted((k for k in compared if k[0] in P.FIRST_PARTY_TAG and (k in failed_models or k[1] in (vendors[k[0]].current or [])))), day)
 
-    if vendors.get("google") and any(t.every_current for t in tables):
+    if vendors.get("google"):
         priced_google = {tg.model for rs in resolved.values() for tg in rs.values() if tg and tg.vendor == "google"}
         unpriced = sorted(set(vendors["google"].models) - priced_google)
-        if unpriced:
-            c.not_judged(len(unpriced), f"Google Vertex AI: {len(unpriced)} model(s) no table prices, listed and not judged: {', '.join(unpriced)}.")
+        # The gateway's book bills a Gemini call, so an unpriced Vertex model is counted
+        # against it (the mirror is held to that book row for row by C3). With no
+        # every-current table at all, against every table.
+        billers = [t.repo for t in tables if t.every_current] or [t.repo for t in tables]
+        for mid in unpriced:
+            if exc.cause_of(f"{VERTEX_ROWS}:{mid}") is None:
+                for repo in billers:
+                    c.unmeasured(
+                        repo,
+                        1,
+                        f"c23.not-judged-undeclared:google:{mid}",
+                        f"{repo}: Google Vertex AI lists {mid} and no price table prices it, and no recorded "
+                        f"cause declares it not judged: NOT MEASURED. Add a row for it, or declare it in "
+                        f"expectations/model-prices.json under a not-judged cause with its id.",
+                    )
+
+    def evaluable_row(rid: str) -> bool:
+        if rid.split(":", 1)[0] == VERTEX_ROWS:
+            return "google" in vendors and not unmeasured
+        return rid.split(":", 1)[0] in read_repos and not unmeasured
+
+    exc.finish_causes(c, evaluable_row)
     return c
 
 

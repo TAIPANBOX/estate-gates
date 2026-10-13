@@ -78,6 +78,15 @@ Feature: Every built-in model price table matches the vendors' current prices
     Then the exception is refused as stale, because a choice nobody needs any more must be removed
     And while it still applies it is printed as an EXCEPTION on every run, never passed in silence
 
+  @fires:c23.stale-exception
+  Scenario: A row nobody can price is declared by its cause, and the declaration goes stale when the row is priced
+    Given a row no source here can price, or whose vendor lists no such model
+    And a recorded cause names that row by its id, with a reason a later run can re-derive
+    When the estate is read and the row is still not judged
+    Then the run prints the row under its cause as declared not judged, counted apart from the comparisons that agreed
+    And the run exits 0 when nothing else is red, and the summary says every subject was measured or declared
+    But when the row is priced now, or is gone, the cause is refused as stale until that id is removed
+
   @fires:c23.current-model-missing
   Scenario: A current model has no row in the gateway's book
     Given a vendor's page marks a model as current
@@ -133,6 +142,23 @@ Feature: Every built-in model price table matches the vendors' current prices
     When the estate is read
     Then the row is printed NOT MEASURED and counted, and the summary says PARTIAL with the number
     And the run exits 3, the code CI reads as success for the expected partial
+
+  @teeth:c23.undeclared-not-judged-row-public
+  Scenario: A row no source prices, that no cause declares, is counted and the run is incomplete
+    Given a declared price table in a repository with a public remote
+    And one of its rows is priced from no source this gate reads, or its vendor lists no such model
+    And no recorded cause declares that row not judged
+    When the estate is read
+    Then the row is printed NOT MEASURED and counted, and the summary says PARTIAL with the number
+    And the run exits 2, never 0, and the summary does not say every subject was measured
+
+  @teeth:c23.undeclared-not-judged-vertex
+  Scenario: A Gemini model Vertex AI lists that no table prices, and no cause declares, is counted against the gateway's book
+    Given Google Vertex AI's page lists a model that no declared price table prices
+    And no recorded cause declares that model not judged
+    When the estate is read
+    Then the model is printed NOT MEASURED and counted against the gateway's book, and the summary says PARTIAL with the number
+    And the run exits 2, never 0
 
   @fires:c23.stale-exception
   Scenario: A tier recorded as off the vendor's page stops describing anything

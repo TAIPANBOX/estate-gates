@@ -313,7 +313,7 @@ class Check:
         self.measured = 0
         self.unmeasured_count = 0
         self.unmeasured_by_repo: dict[str, int] = {}
-        self.not_judged_count = 0
+        self.declared_not_judged_count = 0
 
     # -- findings ----------------------------------------------------------
 
@@ -362,13 +362,15 @@ class Check:
         self.unmeasured_by_repo[repo] = self.unmeasured_by_repo.get(repo, 0) + count
         self.findings.append((UNAVAILABLE, ident, message, []))
 
-    def not_judged(self, count: int, line: str) -> None:
-        """Subjects listed as not judged: no source here states a price for them,
-        or the vendor lists no such model. Printed as a note and not counted, so
-        the verdict and the exit code do not move. They do stop the runner from
-        printing "every subject was measured".
+    def declared_not_judged(self, count: int, line: str) -> None:
+        """Subjects this run could not judge, each one declared not judged by a
+        recorded cause the gate names (C23's expectations file, with the explicit
+        row ids). Printed with the verdict and kept apart from the comparisons
+        that agreed, so the verdict and the exit code do not move. Nothing is
+        silent: a subject that is neither measured nor declared is NOT MEASURED,
+        and is counted there instead.
         """
-        self.not_judged_count += count
+        self.declared_not_judged_count += count
         self.notes.append(line)
 
     # -- verdict -----------------------------------------------------------
@@ -437,16 +439,16 @@ class Check:
             )
         else:
             w(f"OK: {len(greens)} comparisons, every one of them agrees.\n")
+        if self.declared_not_judged_count:
+            w(
+                f"{self.declared_not_judged_count} subject(s) declared not judged, each named "
+                f"above with the cause that declares it. They are not comparisons; each one "
+                f"is measured or declared, and none is silent.\n"
+            )
         if self.unmeasured_count:
             w(
                 f"PARTIAL: {self.unmeasured_count} subject(s) went unmeasured, each one "
                 f"named above as NOT MEASURED. That is not a pass.\n"
-            )
-        if self.not_judged_count:
-            w(
-                f"NOT JUDGED: {self.not_judged_count} subject(s) are listed above with "
-                f"their reason. They are not counted, and this run does not claim full "
-                f"coverage.\n"
             )
         return self.exit_code()
 

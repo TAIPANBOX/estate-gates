@@ -546,9 +546,13 @@ vendor's page does not state is NOT MEASURED the same way unless
 undeclared one is counted, and the run exits 3 if its repository has no public
 remote or 2 if it has one. "Current" is
 what the vendor's page marks: Anthropic's rows above "Additional models",
-OpenAI's latest rows; Vertex AI marks none, so an unpriced Gemini model is
-listed every run and not judged. It does not read Bedrock's, DeepSeek's or
-AWS's own price lists, so rows priced from those are listed as not judged.
+OpenAI's latest rows; Vertex AI marks none, so a Gemini model no table prices
+is not a current-model finding. Every model Vertex AI lists that no table
+prices is declared by cause, or NOT MEASURED and counted against the gateway's
+book. C23 does not read Bedrock's, DeepSeek's or AWS's own price lists, so the
+rows priced from those are declared not judged by cause, each one named by its
+id in `expectations/model-prices.json`. A row no cause declares is NOT MEASURED
+and counted, exit 2 in a repository with a public remote.
 
 ## Running it
 
@@ -574,8 +578,8 @@ tree mid-edit will report drift that is somebody's uncommitted fix, and
 `origin/main` answers the question the nightly run answers.
 
 Exit codes: `0` clean (every comparison agrees, and every subject was measured
-or is listed as not judged; a subject listed as not judged is named and not
-counted, and the summary then does not claim full coverage), `1` the estate
+or is declared not judged by a recorded cause that names it; a declared subject
+is named and counted apart from the comparisons), `1` the estate
 drifted, `2` a repository that should have been reachable was not, a vendor price
 page or OpenRouter answer C23 reads could not be fetched or fully read, or a
 subject in a repository with a public remote went unmeasured with no recorded
@@ -625,7 +629,7 @@ covered one.
   wired up yet", and those look identical from the outside.
 - **Prices nobody publishes where C23 reads.** Bedrock's and AWS's own price
   lists, DeepSeek's page, and the data residency multipliers of first-party
-  APIs. Rows priced from those are printed as not judged on every run, and a
+  APIs. Rows priced from those are declared not judged by cause on every run, and a
   vendor page is the source of truth by definition: C23 cannot tell a wrong
   page from a right one.
 - **The estate's OWN gates.** Nothing here checks that the per-repo gates

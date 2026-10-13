@@ -727,6 +727,12 @@ Stop and tell the user, then wait:
     (invariant 9). A page nobody could fetch is NOT MEASURED and ends the run
     at exit 2, never 3: `estate.json` can excuse a private repository, and
     nothing excuses a vendor page that did not answer (invariant 3, extended).
+    A row no source here can judge is declared by cause in
+    `expectations/model-prices.json` (`not-judged-cause:<cause>`, with its
+    explicit row ids), printed on every run as declared not judged, and never
+    counted as measured; a row no cause declares is NOT MEASURED and counted,
+    exit 2 in a public repository. A declared row that is priced now, or gone,
+    is red, so each list can only shrink.
     A page whose shape stopped parsing is red, because then the reader needs a
     change. `@claude` 2026-10-13, the matching rules, each a reading rather
     than a decision anybody stated: a row is compared with the price in effect
@@ -735,10 +741,12 @@ Stop and tell the user, then wait:
     must equal one of the prices with every component from the same one;
     "current" is only what a vendor's page marks (Anthropic's rows above
     "Additional models", OpenAI's latest rows), so Vertex AI's Gemini models
-    are listed and not judged; a missing current model is red rather than a
-    warning, because the fallback bills it at many times its price and this
-    suite has no warning level. Prompt-length tiers are compared on both
-    sides once a table can express them (tokenfuse's `long_context`, from
+    are not current-model findings: a Gemini model no table prices is declared
+    by cause or NOT MEASURED against the gateway's book. A missing current model
+    is red rather than a warning, because the fallback bills it at many times
+    its price and this suite has no warning level. Prompt-length tiers are
+    compared on both sides once a table can express them (tokenfuse's
+    `long_context`, from
     tokenfuse#416): the vendor's threshold, the long price, and no tier the
     vendor does not have; a flat table may carry either tier.
 
