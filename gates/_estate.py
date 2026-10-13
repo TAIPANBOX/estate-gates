@@ -312,6 +312,8 @@ class Check:
         self.notes: list[str] = []
         self.measured = 0
         self.unmeasured_count = 0
+        self.unmeasured_by_repo: dict[str, int] = {}
+        self.not_judged_count = 0
 
     # -- findings ----------------------------------------------------------
 
@@ -347,15 +349,26 @@ class Check:
         """
         self.notes.append(line)
 
-    def unmeasured(self, count: int, line: str) -> None:
-        """Subjects this run read and could not judge: printed as a note, and counted.
+    def unmeasured(self, repo: str, count: int, ident: str, message: str) -> None:
+        """Subjects this run tried to judge and could not, and no exception declares.
 
-        Not red, and not a pass. The verdict stays as the other findings make
-        it, so the exit code does not move. run-gates.py reads the count and
-        says PARTIAL with that number in its summary, and it never prints
-        "every subject was measured" while a count is non-zero.
+        NOT MEASURED, a finding in its own right, so the verdict is UNAVAILABLE
+        and the gate is never OK while one is counted. Counted per repository,
+        because run-gates.py takes the exit code from WHERE the subject sits: a
+        repository with no public remote is the expected partial (exit 3), one
+        with a public remote is an unexpected partial (exit 2).
         """
         self.unmeasured_count += count
+        self.unmeasured_by_repo[repo] = self.unmeasured_by_repo.get(repo, 0) + count
+        self.findings.append((UNAVAILABLE, ident, message, []))
+
+    def not_judged(self, count: int, line: str) -> None:
+        """Subjects listed as not judged: no source here states a price for them,
+        or the vendor lists no such model. Printed as a note and not counted, so
+        the verdict and the exit code do not move. They do stop the runner from
+        printing "every subject was measured".
+        """
+        self.not_judged_count += count
         self.notes.append(line)
 
     # -- verdict -----------------------------------------------------------
@@ -426,8 +439,14 @@ class Check:
             w(f"OK: {len(greens)} comparisons, every one of them agrees.\n")
         if self.unmeasured_count:
             w(
-                f"PARTIAL: {self.unmeasured_count} subject(s) went unmeasured, named "
-                f"in the notes above. That is not a pass.\n"
+                f"PARTIAL: {self.unmeasured_count} subject(s) went unmeasured, each one "
+                f"named above as NOT MEASURED. That is not a pass.\n"
+            )
+        if self.not_judged_count:
+            w(
+                f"NOT JUDGED: {self.not_judged_count} subject(s) are listed above with "
+                f"their reason. They are not counted, and this run does not claim full "
+                f"coverage.\n"
             )
         return self.exit_code()
 

@@ -119,6 +119,12 @@ WHAT COUNTS AS A FAILURE
 
 A page nobody could FETCH is NOT MEASURED, never OK, and the runner exits 2 for
 it (a repository estate.json excuses may end a run at 3; a vendor page never).
+A row that no source here can judge, and that no recorded exception declares,
+is NOT MEASURED too, counted against its repository: exit 2 where that
+repository has a public remote, exit 3 where it has none. A row whose source
+states no price for it, or whose vendor lists no such model, is "not judged":
+listed by name, never counted, and the run does not say every subject was
+measured while one is listed.
 
 WHY A MISSING CURRENT MODEL IS RED AND NOT A WARNING
 
@@ -242,7 +248,7 @@ class Table:
 # ------------------------------------------------------------- exceptions
 
 EXCEPTIONS_DEFAULT = E.REPO_ROOT / "expectations" / "model-prices.json"
-_EXCEPTION_KEY = re.compile(r"^(price-differs|fallback-below-current):([^:\s]+):(\S+)$")
+_EXCEPTION_KEY = re.compile(r"^(price-differs|fallback-below-current|tier-not-on-page):([^:\s]+):(\S+)$")
 
 
 class Exceptions:
@@ -260,6 +266,10 @@ class Exceptions:
           row then needs no exception.
       fallback-below-current:<repo>:<model>   the fallback may stay below that
           current model's price. Red as stale once it no longer is.
+      tier-not-on-page:<repo>:<row>:above-<N>   the vendor's page states no
+          prompt-length price for this model, so the table's long-prompt tier
+          cannot be judged; the row is the book's own. Red as stale once the page
+          does state that tier, or the row is gone.
 
     ESTATE_GATES_PRICE_EXCEPTIONS points the gate at another file, so the
     self-test can plant a stale one.
@@ -620,7 +630,12 @@ def run(estate: E.Estate) -> E.Check:
                             ],
                         )
                     else:
-                        unjudged.append(f"{key} (tier above {above:,}, which {v.name}'s page does not show)")
+                        tkey = f"tier-not-on-page:{t.repo}:{key}:above-{above}"
+                        if exc.ask(tkey):
+                            exc.apply(c, tkey, f"{t.repo}: {key} above {above:,} prompt tokens is not judged, "
+                                               f"because {v.name}'s page states no long-prompt price for it.")
+                        else:
+                            unjudged.append(f"{key} (tier above {above:,}, which {v.name}'s page does not show)")
                     continue
                 matched += 1
                 compared[(tg.vendor, tg.model)] = v
@@ -647,13 +662,16 @@ def run(estate: E.Estate) -> E.Check:
                 if not _differs(c, t, key, row, v, label, same, exc, ekey, "long", day, above):
                     failed_models.add((tg.vendor, tg.model))
         if nosource:
-            c.note(f"{t.repo}: {len(nosource)} row(s) no source here prices, not judged: {', '.join(nosource)}.")
+            c.not_judged(len(nosource), f"{t.repo}: {len(nosource)} row(s) no source here prices, not judged: {', '.join(nosource)}.")
         if notlisted:
-            c.note(f"{t.repo}: {len(notlisted)} row(s) whose vendor page lists no such model, not judged: {', '.join(notlisted)}.")
+            c.not_judged(len(notlisted), f"{t.repo}: {len(notlisted)} row(s) whose vendor page lists no such model, not judged: {', '.join(notlisted)}.")
         if unjudged:
             c.unmeasured(
+                t.repo,
                 len(unjudged),
-                f"{t.repo}: {len(unjudged)} tier row(s) NOT MEASURED because their source was not read or states no price for them today: {', '.join(unjudged)}.",
+                f"c23.unmeasured:{t.repo}",
+                f"{t.repo}: {len(unjudged)} row(s) NOT MEASURED, and no recorded exception declares them: "
+                f"{', '.join(unjudged)}. Their source was not read, or states no price for them today.",
             )
         if matched == 0 and not unjudged:
             c.missing(
@@ -772,13 +790,13 @@ def run(estate: E.Estate) -> E.Check:
                 c.note(f"{what}, more than {WARN_DAYS} days away.")
 
     # -- secondary signal --------------------------------------------------------
-    _secondary(c, fetch, vendors, sorted((k for k in compared if k[0] in P.FIRST_PARTY_TAG and (k in failed_models or k[1] in (vendors[k[0]].current or [])))), day)
+    _secondary(c, estate, fetch, vendors, sorted((k for k in compared if k[0] in P.FIRST_PARTY_TAG and (k in failed_models or k[1] in (vendors[k[0]].current or [])))), day)
 
     if vendors.get("google") and any(t.every_current for t in tables):
         priced_google = {tg.model for rs in resolved.values() for tg in rs.values() if tg and tg.vendor == "google"}
         unpriced = sorted(set(vendors["google"].models) - priced_google)
         if unpriced:
-            c.note(f"Google Vertex AI: {len(unpriced)} model(s) no table prices, listed and not judged: {', '.join(unpriced)}.")
+            c.not_judged(len(unpriced), f"Google Vertex AI: {len(unpriced)} model(s) no table prices, listed and not judged: {', '.join(unpriced)}.")
     return c
 
 
@@ -851,7 +869,7 @@ def _openrouter_row(c, estate, fetch, t, key, row, oid, exc, day) -> bool | None
     return True
 
 
-def _secondary(c: E.Check, fetch: Fetcher, vendors: dict, keys: list, day: datetime.date) -> None:
+def _secondary(c: E.Check, estate: E.Estate, fetch: Fetcher, vendors: dict, keys: list, day: datetime.date) -> None:
     agree, disagree, unread = 0, [], []
     for vk, mid in keys[:SECONDARY_LIMIT]:
         v = vendors[vk]
@@ -860,12 +878,24 @@ def _secondary(c: E.Check, fetch: Fetcher, vendors: dict, keys: list, day: datet
             text = fetch.get(P.OPENROUTER_ENDPOINTS_URL.format(id=oid), f"openrouter-endpoints/{oid}.json")
             eps = P.parse_openrouter_endpoints(text)
         except (Unreachable, E.Missing) as e:
-            unread.append(f"{oid} ({str(e)[:200]})")
+            why = str(e)[:200]
+            unread.append(f"{oid} ({why})")
+            # OpenRouter is a source outside the estate: a secondary answer it
+            # never gave is incomplete (exit 2), never a partial a repository excuses.
+            estate.source_unreachable(f"OpenRouter endpoints of {oid}", why)
+            c.unavailable(f"c23.secondary-unmeasured:{oid}",
+                          f"OpenRouter's secondary signal for {oid} is NOT MEASURED ({why}). "
+                          f"The vendor page was not checked against it; that is not a pass.")
             continue
         theirs = [o for o in eps.get(P.FIRST_PARTY_TAG[vk], []) if o.above is None]
         ours = [o for o in v.models.get(mid, []) if o.in_effect(day) and o.endpoint in ("global", "any") and o.above is None]
         if not theirs or not ours:
-            unread.append(f"{oid} (no {P.FIRST_PARTY_TAG[vk]} endpoint row)")
+            why = f"no {P.FIRST_PARTY_TAG[vk]} endpoint row"
+            unread.append(f"{oid} ({why})")
+            estate.source_unreachable(f"OpenRouter endpoints of {oid}", why)
+            c.unavailable(f"c23.secondary-unmeasured:{oid}",
+                          f"OpenRouter's secondary signal for {oid} is NOT MEASURED ({why}). "
+                          f"The vendor page was not checked against it; that is not a pass.")
             continue
         diff = P.mismatches(theirs[0].prices, ours[0])
         if diff:

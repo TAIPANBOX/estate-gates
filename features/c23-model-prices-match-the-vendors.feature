@@ -116,3 +116,26 @@ Feature: Every built-in model price table matches the vendors' current prices
     Given no estate.json entry carries a price_table
     When the estate is read
     Then the gate says it measured nothing rather than reporting agreement
+
+  @teeth:c23.unmeasured-row-public
+  Scenario: A row nobody can judge, in a repository with a public remote, is counted and the run is incomplete
+    Given a declared price table in a repository with a public remote
+    And one of its long-prompt tier rows is priced by a vendor whose page states no tier for that model
+    And no recorded exception declares that row
+    When the estate is read
+    Then the row is printed NOT MEASURED and counted, and the summary says PARTIAL with the number
+    And the run exits 2, the code for an unexpected partial, never 0
+    And the summary does not claim full coverage while the row is counted
+
+  @teeth:c23.unmeasured-row-private
+  Scenario: The same uncounted row in a repository with no public remote is the expected partial
+    Given the same row, in a repository whose remote is private
+    When the estate is read
+    Then the row is printed NOT MEASURED and counted, and the summary says PARTIAL with the number
+    And the run exits 3, the code CI reads as success for the expected partial
+
+  @fires:c23.stale-exception
+  Scenario: A tier recorded as off the vendor's page stops describing anything
+    Given a long-prompt tier is recorded as one the vendor's page does not state
+    When the page now states a long-prompt price for that model, or the row is gone
+    Then the exception is refused as stale, and the row is judged in its own right

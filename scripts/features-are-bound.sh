@@ -76,6 +76,10 @@ import tempfile
 HERE = pathlib.Path.cwd()
 SCENARIO = re.compile(r"^\s*Scenario:\s*(\S.*)$")
 BINDING = re.compile(r"@fires:([A-Za-z0-9._-]+)")
+# A scenario about a RUN's behaviour (an exit code, a summary line) binds to a
+# teeth case in selftest.py instead, because no FAIL path produces it. Checked
+# against selftest.TEETH_CASES, which main() requires to have run in full.
+TEETH = re.compile(r"@teeth:([A-Za-z0-9._-]+)")
 
 
 def declared_ids(root: pathlib.Path) -> dict[str, str]:
@@ -97,16 +101,37 @@ def declared_ids(root: pathlib.Path) -> dict[str, str]:
     return json.loads(out.stdout)
 
 
-def scenarios(root: pathlib.Path) -> list[tuple[str, int, str, list[str]]]:
-    """(file, line, title, bindings) for every scenario in features/."""
+def declared_teeth(root: pathlib.Path) -> set[str]:
+    """Teeth case names selftest.py runs, for `@teeth:<name>` to bind to."""
+    out = subprocess.run(
+        [sys.executable, "-c",
+         "import selftest, json; print(json.dumps(list(selftest.TEETH_CASES)))"],
+        cwd=root, capture_output=True, text=True,
+    )
+    if out.returncode != 0:
+        print("FAIL: could not read the teeth cases out of selftest.py:", file=sys.stderr)
+        print(out.stderr.strip()[:600], file=sys.stderr)
+        raise SystemExit(1)
+    import json
+    return set(json.loads(out.stdout))
+
+
+def scenarios(root: pathlib.Path) -> list[tuple[str, int, str, list[tuple[str, str]]]]:
+    """(file, line, title, bindings) for every scenario in features/.
+
+    A binding is ("fires", finding id) or ("teeth", teeth case name)."""
     found = []
     feat = root / "features"
     for path in sorted(feat.glob("*.feature")):
-        pending: list[str] = []
+        pending: list[tuple[str, str]] = []
         for n, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
             hit = BINDING.search(line)
             if hit:
-                pending.append(hit.group(1))
+                pending.append(("fires", hit.group(1)))
+                continue
+            hit = TEETH.search(line)
+            if hit:
+                pending.append(("teeth", hit.group(1)))
                 continue
             m = SCENARIO.match(line)
             if m:
@@ -131,13 +156,21 @@ def check(root: pathlib.Path) -> list[str]:
         return ["no finding id could be read out of the gates, so the third "
                 "direction measured nothing."]
 
+    teeth = declared_teeth(root)
+
     bound: set[str] = set()
     for path, line, title, bindings in found:
         if not bindings:
             problems.append(
                 f"UNBOUND   {path}:{line}\n"
                 f"          {title!r} names no finding, so it proves nothing")
-        for b in bindings:
+        for kind, b in bindings:
+            if kind == "teeth":
+                if b not in teeth:
+                    problems.append(
+                        f"DANGLING  {path}:{line}\n"
+                        f"          @teeth:{b} names a teeth case selftest.py does not run")
+                continue
             bound.add(b)
             if b not in declared:
                 problems.append(
@@ -167,6 +200,7 @@ if sys.argv[1:] and sys.argv[1] == "--prove":
     # used to have rather than the one it has.
     MANIFESTS = "features/component-manifests.feature"
     CAP = "features/c13-delegation-cap.feature"
+    C23F = "features/c23-model-prices-match-the-vendors.feature"
 
     def swap(work, rel, old, new_text):
         f = work / rel
@@ -191,6 +225,10 @@ if sys.argv[1:] and sys.argv[1] == "--prove":
         ("a finding with no scenario, in another gate's file",
          lambda w: swap(w, CAP, "  @fires:c13.actor-cap-retyped\n", "  "),
          "UNWRITTEN"),
+        ("a teeth binding pointing at nothing",
+         lambda w: swap(w, C23F, "@teeth:c23.unmeasured-row-public",
+                        "@teeth:c23.was-renamed-yesterday"),
+         "DANGLING"),
         # Not a fault: a scenario whose prose changes is still bound. Required
         # NOT to fire, because a harness that only ever demands red proves the
         # check is noisy rather than that it is right.
@@ -239,7 +277,7 @@ if sys.argv[1:] and sys.argv[1] == "--prove":
     if bad:
         raise SystemExit(1)
     print()
-    print("OK: 5 cases. Every direction fails on its own fault, and a reworded")
+    print("OK: 6 cases. Every direction fails on its own fault, and a reworded")
     print("    scenario that is still bound does not.")
     raise SystemExit(0)
 

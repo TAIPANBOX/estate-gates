@@ -540,7 +540,11 @@ marks current missing from a table declared to price every current model
 whose shape no longer parses, a table that cannot be read, a table none of
 whose rows maps to a vendor price, a stale or unreadable exception, and no
 declaration at all. A page that could not be fetched is
-NOT MEASURED and the run ends incomplete (exit 2), never partial. "Current" is
+NOT MEASURED and the run ends incomplete (exit 2), never partial. A tier the
+vendor's page does not state is NOT MEASURED the same way unless
+`expectations/model-prices.json` records it under `tier-not-on-page`; an
+undeclared one is counted, and the run exits 3 if its repository has no public
+remote or 2 if it has one. "Current" is
 what the vendor's page marks: Anthropic's rows above "Additional models",
 OpenAI's latest rows; Vertex AI marks none, so an unpriced Gemini model is
 listed every run and not judged. It does not read Bedrock's, DeepSeek's or
@@ -569,12 +573,14 @@ Three sources, and every run prints which one it used:
 tree mid-edit will report drift that is somebody's uncommitted fix, and
 `origin/main` answers the question the nightly run answers.
 
-Exit codes: `0` clean (every comparison agrees; a C23 price row that the vendor
-page states no tier for is counted and named as PARTIAL in the summary, and
-still exits 0 by decision), `1` the estate drifted, `2` a repository
-that should have been reachable was not, or a vendor price page C23 reads could
-not be fetched, `3` clean but some repository with no
-public remote went unread. CI treats 3 as success with a notice and fails on
+Exit codes: `0` clean (every comparison agrees, and every subject was measured
+or is listed as not judged; a subject listed as not judged is named and not
+counted, and the summary then does not claim full coverage), `1` the estate
+drifted, `2` a repository that should have been reachable was not, a vendor price
+page or OpenRouter answer C23 reads could not be fetched or fully read, or a
+subject in a repository with a public remote went unmeasured with no recorded
+exception, `3` clean but every unread or unmeasured subject sits in a repository
+with no public remote. CI treats 3 as success with a notice and fails on
 everything else.
 
 ## What is deliberately NOT covered

@@ -8,21 +8,21 @@ and it is the only place that decides what an INCOMPLETE run means.
 
 EXIT CODES, and why there are four of them
 
-  0  every comparison agrees. A subject that went unmeasured (a C23 price row
-     whose vendor page states no tier for it) is counted and named, and the
-     summary says PARTIAL with the number. The exit code stays 0 by decision,
-     so CI does not go red for a page that does not state a tier. The words
-     "every subject was measured" are not printed while such a row is counted.
+  0  every comparison agrees, and every subject was measured or is listed as not
+     judged. A subject that a source states no price for is listed by name as not
+     judged, and then the summary does not say every subject was measured.
   1  at least one comparison disagrees. The estate drifted.
-  2  nothing disagrees, but a repository that SHOULD have been reachable was
-     not, or a source outside the estate (a vendor's price page, read by C23)
-     could not be fetched. An unread subject is not a clean one, and this is
-     the code that says so.
-  3  nothing disagrees, and the only unread repositories are the ones
-     estate.json records as having no public remote (bank-in-a-box today).
-     CI treats 3 as success and prints what went unmeasured. It is a separate
-     code rather than a quiet 0 so that nobody can mistake a partial run for a
-     complete one by reading the exit status alone.
+  2  nothing disagrees, but a repository that SHOULD have been reachable was not,
+     or a source outside the estate (a vendor's price page, read by C23) could
+     not be fetched or fully read, or a subject inside a repository that HAS a
+     public remote went unmeasured with no recorded exception. An unread subject
+     is not a clean one, and this is the code that says so.
+  3  nothing disagrees, and every unread or unmeasured subject sits in a
+     repository that estate.json records as having no public remote
+     (architecture and bank-in-a-box today). CI treats 3 as success and prints
+     what went unmeasured. It is a separate code rather than a quiet 0 so that
+     nobody can mistake a partial run for a complete one by reading the exit
+     status alone.
 
 No check ever reports OK for a subject it could not read. That is enforced in
 _estate.Check.verdict, not here.
@@ -105,7 +105,9 @@ def main() -> int:
     print()
 
     results: list[tuple[str, str, int]] = []
-    unmeasured: dict[str, int] = {}
+    counted: dict[str, int] = {}
+    row_gaps: dict[str, int] = {}
+    not_judged = 0
     started = time.time()
     for path in chosen:
         module = load_gate(path)
@@ -113,7 +115,10 @@ def main() -> int:
         code = check.render()
         results.append((check.key, check.verdict(), code))
         if check.unmeasured_count:
-            unmeasured[check.key] = check.unmeasured_count
+            counted[check.key] = check.unmeasured_count
+        for repo, n in check.unmeasured_by_repo.items():
+            row_gaps[repo] = row_gaps.get(repo, 0) + n
+        not_judged += check.not_judged_count
         print("-" * 78)
         print()
 
@@ -128,6 +133,12 @@ def main() -> int:
     # repository has no public remote, and nothing records why a vendor's page
     # did not answer. So an unreachable source is incomplete, never exit 3.
     sources = estate.unreachable_sources()
+    # A subject a gate could not judge sits inside a repository, so that
+    # repository's remote decides the code, exactly as it does for an unread one:
+    # no public remote is the expected partial (3), a public remote is an
+    # unexpected one (2). A recorded exception removes a row from this count.
+    unexpected_rows = {r: n for r, n in row_gaps.items() if estate.repos.get(r, {}).get("github")}
+    expected_rows = {r: n for r, n in row_gaps.items() if r not in unexpected_rows}
 
     reds = [k for k, v, _ in results if v in (E.DRIFT, E.MISSING)]
     partials = [k for k, v, _ in results if v == E.UNAVAILABLE]
@@ -141,8 +152,8 @@ def main() -> int:
             E.MISSING: "DRIFT",
             E.UNAVAILABLE: "partial, something went unmeasured",
         }[verdict]
-        if verdict == E.OK and unmeasured.get(key):
-            label = f"partial, {unmeasured[key]} went unmeasured"
+        if key in counted:
+            label = f"partial, {counted[key]} went unmeasured"
         print(f"  {key}  {label}")
     print()
 
@@ -153,7 +164,7 @@ def main() -> int:
         print()
 
     if sources:
-        print("Sources outside the estate this run could not fetch:")
+        print("Sources outside the estate this run could not fully read:")
         for name, why in sorted(sources.items()):
             print(f"  {name}: {why}")
         print()
@@ -166,28 +177,35 @@ def main() -> int:
         print("repository is broken.")
         return E.EXIT_DRIFT
 
-    if unexpected_unread or sources:
+    if unexpected_unread or sources or unexpected_rows:
         print(f"No gate found a disagreement, and {len(unexpected_unread)} "
               f"repository/ies that should have been reachable were not, and "
-              f"{len(sources)} source(s) outside the estate could not be fetched.")
+              f"{len(sources)} source(s) outside the estate could not be fully read.")
+        if unexpected_rows:
+            total = sum(unexpected_rows.values())
+            named = ", ".join(sorted(unexpected_rows))
+            print(f"PARTIAL: {total} subject(s) went unmeasured in {named}, a repository "
+                  f"with a public remote, with no recorded exception. That is an unexpected partial.")
         print("Nothing here reports clean about a subject it never opened.")
         return E.EXIT_INCOMPLETE
 
-    if partials:
+    if partials or expected_rows:
         print(f"No gate found a disagreement. {len(partials)} gate(s) are PARTIAL: "
               f"{', '.join(partials)}.")
-        print("The only unread repositories are the ones estate.json records as")
-        print("having no public remote, so this is the expected shape of a CI run,")
-        print("and it is still not a statement about what went unmeasured.")
+        if expected_rows:
+            total = sum(expected_rows.values())
+            named = ", ".join(sorted(expected_rows))
+            print(f"PARTIAL: {total} subject(s) went unmeasured in {named}, a repository with "
+                  f"no public remote, with no recorded exception. That is the expected partial.")
+        if unread:
+            print("The only unread repositories are the ones estate.json records as")
+            print("having no public remote, so this is the expected shape of a CI run,")
+            print("and it is still not a statement about what went unmeasured.")
         return EXIT_PARTIAL_EXPECTED
 
-    if unmeasured:
-        total = sum(unmeasured.values())
-        named = ", ".join(sorted(unmeasured))
-        print(f"PARTIAL: {total} subject(s) went unmeasured in {named}, and no gate found")
-        print("a disagreement. Each one is printed as NOT MEASURED above, with its gate.")
-        print("The exit code stays 0 on purpose: an unjudged subject is a gap in the reader,")
-        print("not drift in the estate, so it does not turn CI red.")
+    if not_judged:
+        print(f"All {len(results)} gates clean. {not_judged} subject(s) are listed as not "
+              f"judged above, so this run does not claim full coverage.")
         return E.EXIT_CLEAN
 
     print(f"All {len(results)} gates clean, and every subject was measured.")

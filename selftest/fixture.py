@@ -2282,6 +2282,18 @@ PRICE_SOURCES = {
   {"provider_name": "Anthropic", "tag": "anthropic", "pricing": {"prompt": "0.000002", "completion": "0.00001", "input_cache_read": "0.0000001", "input_cache_write": "0.0000025", "input_cache_write_1h": "0.000004"}}
 ]}}
 """,
+    # The secondary signal asks OpenRouter for these two current models too.
+    # Each answer carries the vendor's own row exactly as the fixture's vendor
+    # page states it, so the secondary agrees, and a missing page cannot pass
+    # silently as an unread one (it is a source outside the estate, exit 2).
+    "openrouter-endpoints/anthropic/claude-haiku-5.5.json": """{"data": {"id": "anthropic/claude-haiku-5.5", "endpoints": [
+  {"provider_name": "Anthropic", "tag": "anthropic", "pricing": {"prompt": "0.0000001", "completion": "0.0000005", "input_cache_read": "0.00000001", "input_cache_write": "0.000000125", "input_cache_write_1h": "0.0000002"}}
+]}}
+""",
+    "openrouter-endpoints/openai/gpt-6-sol.json": """{"data": {"id": "openai/gpt-6-sol", "endpoints": [
+  {"provider_name": "OpenAI", "tag": "openai", "pricing": {"prompt": "0.000002", "completion": "0.00001", "input_cache_read": "0.0000002", "input_cache_write": "0.0000025"}}
+]}}
+""",
 }
 
 

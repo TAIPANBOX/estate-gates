@@ -10,11 +10,15 @@
     "effect, because the row then needs no exception.",
     "",
     "Keys are copied from the gate's own output ('exception key, if this is a",
-    "recorded choice: ...'). Two kinds:",
+    "recorded choice: ...'). Three kinds:",
     "  price-differs:<repo>:<row>[:above-<N>]   with 'price_from': the row may carry",
     "      the vendor's dated price from that day ahead of it.",
     "  fallback-below-current:<repo>:<model>   the fallback may stay below that",
     "      current model's price.",
+    "  tier-not-on-page:<repo>:<row>:above-<N>   the vendor's page states no",
+    "      prompt-length price for this model, so the row's long-prompt tier cannot",
+    "      be judged; the row is the book's own. Red as stale once the page states",
+    "      that tier, or the row is gone.",
     "Each entry carries 'why', 'recorded' and 'provenance'. Provenance says whose",
     "choice it is and where it is written; a reading of another repository's record",
     "is @claude, never a decision nobody stated."
@@ -60,6 +64,56 @@
       "why": "The fallback stays 15 / 75 / 1.50 / 18.75 / 30 although gpt-6-astra's price for prompts above 272,000 tokens is above it, because raising the fallback moves the price of every unknown model; gpt-6-astra itself is priced from its own row and tier.",
       "recorded": "2026-10-13",
       "provenance": "@claude 2026-10-13: tokenfuse records this as decision 6 of its invariant 99 (tokenfuse#416), taken under delegated authority and open to reversal."
+    },
+    "tier-not-on-page:tokenfuse:gpt-5.4:above-272000": {
+      "why": "the vendor page lists no long-prompt tier; the row is the book's own",
+      "recorded": "2026-10-13",
+      "provenance": "@claude 2026-10-13: recorded for PR #131 under the supervisor's instruction; a reading of the vendor's pricing page as it stands today, not a decision the repository's owner made."
+    },
+    "tier-not-on-page:tokenfuse:gpt-5.5:above-272000": {
+      "why": "the vendor page lists no long-prompt tier; the row is the book's own",
+      "recorded": "2026-10-13",
+      "provenance": "@claude 2026-10-13: recorded for PR #131 under the supervisor's instruction; a reading of the vendor's pricing page as it stands today, not a decision the repository's owner made."
+    },
+    "tier-not-on-page:tokenfuse:gpt-5.6-luna:above-272000": {
+      "why": "the vendor page lists no long-prompt tier; the row is the book's own",
+      "recorded": "2026-10-13",
+      "provenance": "@claude 2026-10-13: recorded for PR #131 under the supervisor's instruction; a reading of the vendor's pricing page as it stands today, not a decision the repository's owner made."
+    },
+    "tier-not-on-page:tokenfuse:gpt-5.6-terra:above-272000": {
+      "why": "the vendor page lists no long-prompt tier; the row is the book's own",
+      "recorded": "2026-10-13",
+      "provenance": "@claude 2026-10-13: recorded for PR #131 under the supervisor's instruction; a reading of the vendor's pricing page as it stands today, not a decision the repository's owner made."
+    },
+    "tier-not-on-page:tokenfuse:gpt-6-sol:above-272000": {
+      "why": "the vendor page lists no long-prompt tier; the row is the book's own",
+      "recorded": "2026-10-13",
+      "provenance": "@claude 2026-10-13: recorded for PR #131 under the supervisor's instruction; a reading of the vendor's pricing page as it stands today, not a decision the repository's owner made."
+    },
+    "tier-not-on-page:verdryx:gpt-5.4:above-272000": {
+      "why": "the vendor page lists no long-prompt tier; the row is the book's own",
+      "recorded": "2026-10-13",
+      "provenance": "@claude 2026-10-13: recorded for PR #131 under the supervisor's instruction; a reading of the vendor's pricing page as it stands today, not a decision the repository's owner made."
+    },
+    "tier-not-on-page:verdryx:gpt-5.5:above-272000": {
+      "why": "the vendor page lists no long-prompt tier; the row is the book's own",
+      "recorded": "2026-10-13",
+      "provenance": "@claude 2026-10-13: recorded for PR #131 under the supervisor's instruction; a reading of the vendor's pricing page as it stands today, not a decision the repository's owner made."
+    },
+    "tier-not-on-page:verdryx:gpt-5.6-luna:above-272000": {
+      "why": "the vendor page lists no long-prompt tier; the row is the book's own",
+      "recorded": "2026-10-13",
+      "provenance": "@claude 2026-10-13: recorded for PR #131 under the supervisor's instruction; a reading of the vendor's pricing page as it stands today, not a decision the repository's owner made."
+    },
+    "tier-not-on-page:verdryx:gpt-5.6-terra:above-272000": {
+      "why": "the vendor page lists no long-prompt tier; the row is the book's own",
+      "recorded": "2026-10-13",
+      "provenance": "@claude 2026-10-13: recorded for PR #131 under the supervisor's instruction; a reading of the vendor's pricing page as it stands today, not a decision the repository's owner made."
+    },
+    "tier-not-on-page:verdryx:gpt-6-sol:above-272000": {
+      "why": "the vendor page lists no long-prompt tier; the row is the book's own",
+      "recorded": "2026-10-13",
+      "provenance": "@claude 2026-10-13: recorded for PR #131 under the supervisor's instruction; a reading of the vendor's pricing page as it stands today, not a decision the repository's owner made."
     }
   }
 }

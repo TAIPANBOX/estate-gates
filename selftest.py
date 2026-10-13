@@ -45,9 +45,10 @@ And one more that belongs to rule 2 rather than rule 1:
      the fixture pins "today", a dated change ahead is printed as a warning,
      the day it takes effect a row at the old price is red, and a page nobody
      could fetch is NOT MEASURED and ends the run incomplete. A tier row C23
-     cannot judge is counted, and the summary says PARTIAL with the number; the
-     summary never says every subject was measured while one is counted. The
-     exit code stays 0 for that case by decision.
+     cannot judge and no exception declares is counted, and the summary says
+     PARTIAL with the number: exit 2 in a repository with a public remote, exit 3
+     in one with none. The summary never says every subject was measured while
+     one is counted.
   7. THE PAGE READERS SURVIVE THE PAGES. The readers are run against the
      vendor pages as saved on 2026-10-13 and against a seeded sweep of hostile
      bytes (selftest/price_pages.py).
@@ -60,6 +61,13 @@ OpenRouter /endpoints rule and the exact-match cases beside it: c23.no-endpoints
 is a new FAIL path with two mutations, and the c23.price-differs cases changed
 (one retired, two added, net +1). A later change to either number must name the
 cases it adds or removes here, rather than move the number silently.
+
+@measured `./selftest.py` 2026-10-13, on feat/price-drift after the PARTIAL
+routing change (#131): 261 broken estates and 156 FAIL paths. The same command
+gave 260 and 156 at 7398ea8. The one new case is c23.stale-exception for a
+tier recorded off the page that the page does show. The two teeth cases,
+c23.unmeasured-row-public and c23.unmeasured-row-private, are not MUTATIONS and
+are not counted in that number.
 
 WHAT THIS DOES NOT PROVE
 
@@ -259,31 +267,46 @@ def run_runner(
     return run_runner_proc(root, registry, expectations, only, sources).returncode
 
 
-def unmeasured_tier_is_said(
+#: The teeth cases for an undeclared row C23 cannot judge. Named here, so that
+#: features/c23-model-prices-match-the-vendors.feature can bind a scenario to
+#: each one (scripts/features-are-bound.sh reads this tuple), and TEETH_RAN
+#: proves main() actually ran every name it lists.
+TEETH_CASES = ("c23.unmeasured-row-public", "c23.unmeasured-row-private")
+TEETH_RAN: list[str] = []
+
+
+def unmeasured_row_is_counted(
     base: pathlib.Path,
     work: pathlib.Path,
     registry: pathlib.Path,
     expectations: pathlib.Path,
+    name: str,
+    public: bool,
 ) -> list[str]:
-    """A tier row C23 cannot judge is counted, and the summary says PARTIAL with the number.
+    """An undeclared row C23 cannot judge is NOT MEASURED, counted, and PARTIAL.
 
     The planted row is a long-context tier for gpt-4o on tokenfuse's gateway
     book, above 128,000 prompt tokens. OpenAI's page states no long-context
-    price for gpt-4o, so C23 cannot judge the row and prints it NOT MEASURED.
-    The run must still exit 0 (CI stays green by decision), and its summary
-    must not say "every subject was measured", which was false for that run.
+    price for gpt-4o and no exception declares it, so C23 prints the row NOT
+    MEASURED and counts it. Which exit code that earns depends on the
+    repository it sits in (invariant 3, run-gates.py): tokenfuse has a public
+    remote in the fixture, so the run is an UNEXPECTED partial and exits 2; the
+    same row with tokenfuse recorded as having no public remote is the EXPECTED
+    partial and exits 3, which CI reads as success. Either way the summary
+    names the count and never says "every subject was measured".
     The untouched fixture is run first, so the planted row is the only reason
     for the PARTIAL line.
     """
+    TEETH_RAN.append(name)
     problems: list[str] = []
     clean = run_runner_proc(base, registry, expectations, "c23")
-    if clean.returncode != 0 or "every subject was measured" not in clean.stdout:
+    if clean.returncode != 0:
         return [
-            f"C23 on the untouched fixture did not come back clean through run-gates.py "
-            f"(exit {clean.returncode}). The planted row cannot be the only cause of what "
-            f"follows until it does.\n{clean.stdout[-600:]}"
+            f"{name}: C23 on the untouched fixture did not come back clean through "
+            f"run-gates.py (exit {clean.returncode}). The planted row cannot be the "
+            f"only cause of what follows until it does.\n{clean.stdout[-600:]}"
         ]
-    case = work / "unmeasured-tier"
+    case = work / name
     shutil.copytree(base, case)
     path = case / TF_ART
     book = json.loads(path.read_text(encoding="utf-8"))
@@ -296,26 +319,34 @@ def unmeasured_tier_is_said(
         "cache_write_per_mtok_microusd": 5000000,
     })
     path.write_text(json.dumps(book, indent=2) + "\n", encoding="utf-8")
-    done = run_runner_proc(case, registry, expectations, "c23")
+    case_registry, expect, where = registry, 2, "a repository with a public remote"
+    if not public:
+        reg = json.loads(registry.read_text(encoding="utf-8"))
+        reg["repos"]["tokenfuse"]["github"] = None
+        case_registry = work / f"{name}.estate.json"
+        case_registry.write_text(json.dumps(reg, indent=2) + "\n", encoding="utf-8")
+        expect, where = 3, "a repository with no public remote"
+    done = run_runner_proc(case, case_registry, expectations, "c23")
     out = done.stdout
-    if done.returncode != 0:
+    if done.returncode != expect:
         problems.append(
-            f"with a gpt-4o tier row C23 cannot judge, run-gates.py exited {done.returncode}. "
-            f"The exit code stays 0 by decision: an unjudged tier row is a gap in the reader, "
-            f"not drift in the estate."
+            f"{name}: with a gpt-4o tier row C23 cannot judge, in {where}, run-gates.py "
+            f"exited {done.returncode}, and the code for that case is {expect}. An "
+            f"undeclared row is never clean: exit 2 for a public repository, exit 3 for "
+            f"one with no public remote."
         )
     if "every subject was measured" in out:
         problems.append(
-            "with a gpt-4o tier row C23 cannot judge, run-gates.py still printed 'every subject "
-            "was measured'. That sentence is false for that run: the row was NOT MEASURED, and "
-            "nothing counted it."
+            f"{name}: with a gpt-4o tier row C23 cannot judge, run-gates.py still printed "
+            f"'every subject was measured'. That sentence is false for that run: the row "
+            f"was NOT MEASURED, and the count did not stop it."
         )
     if "NOT MEASURED" not in out or "gpt-4o" not in out:
-        problems.append("the planted gpt-4o tier row was not named as NOT MEASURED in the run's output.")
+        problems.append(f"{name}: the planted gpt-4o tier row was not named as NOT MEASURED in the run's output.")
     if "PARTIAL: 1 " not in out:
         problems.append(
-            "with one unjudged tier row, the summary did not say PARTIAL with the number 1. "
-            f"The summary ends:\n{out[-600:]}"
+            f"{name}: with one unjudged tier row, the summary did not say PARTIAL with the "
+            f"number 1. The summary ends:\n{out[-600:]}"
         )
     return problems
 
@@ -2637,6 +2668,13 @@ MUTATIONS: dict[str, list[tuple[str, callable]]] = {
                 "price_from": "2027-01-01", "why": "x", "recorded": "2026-10-13", "provenance": "x"}})),
         ),
         (
+            # OpenAI's page states gpt-6-astra's long-prompt price, so a
+            # declaration that the page shows no tier for it excuses nothing.
+            "a tier declared off the page for a tier the page does show",
+            lambda r: price_exceptions(r, lambda e: e.update({"tier-not-on-page:tokenfuse:gpt-6-astra:above-272000": {
+                "why": "x", "recorded": "2026-10-13", "provenance": "x"}})),
+        ),
+        (
             "an exception of a kind the gate does not excuse",
             lambda r: price_exceptions(r, lambda e: e.update({"current-model-missing:tokenfuse:claude-opus-9": {
                 "why": "x", "recorded": "2026-10-13", "provenance": "x"}})),
@@ -2980,7 +3018,16 @@ def main() -> int:
         # measured" with exit 0. This plants exactly that row and requires the
         # summary to stop claiming it, while the exit code stays 0.
         if not problems:
-            problems += unmeasured_tier_is_said(base, work, registry, expectations)
+            problems += unmeasured_row_is_counted(base, work, registry, expectations,
+                                                  "c23.unmeasured-row-public", public=True)
+        if not problems:
+            problems += unmeasured_row_is_counted(base, work, registry, expectations,
+                                                  "c23.unmeasured-row-private", public=False)
+        if not problems and sorted(TEETH_RAN) != sorted(TEETH_CASES):
+            problems.append(
+                f"the teeth cases that ran were {TEETH_RAN}, not the {list(TEETH_CASES)} "
+                f"that features/ binds to. A scenario bound to a case that never runs proves nothing."
+            )
 
         # -- 7. the page readers survive real pages and hostile bytes ------
         if not problems:
@@ -3009,8 +3056,9 @@ def main() -> int:
     print("    read comes back partial rather than clean.")
     print("    All four of run-gates.py's exit codes were produced by a real run.")
     print("    C23 warned before a dated price change, went red the day it took effect,")
-    print("    said NOT MEASURED for a page nobody could fetch, said PARTIAL with the count")
-    print("    for a tier row it could not judge (exit 0 kept), and its page readers")
+    print("    said NOT MEASURED for a page nobody could fetch, and for an undeclared tier")
+    print("    row said PARTIAL with the count, exit 2 in a public repository, exit 3 in a")
+    print("    private one. Its page readers")
     print("    read the 2026-10-13 pages and survived a seeded sweep of hostile bytes.")
     return 0
 
