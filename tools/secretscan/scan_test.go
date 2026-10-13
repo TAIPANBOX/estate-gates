@@ -227,6 +227,74 @@ func TestHistoryFindsWhatTheTreeNoLongerHolds(t *testing.T) {
 	}
 }
 
+// longLine is one line of minified-code filler with probe placed at byte at.
+// The filler is chosen to fire no rule on its own, and its last byte is a
+// separator so a rule anchored on a word boundary sees one at every position.
+func longLine(at int, probe string) string {
+	filler := strings.Repeat("x=1;", at/4+1)[:at]
+	if at > 0 {
+		filler = filler[:at-1] + ";"
+	}
+	return filler + probe + ";" + strings.Repeat("y=2;", 64)
+}
+
+// Measured 2026-10-13 on it-rat: `diff` found three values past byte 4096 of
+// one line of a minified bundle and `tree` on the same content said clean,
+// because ScanText cut every line at 4096 bytes and scanPatch did not. The
+// positions straddle that old cut, sit past it, and sit far past it, so a
+// smaller cut, a larger one, and windows that do not overlap all go red here.
+// The fingerprint is checked because a cut through a value still finds a
+// value, a shorter one that no allowlist entry written from `diff` names; the
+// 1200-character token is longer than any overlap a window scheme would pick.
+func TestAValueAnywhereOnALongLineIsFound(t *testing.T) {
+	hx, gh, pass, long := hexOf("long line"), b62("long line", 36), "Kestrel-"+"Orbit-74", b62("jwt", 1200)
+	probes := []struct{ rule, text, value string }{
+		{"assignment:api_key", "API_" + "KEY=" + hx, hx},
+		{"github-token", "gh" + "p_" + gh, "gh" + "p_" + gh},
+		{"passphrase-in-text", "pass" + "word:`" + pass + "`", pass},
+		{"assignment:service_token", "SERVICE_" + "TOKEN=" + long, long},
+	}
+	for _, at := range []int{0, 4000, 4090, 4096, 4097, 8180, 65536, 1 << 20} {
+		for _, p := range probes {
+			got := ScanText("demo/assets/index.js", "first\n"+longLine(at, p.text)+"\nlast\n")
+			if len(got) != 1 || got[0].Rule != p.rule || got[0].Line != 2 || got[0].Fingerprint() != fingerprint(p.value) {
+				t.Errorf("%s at byte %d of line 2: want one %s on line 2 with the whole value, got %v", p.rule, at, p.rule, rules(got))
+			}
+		}
+	}
+}
+
+// The four modes read one content two ways, as added lines and as files, and
+// must report the same values: an allowlist entry that diff needs and tree
+// calls unused is the same disagreement seen from the allowlist's side.
+func TestTreeHistoryAndDiffAgreeOnALongLine(t *testing.T) {
+	dir := t.TempDir()
+	git(t, dir, "init", "-q")
+	os.WriteFile(filepath.Join(dir, "README"), []byte("base\n"), 0o644)
+	git(t, dir, "add", ".")
+	git(t, dir, "commit", "-q", "-m", "base")
+	base := git(t, dir, "rev-parse", "HEAD")
+	v := hexOf("past the cut")
+	os.WriteFile(filepath.Join(dir, "bundle.js"), []byte(longLine(5000, "API_"+"KEY="+v)+"\n"), 0o644)
+	git(t, dir, "add", ".")
+	git(t, dir, "commit", "-q", "-m", "bundle")
+	want := "bundle.js:1: assignment:api_key " + mask(v) + " fp=" + fingerprint(v) + "\n"
+	for _, mode := range [][]string{{"diff", base + "..HEAD"}, {"tree"}, {"history"}} {
+		var out, errb bytes.Buffer
+		code := run(append([]string{"-C", dir}, mode...), nil, &out, &errb)
+		if code != exitFound || out.String() != want {
+			t.Errorf("%s: want exit %d and %q, got exit %d and %q", mode[0], exitFound, want, code, out.String())
+		}
+	}
+	os.WriteFile(filepath.Join(dir, ".secretscan-allow"), []byte(fingerprint(v)+" bundle.js # a fixture value\n"), 0o644)
+	for _, mode := range [][]string{{"tree"}, {"history"}} {
+		var out, errb bytes.Buffer
+		if code := run(append([]string{"-C", dir}, mode...), nil, &out, &errb); code != exitClean || strings.Contains(errb.String(), "matched nothing") {
+			t.Errorf("%s with the entry: want exit %d and the entry used, got exit %d\n%s", mode[0], exitClean, code, errb.String())
+		}
+	}
+}
+
 // Each line below fired on a real estate repository on 2026-10-09 and is not
 // a secret. They are the measured noise the name and value rules exist for.
 func TestTheNoiseMeasuredOnTheEstateStaysQuiet(t *testing.T) {
@@ -254,5 +322,34 @@ func TestTheNoiseMeasuredOnTheEstateStaysQuiet(t *testing.T) {
 		if got := ScanLine("f", 1, c.line); len(got) != 0 {
 			t.Errorf("%s: want nothing, got %v", c.name, rules(got))
 		}
+	}
+}
+
+// The pair that answers why ScanText no longer cuts lines: one line of 2 MiB
+// (the largest blob tree and history read) against the same bytes as 4096-byte
+// lines. Run with: go test -run '^$' -bench SameBytes\|OneLongLine
+func minifiedBytes() string {
+	unit := "function(e){return e.type===`text`?{className:`row`,style:{}}:null};"
+	return strings.Repeat(unit, maxBlob/len(unit)+1)[:maxBlob]
+}
+
+func BenchmarkOneLongLine(b *testing.B) {
+	text := minifiedBytes()
+	b.SetBytes(int64(len(text)))
+	for b.Loop() {
+		ScanText("x.js", text)
+	}
+}
+
+func BenchmarkTheSameBytesAsShortLines(b *testing.B) {
+	raw := minifiedBytes()
+	var sb strings.Builder
+	for i := 0; i < len(raw); i += 4096 {
+		sb.WriteString(raw[i:min(i+4096, len(raw))] + "\n")
+	}
+	text := sb.String()
+	b.SetBytes(int64(len(raw)))
+	for b.Loop() {
+		ScanText("x.js", text)
 	}
 }

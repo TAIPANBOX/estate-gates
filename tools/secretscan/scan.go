@@ -269,13 +269,16 @@ func ScanLine(path string, lineNo int, line string) []Finding {
 	return out
 }
 
-// ScanText scans a whole file's text.
+// ScanText scans a whole file's text, every line in full. It once cut each
+// line at 4096 bytes while scanPatch read added lines whole, so `tree` and
+// `history` could not see a value past that byte of a minified bundle that
+// `diff` reported, and called its allowlist entry unused (it-rat, 2026-10-13).
+// The cut bought nothing: Go's regexp is linear in its input, so one 2 MiB
+// line costs the same per byte as those bytes in 4096-byte lines
+// (BenchmarkOneLongLine against BenchmarkTheSameBytesAsShortLines).
 func ScanText(path, text string) []Finding {
 	var out []Finding
 	for i, line := range strings.Split(text, "\n") {
-		if len(line) > 4096 {
-			line = line[:4096]
-		}
 		out = append(out, ScanLine(path, i+1, line)...)
 	}
 	return out
