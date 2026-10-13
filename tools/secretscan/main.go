@@ -255,8 +255,10 @@ func (b *blobReader) read(sha string) ([]byte, error) {
 
 func (b *blobReader) close() { b.in.Close(); b.cmd.Wait() }
 
-const maxBlob = 2 << 20
-
+// scanBlobs skips exactly what git's diff calls binary, a NUL in the first
+// 8000 bytes, so tree and history read the files whose added lines diff and
+// push read. It once also skipped every text blob over 2 MiB, which diff
+// reads (a 2.8 MB bundle, 2026-10-13); the blob was in memory either way.
 func scanBlobs(g gitRunner, blobs [][2]string) ([]Finding, int, error) {
 	r, err := newBlobReader(g)
 	if err != nil {
@@ -270,7 +272,7 @@ func scanBlobs(g gitRunner, blobs [][2]string) ([]Finding, int, error) {
 		if err != nil {
 			return nil, 0, err
 		}
-		if len(data) > maxBlob || bytes.IndexByte(data[:min(len(data), 8000)], 0) >= 0 {
+		if bytes.IndexByte(data[:min(len(data), 8000)], 0) >= 0 {
 			continue
 		}
 		units++

@@ -295,6 +295,35 @@ func TestTreeHistoryAndDiffAgreeOnALongLine(t *testing.T) {
 	}
 }
 
+// tree and history skipped every text blob over 2 MiB while diff read the
+// added lines of a file of any size (measured 2026-10-13: a 2.8 MB bundle,
+// found by diff, skipped by both). Short lines here, so only the file's size
+// is under test; a small file beside it so a skip cannot hide as exit 3. A
+// binary file beside it, with a value after its NUL, is the other direction:
+// git's diff calls it binary and prints no lines, so tree must skip it too.
+func TestTreeHistoryAndDiffAgreeOnAFileOverTwoMiB(t *testing.T) {
+	dir := t.TempDir()
+	git(t, dir, "init", "-q")
+	os.WriteFile(filepath.Join(dir, "README"), []byte("base\n"), 0o644)
+	git(t, dir, "add", ".")
+	git(t, dir, "commit", "-q", "-m", "base")
+	base := git(t, dir, "rev-parse", "HEAD")
+	v := hexOf("a large file")
+	body := strings.Repeat("x=1;\n", (2<<20)/5+1) + "API_" + "KEY=" + v + "\n"
+	os.WriteFile(filepath.Join(dir, "data.js"), []byte(body), 0o644)
+	os.WriteFile(filepath.Join(dir, "image.bin"), []byte("\x00\x01\nAPI_"+"KEY="+hexOf("in a binary")+"\n"), 0o644)
+	git(t, dir, "add", ".")
+	git(t, dir, "commit", "-q", "-m", "large")
+	want := "data.js:" + itoa(strings.Count(body, "\n")) + ": assignment:api_key " + mask(v) + " fp=" + fingerprint(v) + "\n"
+	for _, mode := range [][]string{{"diff", base + "..HEAD"}, {"tree"}, {"history"}} {
+		var out, errb bytes.Buffer
+		code := run(append([]string{"-C", dir}, mode...), nil, &out, &errb)
+		if code != exitFound || out.String() != want {
+			t.Errorf("%s: want exit %d and %q, got exit %d and %q", mode[0], exitFound, want, code, out.String())
+		}
+	}
+}
+
 // Each line below fired on a real estate repository on 2026-10-09 and is not
 // a secret. They are the measured noise the name and value rules exist for.
 func TestTheNoiseMeasuredOnTheEstateStaysQuiet(t *testing.T) {
@@ -326,11 +355,12 @@ func TestTheNoiseMeasuredOnTheEstateStaysQuiet(t *testing.T) {
 }
 
 // The pair that answers why ScanText no longer cuts lines: one line of 2 MiB
-// (the largest blob tree and history read) against the same bytes as 4096-byte
-// lines. Run with: go test -run '^$' -bench SameBytes\|OneLongLine
+// against the same bytes as 4096-byte lines.
+// Run with: go test -run '^$' -bench SameBytes\|OneLongLine
 func minifiedBytes() string {
+	const size = 2 << 20
 	unit := "function(e){return e.type===`text`?{className:`row`,style:{}}:null};"
-	return strings.Repeat(unit, maxBlob/len(unit)+1)[:maxBlob]
+	return strings.Repeat(unit, size/len(unit)+1)[:size]
 }
 
 func BenchmarkOneLongLine(b *testing.B) {

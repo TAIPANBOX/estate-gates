@@ -85,7 +85,35 @@ other entry is unused there by definition.
 - **public CI**: `secretscan tree` as a step. Free on public repositories;
   on a private one it would be metered, so the hook is the place there.
 
-## 6. Measured on 2026-10-09
+## 6. Measured
+
+### On 2026-10-13: tree and history read what diff reads
+
+`tree` and `history` cut every line at 4096 bytes and skipped every text blob
+over 2 MiB; `diff` and `push` did neither. On it-rat, `diff` reported three
+values past byte 4096 of one line of a minified demo bundle, and `tree` on the
+same commit said clean and called the two allowlist entries for them unused.
+So the CI workflow, which runs `tree`, could not see a value past byte 4096 of
+any line, nor anything in a text file over 2 MiB. Both bounds are gone.
+
+- **Why no window**: the cut had no recorded reason, and Go's regexp is linear
+  in its input. One line costs 545 to 660 ns per byte from 4 KiB to 2 MiB, on
+  the real bundle and on synthetic minified code, and the same per byte as
+  those bytes in 4096-byte lines (`go test -run '^$' -bench
+  SameBytes\|OneLongLine`). The 2 MiB skip saved no memory either: the blob was
+  read whole before its size was checked.
+- **Tests**: 11 functions, coverage 86.1% of statements. Seven more mutants,
+  each caught: the 4096 cut put back, a 64 KiB cut, 4096-byte windows with no
+  overlap, the same with 256 bytes of overlap (a value inside the overlap is
+  reported twice), the cut moved into `ScanLine` so every mode agrees and all
+  are blind, the 2 MiB skip put back, and the binary check removed.
+- **Real runs**: on it-rat `tree` now prints the same three fingerprints as
+  `diff`, and both allowlist entries are used. Over the 25 repositories of
+  `estate.json` and it-rat, each at its default branch, the old and new
+  binaries print byte-identical findings everywhere else: the fix adds no
+  noise. The cost is time: `history` on it-rat, 2329 blobs, went from 29 s to 39 s.
+
+### On 2026-10-09
 
 - **Tests**: 8 functions, coverage 85.5% of statements. Every rule and filter
   was broken on purpose and a test went red for each (15 mutants: no
@@ -115,3 +143,13 @@ other entry is unused there by definition.
   secret name passes. Raising the floor trades misses for noise, and the
   measured noise above is the reason the floor sits where it does.
 - It scans text: a key inside a binary, an archive or an image is skipped.
+  Binary means a NUL in the first 8000 bytes, the same test git's diff uses,
+  so all four modes skip the same files.
+- Every line and every text file is read in full, so a large text file costs
+  time in proportion to its size, about 0.6 seconds per megabyte, and
+  `history` pays that once per version of the file.
+- `diff` and `push` read a patch from `git log -p`, so a file `.gitattributes`
+  marks `-diff` or `binary` shows no lines there and is not scanned, while
+  `tree` reads it. And an added line that begins with `++ ` is read as a file
+  header: that line is not scanned, and the findings after it in the same file
+  carry the wrong path. Both measured 2026-10-13; not fixed here.
