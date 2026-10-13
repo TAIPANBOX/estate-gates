@@ -706,3 +706,16 @@ Stop and tell the user, then wait:
     *(gate: CI runs `go test` (36 mutants, each caught by a named test, listed
     in the README) and `secretscan tree` on this repository. Other
     repositories are not wired from here, by invariant 5; each wires its own.)*
+
+24. **Two repositories that enforce one bound hold the same number.** `@decided
+    2026-10-13`, paraphrased: tokenfuse's cap on the tool-call arguments it
+    sends to the policy plane follows wardryx's bound, and this repository
+    holds the two equal. A call between two different bounds is refused by the
+    policy plane with no verdict, or decided without its arguments, so the
+    finding names the direction and what each one costs. A value the check
+    cannot evaluate is refused by its text, never guessed.
+    *(gate: `gates/c3-mirrored-constants.py`, its fourth mirror; `selftest.py`
+    plants tokenfuse at 16 KiB and at 8 KiB, removes each constant, and renames
+    and breaks the expression of each, and requires the matching finding every
+    time. A comment next to each constant quotes the old value, and the
+    baseline must stay green with it.)*

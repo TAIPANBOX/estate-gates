@@ -507,6 +507,32 @@ CONSTANTS_JSON = """{
 }
 """
 
+# The tool-call argument cap, both sides (C3's fourth mirror). The comment lines
+# next to each constant quote the OLD value on purpose: a check that reads
+# comments would read 16 KiB here, and the baseline must stay green with it.
+WARDRYX_RS = """//! The wardryx client: tool calls are sent to the policy plane.
+
+/// Tool-call arguments sent to wardryx. Earlier builds used `16 * 1024` here
+/// (16 KiB), and the policy plane's own bound is 12 KiB, so the two are held equal.
+pub const TOOL_CALL_ARGUMENTS_CAP_BYTES: usize = 12 * 1024;
+
+pub fn sends_arguments(len: usize) -> bool {
+    len <= TOOL_CALL_ARGUMENTS_CAP_BYTES
+}
+"""
+
+SIGNAL_GO = """package pdp
+
+// Caps on what a caller may hand the decision path.
+const (
+	// MaxSignals is how many signals one request may carry.
+	MaxSignals = 16
+	// MaxToolArgumentsBytes bounds a tool call's raw JSON arguments. Earlier
+	// builds said 16 << 10 here; this is the bound that is enforced.
+	MaxToolArgumentsBytes = 12 << 10
+)
+"""
+
 # ------------------------------------------------------------------ verdryx
 
 COSTPER_PY = '''"""Cost per outcome."""
@@ -1548,6 +1574,7 @@ ESTATE: dict[str, dict] = {
         "crates/delegation/src/lib.rs": DELEGATION_RS,
         "crates/delegation/testdata/chain-verdict-vectors.json": CHAIN_VERDICT_VECTORS,
         "crates/gateway/src/chainproof.rs": CHAINPROOF_RS,
+        "crates/gateway/src/wardryx.rs": WARDRYX_RS,
         ".github/workflows/release.yml": RELEASE_WORKFLOW_YML,
     },
     "verdryx": {
@@ -1687,6 +1714,7 @@ func TestWireTypesIsExactlyWhatTheCallSitesProduce(t *testing.T) {}
         "go.mod": gomod("wardryx", "v0.5.1"),
         "cmd/wardryx/main.go": WARDRYX_MAIN_GO,
         "internal/api/api.go": WARDRYX_API_GO,
+        "internal/pdp/signal.go": SIGNAL_GO,
     },
     "mockryx": {
         "go.mod": gomod("mockryx", "v0.5.1"),

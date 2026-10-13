@@ -76,6 +76,14 @@ the Rust when it is not, and it says which mode it used in every run, because
 a comparison whose reader does not know what was compared is one somebody will
 quote wrongly later.
 
+C3's fourth mirror is the tool-call argument cap: tokenfuse's
+`TOOL_CALL_ARGUMENTS_CAP_BYTES` against wardryx's `MaxToolArgumentsBytes`, read
+from source in both, because tokenfuse's artifact does not carry it. The two
+must be equal. Tokenfuse cutting arguments above a bound wardryx refuses, or
+below one, decides calls between the two without a verdict or without their
+arguments. A value the check cannot evaluate is refused by its text
+(`c3.argcap-unreadable`), never guessed at.
+
 **C4, event registry versus actual producers**
 (`gates/c4-event-registry.py`). agent-passport `SPEC.md` section 6.2 is the
 registry: source to event types. Both directions. Forward: every source it
