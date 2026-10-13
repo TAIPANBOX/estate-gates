@@ -703,6 +703,6 @@ Stop and tell the user, then wait:
     a fingerprint and a path glob in `.secretscan-allow` with a mandatory
     reason. `tree` and `history` that read nothing exit 3, not 0. What it does
     not catch is in `tools/secretscan/README.md` section 7.
-    *(gate: CI runs `go test` (22 mutants, each caught by a named test, listed
+    *(gate: CI runs `go test` (36 mutants, each caught by a named test, listed
     in the README) and `secretscan tree` on this repository. Other
     repositories are not wired from here, by invariant 5; each wires its own.)*

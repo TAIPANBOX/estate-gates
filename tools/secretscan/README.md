@@ -87,6 +87,43 @@ other entry is unused there by definition.
 
 ## 6. Measured
 
+### On 2026-10-13: diff and push read what tree reads
+
+A patch is not the file, and six ways it differed made `diff` and `push`
+disagree with `tree`: a file `.gitattributes` marks `-diff` or `binary` (git
+prints "Binary files differ"), a textconv driver in the repository's config,
+a merge commit (`git log -p` shows no diff for one, so a value written while
+merging was never read), an added line beginning `++ `, which reads as `+++ `
+in the patch and was taken for a file header, and two path spellings, quoted
+(a quote, a backslash, a control character, a non-ASCII byte) and a trailing
+tab after a name holding a space. The `++ ` line was the worst: its value went
+unscanned and the next finding in the file PRINTED it as its path. `tree` had its own: `ls-tree` with
+a custom `--format` quotes such a path even under `-z`.
+
+So `diff` and `push` ask git for every file's own bytes (`--text
+--no-textconv --full-index`), and for each merge what it adds over git's own
+merge of its parents (`--diff-merges=remerge`, so a side branch's lines are not
+read twice), decide binary by the same NUL test on the same blob, read a hunk
+by the counts in its header, and unquote the path; `tree` uses `ls-tree`'s
+default format.
+
+- **Submodules**: a submodule's header names a commit in another repository.
+  `diff` passes it over as `tree` does; a first draft of this change read it
+  as a blob and failed every push in a repository with a submodule, which the
+  fixture now carries, added and changed.
+- **Tests**: 14 functions, coverage 86.9% of statements. Fourteen more
+  mutants, each caught: `--text` dropped, `--no-textconv` dropped, merges
+  shown as nothing again, a merge shown against its first parent (the side
+  branch's value reported twice), a `+++ ` line inside a hunk read as a header
+  again, a quoted path left quoted, the tab after a spaced path kept, diff no
+  longer skipping binary blobs, tree back on its old `--format`, an added line
+  not advancing the line number, a hunk count left out read as 0, context
+  lines not counted, and an added or a changed submodule read as a blob.
+- **Real runs**: `diff` over the last 30 first-parent commits of each of the
+  25 registered repositories and it-rat, pinned to commit ids, gives the same
+  exit code, byte-identical findings and the same number of lines read before
+  and after.
+
 ### On 2026-10-13: tree and history read what diff reads
 
 `tree` and `history` cut every line at 4096 bytes and skipped every text blob
@@ -143,13 +180,12 @@ any line, nor anything in a text file over 2 MiB. Both bounds are gone.
   secret name passes. Raising the floor trades misses for noise, and the
   measured noise above is the reason the floor sits where it does.
 - It scans text: a key inside a binary, an archive or an image is skipped.
-  Binary means a NUL in the first 8000 bytes, the same test git's diff uses,
-  so all four modes skip the same files.
+  Binary means a NUL in the first 8000 bytes, git's own test, applied by this
+  program to the blob in every mode; what `.gitattributes` says does not
+  change what is read.
 - Every line and every text file is read in full, so a large text file costs
   time in proportion to its size, about 0.6 seconds per megabyte, and
   `history` pays that once per version of the file.
-- `diff` and `push` read a patch from `git log -p`, so a file `.gitattributes`
-  marks `-diff` or `binary` shows no lines there and is not scanned, while
-  `tree` reads it. And an added line that begins with `++ ` is read as a file
-  header: that line is not scanned, and the findings after it in the same file
-  carry the wrong path. Both measured 2026-10-13; not fixed here.
+- `diff` and `push` need a git that knows `--diff-merges=remerge` (2.36 or
+  newer). An older git fails the command and secretscan exits 2, which refuses
+  a push rather than passing it.
