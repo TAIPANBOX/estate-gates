@@ -311,6 +311,7 @@ class Check:
         self.findings: list[tuple[str, str, str, list[str]]] = []
         self.notes: list[str] = []
         self.measured = 0
+        self.unmeasured_count = 0
 
     # -- findings ----------------------------------------------------------
 
@@ -344,6 +345,17 @@ class Check:
         the Rust. A comparison that does not say what it compared is one
         somebody will misread later.
         """
+        self.notes.append(line)
+
+    def unmeasured(self, count: int, line: str) -> None:
+        """Subjects this run read and could not judge: printed as a note, and counted.
+
+        Not red, and not a pass. The verdict stays as the other findings make
+        it, so the exit code does not move. run-gates.py reads the count and
+        says PARTIAL with that number in its summary, and it never prints
+        "every subject was measured" while a count is non-zero.
+        """
+        self.unmeasured_count += count
         self.notes.append(line)
 
     # -- verdict -----------------------------------------------------------
@@ -412,6 +424,11 @@ class Check:
             )
         else:
             w(f"OK: {len(greens)} comparisons, every one of them agrees.\n")
+        if self.unmeasured_count:
+            w(
+                f"PARTIAL: {self.unmeasured_count} subject(s) went unmeasured, named "
+                f"in the notes above. That is not a pass.\n"
+            )
         return self.exit_code()
 
 

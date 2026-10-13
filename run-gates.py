@@ -8,7 +8,11 @@ and it is the only place that decides what an INCOMPLETE run means.
 
 EXIT CODES, and why there are four of them
 
-  0  every subject was measured and every comparison agrees.
+  0  every comparison agrees. A subject that went unmeasured (a C23 price row
+     whose vendor page states no tier for it) is counted and named, and the
+     summary says PARTIAL with the number. The exit code stays 0 by decision,
+     so CI does not go red for a page that does not state a tier. The words
+     "every subject was measured" are not printed while such a row is counted.
   1  at least one comparison disagrees. The estate drifted.
   2  nothing disagrees, but a repository that SHOULD have been reachable was
      not, or a source outside the estate (a vendor's price page, read by C23)
@@ -101,12 +105,15 @@ def main() -> int:
     print()
 
     results: list[tuple[str, str, int]] = []
+    unmeasured: dict[str, int] = {}
     started = time.time()
     for path in chosen:
         module = load_gate(path)
         check = module.run(estate)
         code = check.render()
         results.append((check.key, check.verdict(), code))
+        if check.unmeasured_count:
+            unmeasured[check.key] = check.unmeasured_count
         print("-" * 78)
         print()
 
@@ -134,6 +141,8 @@ def main() -> int:
             E.MISSING: "DRIFT",
             E.UNAVAILABLE: "partial, something went unmeasured",
         }[verdict]
+        if verdict == E.OK and unmeasured.get(key):
+            label = f"partial, {unmeasured[key]} went unmeasured"
         print(f"  {key}  {label}")
     print()
 
@@ -171,6 +180,15 @@ def main() -> int:
         print("having no public remote, so this is the expected shape of a CI run,")
         print("and it is still not a statement about what went unmeasured.")
         return EXIT_PARTIAL_EXPECTED
+
+    if unmeasured:
+        total = sum(unmeasured.values())
+        named = ", ".join(sorted(unmeasured))
+        print(f"PARTIAL: {total} subject(s) went unmeasured in {named}, and no gate found")
+        print("a disagreement. Each one is printed as NOT MEASURED above, with its gate.")
+        print("The exit code stays 0 on purpose: an unjudged subject is a gap in the reader,")
+        print("not drift in the estate, so it does not turn CI red.")
+        return E.EXIT_CLEAN
 
     print(f"All {len(results)} gates clean, and every subject was measured.")
     return E.EXIT_CLEAN

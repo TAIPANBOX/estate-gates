@@ -651,7 +651,10 @@ def run(estate: E.Estate) -> E.Check:
         if notlisted:
             c.note(f"{t.repo}: {len(notlisted)} row(s) whose vendor page lists no such model, not judged: {', '.join(notlisted)}.")
         if unjudged:
-            c.note(f"{t.repo}: {len(unjudged)} row(s) NOT MEASURED because their source was not read or states no price for them today: {', '.join(unjudged)}.")
+            c.unmeasured(
+                len(unjudged),
+                f"{t.repo}: {len(unjudged)} tier row(s) NOT MEASURED because their source was not read or states no price for them today: {', '.join(unjudged)}.",
+            )
         if matched == 0 and not unjudged:
             c.missing(
                 "c23.nothing-matched",

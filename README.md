@@ -569,7 +569,9 @@ Three sources, and every run prints which one it used:
 tree mid-edit will report drift that is somebody's uncommitted fix, and
 `origin/main` answers the question the nightly run answers.
 
-Exit codes: `0` clean and complete, `1` the estate drifted, `2` a repository
+Exit codes: `0` clean (every comparison agrees; a C23 price row that the vendor
+page states no tier for is counted and named as PARTIAL in the summary, and
+still exits 0 by decision), `1` the estate drifted, `2` a repository
 that should have been reachable was not, or a vendor price page C23 reads could
 not be fetched, `3` clean but some repository with no
 public remote went unread. CI treats 3 as success with a notice and fails on

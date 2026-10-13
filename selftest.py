@@ -44,10 +44,22 @@ And one more that belongs to rule 2 rather than rule 1:
   6. A PRICE IS A CLAIM WITH A DATE. C23 reads vendor pages, not repositories:
      the fixture pins "today", a dated change ahead is printed as a warning,
      the day it takes effect a row at the old price is red, and a page nobody
-     could fetch is NOT MEASURED and ends the run incomplete.
+     could fetch is NOT MEASURED and ends the run incomplete. A tier row C23
+     cannot judge is counted, and the summary says PARTIAL with the number; the
+     summary never says every subject was measured while one is counted. The
+     exit code stays 0 for that case by decision.
   7. THE PAGE READERS SURVIVE THE PAGES. The readers are run against the
      vendor pages as saved on 2026-10-13 and against a seeded sweep of hostile
      bytes (selftest/price_pages.py).
+
+EXPECTED COUNTS
+
+@measured `./selftest.py` 2026-10-13, at 4c77aeb: 260 broken estates and 156 FAIL
+paths. The same command at ab876a4 gave 257 and 155. The difference is the
+OpenRouter /endpoints rule and the exact-match cases beside it: c23.no-endpoints
+is a new FAIL path with two mutations, and the c23.price-differs cases changed
+(one retired, two added, net +1). A later change to either number must name the
+cases it adds or removes here, rather than move the number silently.
 
 WHAT THIS DOES NOT PROVE
 
@@ -208,14 +220,14 @@ def run_checks(
     return seen, verdicts, buffer.getvalue()
 
 
-def run_runner(
+def run_runner_proc(
     root: pathlib.Path,
     registry: pathlib.Path,
     expectations: pathlib.Path,
     only: str | None = None,
     sources: pathlib.Path | None = None,
-) -> int:
-    """`run-gates.py` as a subprocess, for its exit code and nothing else."""
+) -> subprocess.CompletedProcess:
+    """`run-gates.py` as a subprocess: its exit code, stdout and stderr."""
     import os
 
     args = [
@@ -233,7 +245,79 @@ def run_runner(
         sources = root / PRICE_DIR
     env["ESTATE_GATES_PRICE_SOURCES"] = str(sources)
     env["ESTATE_GATES_PRICE_EXCEPTIONS"] = str(sources.parent / fixture.PRICE_EXCEPTIONS_FILE)
-    return subprocess.run(args, capture_output=True, text=True, env=env).returncode
+    return subprocess.run(args, capture_output=True, text=True, env=env)
+
+
+def run_runner(
+    root: pathlib.Path,
+    registry: pathlib.Path,
+    expectations: pathlib.Path,
+    only: str | None = None,
+    sources: pathlib.Path | None = None,
+) -> int:
+    """`run-gates.py` as a subprocess, for its exit code and nothing else."""
+    return run_runner_proc(root, registry, expectations, only, sources).returncode
+
+
+def unmeasured_tier_is_said(
+    base: pathlib.Path,
+    work: pathlib.Path,
+    registry: pathlib.Path,
+    expectations: pathlib.Path,
+) -> list[str]:
+    """A tier row C23 cannot judge is counted, and the summary says PARTIAL with the number.
+
+    The planted row is a long-context tier for gpt-4o on tokenfuse's gateway
+    book, above 128,000 prompt tokens. OpenAI's page states no long-context
+    price for gpt-4o, so C23 cannot judge the row and prints it NOT MEASURED.
+    The run must still exit 0 (CI stays green by decision), and its summary
+    must not say "every subject was measured", which was false for that run.
+    The untouched fixture is run first, so the planted row is the only reason
+    for the PARTIAL line.
+    """
+    problems: list[str] = []
+    clean = run_runner_proc(base, registry, expectations, "c23")
+    if clean.returncode != 0 or "every subject was measured" not in clean.stdout:
+        return [
+            f"C23 on the untouched fixture did not come back clean through run-gates.py "
+            f"(exit {clean.returncode}). The planted row cannot be the only cause of what "
+            f"follows until it does.\n{clean.stdout[-600:]}"
+        ]
+    case = work / "unmeasured-tier"
+    shutil.copytree(base, case)
+    path = case / TF_ART
+    book = json.loads(path.read_text(encoding="utf-8"))
+    book["price_book"]["long_context"].append({
+        "model": "gpt-4o",
+        "above_prompt_tokens": 128000,
+        "input_per_mtok_microusd": 5000000,
+        "output_per_mtok_microusd": 20000000,
+        "cache_read_per_mtok_microusd": 2500000,
+        "cache_write_per_mtok_microusd": 5000000,
+    })
+    path.write_text(json.dumps(book, indent=2) + "\n", encoding="utf-8")
+    done = run_runner_proc(case, registry, expectations, "c23")
+    out = done.stdout
+    if done.returncode != 0:
+        problems.append(
+            f"with a gpt-4o tier row C23 cannot judge, run-gates.py exited {done.returncode}. "
+            f"The exit code stays 0 by decision: an unjudged tier row is a gap in the reader, "
+            f"not drift in the estate."
+        )
+    if "every subject was measured" in out:
+        problems.append(
+            "with a gpt-4o tier row C23 cannot judge, run-gates.py still printed 'every subject "
+            "was measured'. That sentence is false for that run: the row was NOT MEASURED, and "
+            "nothing counted it."
+        )
+    if "NOT MEASURED" not in out or "gpt-4o" not in out:
+        problems.append("the planted gpt-4o tier row was not named as NOT MEASURED in the run's output.")
+    if "PARTIAL: 1 " not in out:
+        problems.append(
+            "with one unjudged tier row, the summary did not say PARTIAL with the number 1. "
+            f"The summary ends:\n{out[-600:]}"
+        )
+    return problems
 
 
 def fired(seen: dict[str, str], ident: str) -> bool:
@@ -2889,6 +2973,15 @@ def main() -> int:
                     "whose subject was not measured was not evaluated, and must say so instead."
                 )
 
+        # -- 6b. a tier row nobody can judge is counted, not summarised as clean
+        #
+        # C23 printed a long-prompt tier row it could not judge as NOT MEASURED,
+        # counted it nowhere, and the runner still said "every subject was
+        # measured" with exit 0. This plants exactly that row and requires the
+        # summary to stop claiming it, while the exit code stays 0.
+        if not problems:
+            problems += unmeasured_tier_is_said(base, work, registry, expectations)
+
         # -- 7. the page readers survive real pages and hostile bytes ------
         if not problems:
             problems += price_pages.run()
@@ -2916,7 +3009,8 @@ def main() -> int:
     print("    read comes back partial rather than clean.")
     print("    All four of run-gates.py's exit codes were produced by a real run.")
     print("    C23 warned before a dated price change, went red the day it took effect,")
-    print("    said NOT MEASURED for a page nobody could fetch, and its page readers")
+    print("    said NOT MEASURED for a page nobody could fetch, said PARTIAL with the count")
+    print("    for a tier row it could not judge (exit 0 kept), and its page readers")
     print("    read the 2026-10-13 pages and survived a seeded sweep of hostile bytes.")
     return 0
 
