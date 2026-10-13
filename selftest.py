@@ -1326,6 +1326,68 @@ MUTATIONS: dict[str, list[tuple[str, callable]]] = {
             '_PARQUET_OUTCOME_COLUMN = "outcome_tag"'
         ),
     )],
+    # The fourth mirror, the tool-call argument cap. The fixture's comment lines
+    # quote the old 16 KiB value, so a reader that matched comments would fail
+    # the baseline; that is the non-fault, and step 1 proves it stays green.
+    "c3.argcap-differ": [
+        (
+            # The shipped defect: tokenfuse at 16 KiB, wardryx refusing above 12.
+            # tokenfuse's bound is above wardryx's: calls between them get no verdict.
+            "tokenfuse at 16 * 1024 against wardryx's 12 << 10",
+            lambda r: edit(
+                r, "tokenfuse/crates/gateway/src/wardryx.rs",
+                "= 12 * 1024;", "= 16 * 1024;",
+            ),
+        ),
+        (
+            # The other direction: tokenfuse below wardryx hides arguments from
+            # the policy plane, which then decides without them.
+            "tokenfuse at 8 * 1024, below wardryx's 12 << 10",
+            lambda r: edit(
+                r, "tokenfuse/crates/gateway/src/wardryx.rs",
+                "= 12 * 1024;", "= 8 * 1024;",
+            ),
+        ),
+    ],
+    "c3.argcap-unreadable": [
+        (
+            # Remove the constant line: no agreement may be reported.
+            "wardryx's MaxToolArgumentsBytes line is removed",
+            lambda r: edit(
+                r, "wardryx/internal/pdp/signal.go",
+                "MaxToolArgumentsBytes = 12 << 10\n", "",
+            ),
+        ),
+        (
+            "wardryx's name is changed, so the anchor matches nothing",
+            lambda r: edit(
+                r, "wardryx/internal/pdp/signal.go",
+                "MaxToolArgumentsBytes = 12 << 10", "MaxToolArgBytes = 12 << 10",
+            ),
+        ),
+        (
+            "tokenfuse's constant line is removed",
+            lambda r: edit(
+                r, "tokenfuse/crates/gateway/src/wardryx.rs",
+                "pub const TOOL_CALL_ARGUMENTS_CAP_BYTES: usize = 12 * 1024;\n", "",
+            ),
+        ),
+        (
+            # An expression the check does not evaluate is refused by its text.
+            "tokenfuse's cap is an expression the check does not evaluate",
+            lambda r: edit(
+                r, "tokenfuse/crates/gateway/src/wardryx.rs",
+                "= 12 * 1024;", "= 12 * 1024 + 1;",
+            ),
+        ),
+        (
+            "wardryx's cap is an expression the check does not evaluate",
+            lambda r: edit(
+                r, "wardryx/internal/pdp/signal.go",
+                "MaxToolArgumentsBytes = 12 << 10", "MaxToolArgumentsBytes = twelveKiB",
+            ),
+        ),
+    ],
     # ---- C4
     "c4.registry-unparsed": [(
         "SPEC.md loses its 6.2 heading",
