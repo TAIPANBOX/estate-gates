@@ -510,10 +510,14 @@ It reads, live and with no key, Anthropic's pricing page (the model table by
 its column headers, and the sentence stating the regional premium), OpenAI's
 (the text-token table marked tier `standard`, read in the order its own
 headings state), and Vertex AI's (the Standard tabs under "Google models",
-Global and Non-global rows, dated rows). OpenRouter's model list is the price
-for a row billed through OpenRouter and a secondary signal for the rest, from
-each model's own vendor endpoint row; where it disagrees with a vendor page,
-the page wins and the disagreement is printed. A row is compared with the
+Global and Non-global rows, dated rows). A row billed through OpenRouter
+(costcrew's `openrouter/...` engine) must equal, exactly, the price of one of
+the providers OpenRouter's `/models/{id}/endpoints` lists for that model, every
+component from the same provider, and is red when no provider is listed; never
+OpenRouter's model list, whose single price switches provider. For the other
+rows OpenRouter is a secondary signal, the model's own vendor endpoint row;
+where it disagrees with a vendor page, the page wins and the disagreement is
+printed. A row is compared with the
 price in effect today: an id naming the global endpoint with the list, one
 naming a regional endpoint with the list plus the stated premium, and one
 naming no endpoint (or a model priced in prompt-length tiers) must equal one

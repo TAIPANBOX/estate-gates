@@ -1068,7 +1068,6 @@ def parse_vertex(page: str, url: str = VERTEX_URL) -> Vendor:
 
 # ------------------------------------------------------------- OpenRouter
 
-OPENROUTER_MODELS_URL = "https://openrouter.ai/api/v1/models"
 OPENROUTER_ENDPOINTS_URL = "https://openrouter.ai/api/v1/models/{id}/endpoints"
 _OPENROUTER_FIELDS = {
     "prompt": "input",
@@ -1108,23 +1107,46 @@ def _openrouter_offers(pricing: dict) -> list[Offer]:
     return offers
 
 
-def parse_openrouter_models(text: str, url: str = OPENROUTER_MODELS_URL) -> Vendor:
-    v = Vendor("openrouter", "OpenRouter", url)
+def parse_openrouter_providers(text: str) -> list[dict] | None:
+    """Every provider OpenRouter routes one model to, with its base price.
+
+    The price of a call billed through OpenRouter is the price of the provider
+    that served it, and OpenRouter's model list shows one provider's price as
+    "the" price and switches which one as providers come and go: on 2026-10-13
+    its list said 0.32 / 0.89 for deepseek/deepseek-chat (DeepInfra's) while
+    StreamLake served the same model at 0.2574 / 1.0287. So a row is read
+    against every provider this answer lists, never against the aggregate.
+
+    Returns [{name, tag, status, prices}] (prices: the base rate, no prompt-
+    length override), [] when the model has no priced endpoint, and None when
+    OpenRouter answers that it does not know the model (its 404 body).
+    """
     try:
         data = json.loads(text)
     except ValueError as e:
-        raise E.Missing(f"OpenRouter's model list is not JSON ({e})") from None
-    items = data.get("data") if isinstance(data, dict) else None
-    if not isinstance(items, list):
-        raise E.Missing("OpenRouter's model list has no 'data' array")
-    for m in items:
-        if not isinstance(m, dict) or not isinstance(m.get("id"), str):
+        raise E.Missing(f"OpenRouter's endpoint list is not JSON ({e})") from None
+    if isinstance(data, dict) and isinstance(data.get("error"), dict) and data["error"].get("code") == 404:
+        return None
+    inner = data.get("data") if isinstance(data, dict) else None
+    eps = inner.get("endpoints") if isinstance(inner, dict) else None
+    if not isinstance(eps, list):
+        raise E.Missing("OpenRouter's endpoint list has no 'data.endpoints' array")
+    out = []
+    for ep in eps:
+        if not isinstance(ep, dict):
             continue
-        for o in _openrouter_offers(m.get("pricing") or {}):
-            v.add(m["id"], m["id"], o)
-    if not v.models:
-        raise E.Missing("no model in OpenRouter's model list carries a prompt and a completion price")
-    return v
+        base = [o for o in _openrouter_offers(ep.get("pricing") or {}) if o.above is None]
+        if not base:
+            continue
+        name = ep.get("provider_name") if isinstance(ep.get("provider_name"), str) else "?"
+        tag = ep.get("tag") if isinstance(ep.get("tag"), str) else "?"
+        out.append({"name": name, "tag": tag, "status": ep.get("status"), "prices": base[0].prices})
+    return out
+
+
+def exact(ours: float, theirs: float) -> bool:
+    """Equal to the nanodollar per million tokens: no tolerance, only float noise."""
+    return abs(ours - theirs) <= 1e-9
 
 
 def parse_openrouter_endpoints(text: str) -> dict[str, list[Offer]]:

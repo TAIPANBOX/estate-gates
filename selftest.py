@@ -2402,8 +2402,20 @@ MUTATIONS: dict[str, list[tuple[str, callable]]] = {
             lambda r: edit(r, "costcrew/internal/engines/prices.go", "InPerM: 2.00, OutPerM: 10.00", "InPerM: 3.00, OutPerM: 15.00"),
         ),
         (
-            "a row billed through OpenRouter that the marketplace now prices differently",
-            lambda r: edit(r, f"{PRICE_DIR}/openrouter-models.json", '"prompt": "0.00000057"', '"prompt": "0.00000032"'),
+            # A row billed through OpenRouter is the price of the provider that
+            # served the call: no provider charging it is a disagreement.
+            "no OpenRouter provider charges the row's price",
+            lambda r: edit(r, f"{PRICE_DIR}/openrouter-endpoints/moonshotai/kimi-k2.json", '"prompt": "0.00000057"', '"prompt": "0.0000006"'),
+        ),
+        (
+            # The match is per provider, every component from the same one: a
+            # row whose input one provider charges and whose output another does
+            # is a price nobody charges.
+            "a row matching one provider's input and another provider's output",
+            lambda r: [
+                edit(r, f"{PRICE_DIR}/openrouter-endpoints/moonshotai/kimi-k2.json", '"completion": "0.0000023"', '"completion": "0.0000024"'),
+                edit(r, f"{PRICE_DIR}/openrouter-endpoints/moonshotai/kimi-k2.json", '"completion": "0.0000025"', '"completion": "0.0000023"'),
+            ],
         ),
         (
             "the mirror carries a price the vendor does not",
@@ -2487,8 +2499,8 @@ MUTATIONS: dict[str, list[tuple[str, callable]]] = {
          lambda r: edit(r, f"{PRICE_DIR}/openai.html", "&quot;collapsedLatestRowCount&quot;", "&quot;collapsedRowCount&quot;")),
         ("Vertex AI's Standard tab is renamed, so every table reads as another tier",
          lambda r: edit(r, f"{PRICE_DIR}/vertex.html", 'track-metadata-eventdetail="Standard Model">Standard Model', 'track-metadata-eventdetail="On demand">On demand')),
-        ("OpenRouter's model list is not JSON",
-         lambda r: edit(r, f"{PRICE_DIR}/openrouter-models.json", '{"data": [', "<html><body>")),
+        ("OpenRouter's provider list is not JSON",
+         lambda r: edit(r, f"{PRICE_DIR}/openrouter-endpoints/moonshotai/kimi-k2.json", '{"data": {', "<html><body>")),
     ],
     "c23.table-unreadable": [
         ("costcrew's price map is renamed",
@@ -2548,6 +2560,19 @@ MUTATIONS: dict[str, list[tuple[str, callable]]] = {
         (
             "the exceptions file is not JSON",
             lambda r: (r / fixture.PRICE_EXCEPTIONS_FILE).write_text("{ not json"),
+        ),
+    ],
+    "c23.no-endpoints": [
+        (
+            "OpenRouter lists no provider for a model a row is billed through",
+            lambda r: (r / PRICE_DIR / "openrouter-endpoints/moonshotai/kimi-k2.json").write_text(
+                '{"data": {"id": "moonshotai/kimi-k2", "endpoints": []}}\n'),
+        ),
+        (
+            # OpenRouter's own 404 for a model it does not know.
+            "OpenRouter does not know the model a row is billed through",
+            lambda r: (r / PRICE_DIR / "openrouter-endpoints/moonshotai/kimi-k2.json").write_text(
+                '{"error": {"message": "Not Found", "code": 404}}\n'),
         ),
     ],
     "c23.nothing-matched": [(

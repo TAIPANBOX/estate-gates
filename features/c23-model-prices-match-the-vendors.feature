@@ -18,9 +18,23 @@ Feature: Every built-in model price table matches the vendors' current prices
   Subjects come from estate.json: every repository whose entry declares a
   price_table, with its path, its format, and whether it must price every
   current model. Prices are read live, with no key, from Anthropic's, OpenAI's
-  and Google Vertex AI's pricing pages; OpenRouter's model list is the price
-  for a row billed through OpenRouter and a secondary signal for the rest,
-  where the vendor's page wins every disagreement.
+  and Google Vertex AI's pricing pages. A row billed through OpenRouter is
+  held to the providers OpenRouter routes that model to, never to its model
+  list, whose one price switches provider; for the rest OpenRouter is a
+  secondary signal, where the vendor's page wins every disagreement.
+
+  @fires:c23.price-differs
+  Scenario: A row billed through OpenRouter matches no provider
+    Given a table prices a model billed through OpenRouter
+    When no provider OpenRouter routes it to charges exactly that price, every component from the same provider
+    Then it is refused, listing every provider's price today
+    And a row that equals one live provider's price exactly passes, whichever provider the model list happens to show
+
+  @fires:c23.no-endpoints
+  Scenario: OpenRouter lists no provider for a model a row is billed through
+    Given a table prices a model billed through OpenRouter
+    When OpenRouter lists no provider with a price for it, or does not know the model
+    Then it is refused, because a call billed through it has no price to be checked against
 
   @fires:c23.price-differs
   Scenario: A table's price disagrees with the vendor's page

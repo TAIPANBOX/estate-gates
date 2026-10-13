@@ -2,13 +2,13 @@
 
 THE SAVED PAGES
 
-`selftest/pages/2026-10-13/` holds the four vendor sources as they were
-fetched on 2026-10-13, trimmed to the parts the readers read (the model
-pricing table and the premium paragraph of Anthropic's page; the standard and
-batch text-token islands of OpenAI's; the "Google models" section of Vertex AI's
-from its h1 to the Gemini 2.0 heading; a handful of OpenRouter models and two
-endpoint lists), with class and style attributes removed and nothing else
-changed. Each HTML file says so in its first line. They are evidence of what
+`selftest/pages/2026-10-13/` holds the vendor sources as they were fetched on
+2026-10-13, trimmed to the parts the readers read (the model pricing table and
+the premium paragraph of Anthropic's page; the standard and batch text-token
+islands and the grouped short/long table of OpenAI's; the "Google models"
+section of Vertex AI's from its h1 to the Gemini 2.0 heading; three of
+OpenRouter's per-model provider lists and its 404 body), with class and style
+attributes removed and nothing else changed. Each HTML file says so in its first line. They are evidence of what
 the pages looked like, not a stand-in for them: the nightly run reads the live
 pages, and an anchor that stops matching there is red by construction.
 
@@ -130,8 +130,11 @@ def golden() -> list[str]:
     expect("Vertex prices read off a Priority tab", priority, [])
     expect("Vertex marks current models", g.current, None)
 
-    r = P.parse_openrouter_models(_read("openrouter-models.json"))
-    expect("OpenRouter kimi-k2", _offer(r, "moonshotai/kimi-k2"), {"input": 0.57, "output": 2.3})
+    providers = P.parse_openrouter_providers(_read("openrouter-endpoints-deepseek_deepseek-chat.json"))
+    expect("OpenRouter's providers for deepseek/deepseek-chat (its model list showed only DeepInfra's)",
+           [(x["name"], x["prices"]) for x in providers],
+           [("StreamLake", {"input": 0.2574, "output": 1.0287}), ("DeepInfra", {"input": 0.32, "output": 0.89})])
+    expect("OpenRouter's 404 for a model it does not know", P.parse_openrouter_providers(_read("openrouter-404.json")), None)
     eps = P.parse_openrouter_endpoints(_read("openrouter-endpoints-openai_gpt-5.6-sol.json"))
     expect("OpenRouter's own OpenAI row for gpt-5.6-sol (it disagrees with OpenAI's page)",
            {k: eps["openai"][0].prices[k] for k in ("input", "output")}, {"input": 2.0, "output": 10.0})
@@ -183,7 +186,7 @@ READERS = [
     ("parse_anthropic", P.parse_anthropic, "anthropic.html"),
     ("parse_openai", P.parse_openai, "openai.html"),
     ("parse_vertex", P.parse_vertex, "vertex.html"),
-    ("parse_openrouter_models", P.parse_openrouter_models, "openrouter-models.json"),
+    ("parse_openrouter_providers", P.parse_openrouter_providers, "openrouter-endpoints-deepseek_deepseek-chat.json"),
     ("parse_openrouter_endpoints", P.parse_openrouter_endpoints, "openrouter-endpoints-openai_gpt-5.6-sol.json"),
 ]
 

@@ -33,11 +33,17 @@ directory the self-test fills):
               headings state
   Google      cloud.google.com/vertex-ai/generative-ai/pricing, the Standard
               tabs under "Google models", Global and Non-global rows, dated rows
-  OpenRouter  openrouter.ai/api/v1/models, PRIMARY only for a row billed through
-              OpenRouter (costcrew's `openrouter/...` engine); otherwise a
-              SECONDARY signal from /models/{id}/endpoints, the vendor's own
-              endpoint row. Where it disagrees with a vendor page the vendor
-              page wins and the disagreement is printed.
+  OpenRouter  openrouter.ai/api/v1/models/{id}/endpoints, every provider
+              OpenRouter routes a model to. PRIMARY for a row billed through
+              OpenRouter (costcrew's `openrouter/...` engine): the row must
+              equal one provider's price exactly, every component from that
+              provider, because the call is billed at the price of whichever
+              provider served it. Never OpenRouter's model list, whose single
+              price switches provider as they come and go (on 2026-10-13 it
+              showed DeepInfra's 0.32 / 0.89 for deepseek-chat while StreamLake
+              served it at 0.2574 / 1.0287). Otherwise a SECONDARY signal: the
+              vendor's own endpoint row, where the vendor page wins every
+              disagreement and the disagreement is printed.
 
 HOW A ROW IS MATCHED (`_prices.resolve`)
 
@@ -101,6 +107,9 @@ WHAT COUNTS AS A FAILURE
   c23.table-unreadable         a declared table is absent, unreadable, in a
                                format this gate has no reader for, or declared
                                incompletely in estate.json
+  c23.no-endpoints             a row is billed through OpenRouter and OpenRouter
+                               lists no provider for the model (or does not
+                               know it)
   c23.nothing-matched          not one row of a table maps to a vendor price:
                                measured nothing for that table
   c23.stale-exception          a recorded exception excused nothing (its row
@@ -165,7 +174,6 @@ SOURCES = {
     "anthropic": ("Anthropic", P.ANTHROPIC_URL, P.parse_anthropic, "anthropic.html"),
     "openai": ("OpenAI", P.OPENAI_URL, P.parse_openai, "openai.html"),
     "google": ("Google Vertex AI", P.VERTEX_URL, P.parse_vertex, "vertex.html"),
-    "openrouter": ("OpenRouter", P.OPENROUTER_MODELS_URL, P.parse_openrouter_models, "openrouter-models.json"),
 }
 
 
@@ -185,7 +193,9 @@ class Fetcher:
             return f"saved pages under {self.fixture} (ESTATE_GATES_PRICE_SOURCES)"
         return "the vendors' live pages, fetched now with no key"
 
-    def get(self, url: str, fixture_name: str) -> str:
+    def get(self, url: str, fixture_name: str, accept_404: bool = False) -> str:
+        """The page's text. With `accept_404`, a 404 is an answer (OpenRouter
+        says so for a model it does not know) and its body is returned."""
         if self.fixture:
             path = self.fixture / fixture_name
             if not path.is_file():
@@ -201,6 +211,8 @@ class Fetcher:
                     raise Unreachable(f"{url} answered with more than {MAX_BYTES} bytes")
                 return body.decode("utf-8", "replace")
             except urllib.error.HTTPError as e:
+                if accept_404 and e.code == 404:
+                    return e.read(MAX_BYTES).decode("utf-8", "replace")
                 last = f"HTTP {e.code} from {url}"
             except (urllib.error.URLError, OSError, ValueError) as e:
                 last = f"{url}: {getattr(e, 'reason', e)}"
@@ -503,7 +515,7 @@ def run(estate: E.Estate) -> E.Check:
         return c
 
     resolved = {t.repo: {k: P.resolve(k) for k in set(t.rows) | set(t.long or {})} for t in tables}
-    needed = sorted({tg.vendor for rs in resolved.values() for tg in rs.values() if tg})
+    needed = sorted({tg.vendor for rs in resolved.values() for tg in rs.values() if tg and tg.vendor != "openrouter"})
     vendors, unmeasured = _fetch_vendors(c, estate, fetch, needed)
 
     compared: dict[tuple[str, str], P.Vendor] = {}
@@ -517,6 +529,14 @@ def run(estate: E.Estate) -> E.Check:
             row, tg = t.rows[key], resolved[t.repo][key]
             if tg is None:
                 nosource.append(key)
+                continue
+            if tg.vendor == "openrouter":
+                got = _openrouter_row(c, estate, fetch, t, key, row, tg.model, exc, day)
+                if got is None:
+                    unjudged.append(key)
+                    unmeasured.add("openrouter")
+                else:
+                    matched += 1
                 continue
             v = vendors.get(tg.vendor)
             if v is None:
@@ -757,6 +777,75 @@ def run(estate: E.Estate) -> E.Check:
         if unpriced:
             c.note(f"Google Vertex AI: {len(unpriced)} model(s) no table prices, listed and not judged: {', '.join(unpriced)}.")
     return c
+
+
+def _openrouter_row(c, estate, fetch, t, key, row, oid, exc, day) -> bool | None:
+    """A row billed through OpenRouter, against every provider it routes to.
+
+    PASS when the row equals one provider's price exactly, every component
+    compared from that one provider; red listing every provider when it equals
+    none; red when OpenRouter lists no provider for the model. Never against
+    OpenRouter's model list, whose single price switches provider as they come
+    and go. Returns None when the answer could not be read (not measured).
+    """
+    url = P.OPENROUTER_ENDPOINTS_URL.format(id=oid)
+    ekey = f"price-differs:{t.repo}:{key}"
+    exc.ask(ekey)
+    try:
+        text = fetch.get(url, f"openrouter-endpoints/{oid}.json", accept_404=True)
+    except Unreachable as u:
+        estate.source_unreachable(f"OpenRouter endpoints of {oid}", str(u))
+        c.unavailable(
+            f"c23.source-unreachable:openrouter:{oid}",
+            f"OpenRouter's providers for {oid} could not be fetched ({u}), so {t.repo}'s row {key} "
+            f"was measured against nothing; that is not a pass.",
+        )
+        return None
+    try:
+        providers = P.parse_openrouter_providers(text)
+    except E.Missing as m:
+        c.missing(
+            "c23.source-unparseable",
+            f"OpenRouter's provider list for {oid} was fetched and no longer parses, so this gate "
+            f"measured nothing for {t.repo}'s row {key}: {m}.",
+            [f"  source: {url}"],
+        )
+        return False
+    if not providers:
+        c.missing(
+            "c23.no-endpoints",
+            f"{t.repo} prices {key}, and OpenRouter "
+            + ("does not know the model" if providers is None else "lists no provider with a price for it")
+            + ", so a call billed through it has no price to be checked against.",
+            [f"  ours:     {t.where}, row {key!r}: {fmt_prices(row)}", f"  official: {url}"],
+        )
+        return False
+    listing = [
+        f"  {p['name']} ({p['tag']}{'' if p['status'] in (0, None) else ', status ' + str(p['status'])}): {fmt_prices(p['prices'])}"
+        for p in providers
+    ]
+    matches = []
+    for p in providers:
+        comps = [k for k in P.COMPONENTS if k in row and k in p["prices"]]
+        if comps and all(P.exact(row[k], p["prices"][k]) for k in comps):
+            matches.append(p)
+    if matches:
+        names = ", ".join(f"{p['name']} ({p['tag']})" for p in matches)
+        c.ok(
+            f"c23.row:{t.repo}:{key}",
+            f"{t.repo}: {key} = OpenRouter provider {names}, exactly ({fmt_prices(row)}); "
+            f"{len(providers)} provider(s) listed.",
+        )
+        return True
+    c.drift(
+        "c23.price-differs",
+        f"{t.repo} prices {key} at a price none of OpenRouter's {len(providers)} provider(s) for {oid} charges.",
+        [f"  ours:     {t.where}, row {key!r}: {fmt_prices(row)}", f"  official: {url}, every provider listed today:"]
+        + listing
+        + [f"  should read one of: {suggested(t.fmt, key, p['prices'], url, day)}" for p in providers]
+        + [f"  exception key, if this is a recorded choice: {ekey}"],
+    )
+    return True
 
 
 def _secondary(c: E.Check, fetch: Fetcher, vendors: dict, keys: list, day: datetime.date) -> None:

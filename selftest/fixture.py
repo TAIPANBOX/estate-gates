@@ -2271,10 +2271,12 @@ PRICE_SOURCES = {
     + _VERTEX_HEAD
     + _vertex_rows("Gemini 3.8 Flash* through December 31, 2026", ("1.35", "6.75", "0.135"), ("1.485", "7.425", "0.1485"))
     + "</table></div></div>\n</body></html>\n",
-    "openrouter-models.json": """{"data": [
-  {"id": "moonshotai/kimi-k2", "pricing": {"prompt": "0.00000057", "completion": "0.0000023"}},
-  {"id": "anthropic/claude-sonnet-5.5", "pricing": {"prompt": "0.000002", "completion": "0.00001", "input_cache_read": "0.0000001"}}
-]}
+    # Every provider OpenRouter routes kimi-k2 to: the row must equal one of
+    # them exactly, never OpenRouter's one-price model list.
+    "openrouter-endpoints/moonshotai/kimi-k2.json": """{"data": {"id": "moonshotai/kimi-k2", "endpoints": [
+  {"provider_name": "Novita", "tag": "novita/fp8", "status": 0, "pricing": {"prompt": "0.00000057", "completion": "0.0000023"}},
+  {"provider_name": "OtherCo", "tag": "otherco", "status": 0, "pricing": {"prompt": "0.0000006", "completion": "0.0000025"}}
+]}}
 """,
     "openrouter-endpoints/anthropic/claude-sonnet-5.5.json": """{"data": {"id": "anthropic/claude-sonnet-5.5", "endpoints": [
   {"provider_name": "Anthropic", "tag": "anthropic", "pricing": {"prompt": "0.000002", "completion": "0.00001", "input_cache_read": "0.0000001", "input_cache_write": "0.0000025", "input_cache_write_1h": "0.000004"}}

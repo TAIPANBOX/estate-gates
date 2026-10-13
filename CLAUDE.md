@@ -751,12 +751,20 @@ Stop and tell the user, then wait:
     standard rate that takes effect on 2027-01-01, and the fallback kept below
     gpt-6-astra's long price. Recording them here is a reading of tokenfuse's
     record, not a decision of this repository's.
-    *(gate: `gates/c23-model-prices-match-the-vendors.py`, forty-eight cases
-    across eight findings in `selftest.py`, among them a price one percent
+    A row billed through OpenRouter is held to the providers its
+    `/models/{id}/endpoints` lists, exactly, one provider for every component,
+    and never to OpenRouter's model list: measured 2026-10-13, that list showed
+    DeepInfra's 0.32 / 0.89 for deepseek-chat while StreamLake served the same
+    model at 0.2574 / 1.0287, costcrew's row, so a rule against the list would
+    flap with whichever provider it shows.
+    *(gate: `gates/c23-model-prices-match-the-vendors.py`, fifty-one cases
+    across nine findings in `selftest.py`, among them a price one percent
     off, a regional profile at the list price, an unnamed-endpoint row and a
     tiered row each mixing two prices, a dated change taking effect, a tier at
     the wrong threshold, a tier for a one-rate model, a tiered model with no
-    tier, each of four page anchors going away, and eight stale or unreadable
+    tier, a row matching no OpenRouter provider or one provider's input and
+    another's output, a model OpenRouter lists no provider for or does not
+    know, each of four page anchors going away, and eight stale or unreadable
     exceptions; property 6 of `selftest.py` proves the WARN line before a
     dated change, the red and the stale exception the day after, and NOT
     MEASURED plus exit 2 for a page nobody could fetch; property 7 runs
