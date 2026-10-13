@@ -82,3 +82,23 @@ Feature: Constants retyped by hand into another language still agree
     Given verdryx's column names unreadable
     When the comparison is attempted
     Then it says so
+
+  @decided 2026-10-13
+  @fires:c3.argcap-differ
+  Scenario: tokenfuse and wardryx hold different tool-call argument caps
+    Given tokenfuse's cap on the arguments it sends to the policy plane
+    And wardryx's bound above which the policy plane refuses a call's arguments
+    When the two are compared
+    Then a difference is refused, naming both files and both values
+    And the consequence is printed for the direction of the difference
+    Because a call between the two bounds gets no verdict, or a verdict made
+      without its arguments, and the failmode decides what the caller sees
+
+  @decided 2026-10-13
+  @fires:c3.argcap-unreadable
+  Scenario: The argument cap cannot be read on one side
+    Given a cap constant removed, renamed, or written as an expression this check does not evaluate
+    When the comparison is attempted
+    Then the missing or unreadable value is refused by name
+    And no agreement is reported for it
+    Because a bound the check cannot read is a bound nobody is comparing

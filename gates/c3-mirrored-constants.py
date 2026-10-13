@@ -23,7 +23,7 @@ When it is absent, this check parses the Rust source instead. That is the
 weaker mode and it says so in its output, every run. A comparison whose reader
 does not know what was compared is one somebody will quote wrongly later.
 
-THE THREE MIRRORS
+THE FOUR MIRRORS
 
   blocked decisions   BreakerReason::as_wire_str and the BLOCKED_DECISIONS
                       array, against verdryx's _BLOCKED_DECISIONS. Compared as
@@ -36,6 +36,27 @@ THE THREE MIRRORS
                       sixteen columns, so this is containment, not equality: a
                       column it names that tokenfuse does not write is a
                       column that silently reads as null.
+  argument cap        tokenfuse's TOOL_CALL_ARGUMENTS_CAP_BYTES, the bound it
+                      cuts a tool call's arguments at, against wardryx's
+                      MaxToolArgumentsBytes, the bound its policy plane refuses
+                      above. Read from source in both repositories, because
+                      tokenfuse's artifact does not carry it.
+
+THE FOURTH MIRROR, AND WHY IT IS HERE
+
+@decided 2026-10-13: tokenfuse respects wardryx's 12 KiB bound, and this
+repository holds the two constants equal. The defect it answers: tokenfuse held
+16 KiB while wardryx refuses above 12 KiB. A call whose arguments lie between
+the two is then refused by the policy plane with no verdict, and what happens
+to it is decided by the failmode, so under failmode open it is allowed without
+any policy having looked at it. Nothing compared the two numbers. The
+direction matters and the finding says which: a tokenfuse bound above
+wardryx's refuses calls between the two; a bound below it hides arguments from
+the policy plane, which then decides blind.
+
+A value this check cannot evaluate is refused by name. The cap is read as a
+plain integer, `N * 1024`, `N * 1024 * 1024` or `N << 10`, and any other
+expression is a finding that prints the text it could not read, never a guess.
 
 WHAT IS NOT COVERED
 
@@ -63,6 +84,8 @@ BREAKER_RS = "crates/core/src/breaker.rs"
 OUTCOMES_RS = "crates/core/src/outcomes.rs"
 PRICEBOOK_RS = "crates/gateway/src/pricebook.rs"
 SINK_RS = "crates/gateway/src/sink.rs"
+ARGCAP_RS = "crates/gateway/src/wardryx.rs"
+ARGCAP_GO = "internal/pdp/signal.go"
 
 VERDRYX_COSTPER = "verdryx/costper.py"
 VERDRYX_PRICING = "verdryx/pricing.py"
@@ -265,15 +288,133 @@ def verdryx_prices(pricing_py: str) -> tuple[dict[str, tuple], tuple | None]:
     return _prices.verdryx_book(pricing_py, VERDRYX_PRICING)
 
 
+# ------------------------------------------------------- the argument cap, both sides
+
+# tokenfuse's cap: a line that BEGINS with the declaration. Anchored on the line
+# start, so a doc line that quotes the same text cannot be read as the constant.
+_ARGCAP_RS = re.compile(
+    r"^pub const TOOL_CALL_ARGUMENTS_CAP_BYTES\s*:\s*[A-Za-z0-9_]+\s*=\s*([^;]*);",
+    re.MULTILINE,
+)
+
+# wardryx's bound is a member of the `const (...)` block in signal.go. The block
+# is found first and the name searched inside it, so an assignment to the same
+# name outside a const block is not the bound.
+_GO_CONST_BLOCK = re.compile(r"^const\s*\(\s*\n(.*?)^\)[ \t]*$", re.MULTILINE | re.DOTALL)
+_ARGCAP_GO = re.compile(
+    r"^[ \t]*MaxToolArgumentsBytes[ \t]*=[ \t]*([^\n]*?)[ \t]*(?://[^\n]*)?$",
+    re.MULTILINE,
+)
+
+_INT = re.compile(r"\d+")
+_PRODUCT = re.compile(r"\d+(?:\s*\*\s*\d+)+")
+_SHIFT = re.compile(r"(\d+)\s*<<\s*(\d+)")
+
+
+def _bound(expr: str, where: str, name: str) -> int:
+    """A byte count written as a plain integer, a product, or a left shift.
+
+    Anything else is a Missing that prints the text it could not read. The
+    alternative, reading the expression by a best guess, is how a 1024 goes
+    missing from one side and nobody is told.
+    """
+    text = " ".join(expr.split())
+    if _INT.fullmatch(text):
+        return int(text)
+    if _PRODUCT.fullmatch(text):
+        value = 1
+        for factor in _INT.findall(text):
+            value *= int(factor)
+        return value
+    m = _SHIFT.fullmatch(text)
+    if m:
+        return int(m.group(1)) << int(m.group(2))
+    raise E.Missing(
+        f"{where}: {name} is `{text}`, which this check does not evaluate. It reads "
+        f"a plain integer, a product such as `N * 1024`, or `N << 10`. An "
+        f"expression outside those is refused with its text, never guessed at."
+    )
+
+
+def tokenfuse_argument_cap(rust: str) -> int:
+    m = _ARGCAP_RS.search(rust)
+    if not m:
+        raise E.Missing(
+            f"{ARGCAP_RS} has no `pub const TOOL_CALL_ARGUMENTS_CAP_BYTES`, the bound "
+            f"tokenfuse cuts a tool call's arguments at. The anchor this check "
+            f"parses is gone, so it knows nothing about that bound."
+        )
+    return _bound(m.group(1), ARGCAP_RS, "TOOL_CALL_ARGUMENTS_CAP_BYTES")
+
+
+def wardryx_argument_cap(signal_go: str) -> int:
+    for block in _GO_CONST_BLOCK.finditer(signal_go):
+        m = _ARGCAP_GO.search(block.group(1))
+        if m:
+            return _bound(m.group(1), ARGCAP_GO, "MaxToolArgumentsBytes")
+    raise E.Missing(
+        f"{ARGCAP_GO} has no `MaxToolArgumentsBytes` inside a `const (...)` block, "
+        f"the bound wardryx's policy plane refuses tool-call arguments above. The "
+        f"anchor this check parses is gone, so it knows nothing about that bound."
+    )
+
+
+def _argument_cap(c: E.Check, estate: E.Estate) -> None:
+    """The fourth mirror. It reads source in two repositories the other three
+    never open, and it runs before them, so a mirror that cannot be read above
+    cannot hide this one."""
+    tf = wd = None
+    try:
+        tf = tokenfuse_argument_cap(estate.read_text("tokenfuse", ARGCAP_RS))
+    except E.Missing as m:
+        c.missing("c3.argcap-unreadable", str(m))
+    try:
+        wd = wardryx_argument_cap(estate.read_text("wardryx", ARGCAP_GO))
+    except E.Missing as m:
+        c.missing("c3.argcap-unreadable", str(m))
+    if tf is None or wd is None:
+        return
+    if tf == wd:
+        c.ok(
+            "c3.argcap-agree",
+            f"the tool-call argument cap is {tf} bytes in tokenfuse and in wardryx.",
+        )
+        return
+    if tf > wd:
+        consequence = [
+            f"  A call whose arguments lie between {wd} and {tf} bytes is sent to the",
+            "  policy plane whole. wardryx refuses any call over its own bound, so the",
+            "  policy plane gives no verdict on it and the failmode decides it.",
+        ]
+    else:
+        consequence = [
+            f"  A call whose arguments lie between {tf} and {wd} bytes is sent without",
+            "  them, marked arguments_truncated. The policy plane decides it blind to",
+            "  arguments it could have seen.",
+        ]
+    c.drift(
+        "c3.argcap-differ",
+        f"the tool-call argument cap differs: tokenfuse {tf} bytes, wardryx {wd} bytes.",
+        [
+            f"  tokenfuse: {estate.where('tokenfuse', ARGCAP_RS)} "
+            f"TOOL_CALL_ARGUMENTS_CAP_BYTES = {tf}",
+            f"  wardryx:   {estate.where('wardryx', ARGCAP_GO)} "
+            f"MaxToolArgumentsBytes = {wd}",
+        ]
+        + consequence,
+    )
+
+
 # ---------------------------------------------------------------------- run
 
 
 def run(estate: E.Estate) -> E.Check:
-    c = E.Check("C3", "mirrored constants: tokenfuse to verdryx", estate)
+    c = E.Check("C3", "mirrored constants: tokenfuse to verdryx and wardryx", estate)
 
     try:
         estate.dir_of("tokenfuse")
         estate.dir_of("verdryx")
+        estate.dir_of("wardryx")
     except E.Unavailable as u:
         c.unavailable(
             "c3.repo-unavailable",
@@ -281,6 +422,8 @@ def run(estate: E.Estate) -> E.Check:
             f"was compared.",
         )
         return c
+
+    _argument_cap(c, estate)
 
     # -- source selection, stated out loud --------------------------------
     mode = None

@@ -173,38 +173,125 @@ func scanPush(g gitRunner, stdin io.Reader) ([]Finding, int, error) {
 	return all, units, sc.Err()
 }
 
-// scanRange scans only the lines the commits in a range add.
+// scanRange scans only the lines the commits in a range add. --text and
+// --no-textconv make git print every file's own bytes whatever
+// .gitattributes or a diff driver says, so the binary decision is made here,
+// by the NUL test tree uses on the same blob. A merge shows what it adds over
+// git's own merge of its parents, which is a line written while resolving it
+// and not the side branch again; by default a merge shows nothing.
 func scanRange(g gitRunner, rng []string) ([]Finding, int, error) {
-	args := append([]string{"log", "-p", "--no-color", "--no-ext-diff", "-U0", "--format=commit %H"}, rng...)
+	args := append([]string{"log", "-p", "--no-color", "--no-ext-diff", "--no-textconv", "--text", "--full-index", "--diff-merges=remerge", "-U0", "--format=commit %H"}, rng...)
 	out, err := g.out(args...)
 	if err != nil {
 		return nil, 0, err
 	}
-	return scanPatch(out)
+	r, err := newBlobReader(g)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer r.close()
+	seen := map[string]bool{}
+	return scanPatch(out, func(blob string) (bool, error) {
+		if b, ok := seen[blob]; ok {
+			return b, nil
+		}
+		data, err := r.read(blob)
+		if err != nil {
+			return false, err
+		}
+		seen[blob] = binary(data)
+		return seen[blob], nil
+	})
 }
 
-func scanPatch(patch string) ([]Finding, int, error) {
+// binary is git's own test for a binary file, a NUL in the first 8000 bytes.
+func binary(data []byte) bool { return bytes.IndexByte(data[:min(len(data), 8000)], 0) >= 0 }
+
+// scanPatch reads `git log -p -U0` output. Inside a hunk the counts in its
+// header decide which lines are content, so an added line that reads "++ x"
+// is content and not a file header; it once was, and the next finding in the
+// file printed that line, value and all, as its path.
+func scanPatch(patch string, isBinary func(blob string) (bool, error)) ([]Finding, int, error) {
 	var findings []Finding
 	units := 0
-	file, line := "", 0
+	file, blob, skip, gitlink := "", "", true, false
+	line, adds, dels := 0, 0, 0
 	for _, l := range strings.Split(patch, "\n") {
-		switch {
-		case strings.HasPrefix(l, "+++ "):
-			file = strings.TrimPrefix(strings.TrimPrefix(l, "+++ "), "b/")
-		case strings.HasPrefix(l, "@@ "):
-			// @@ -a,b +c,d @@
-			plus := strings.Fields(l)
-			if len(plus) >= 3 {
-				n := strings.TrimPrefix(strings.SplitN(plus[2], ",", 2)[0], "+")
-				line, _ = strconv.Atoi(n)
+		if adds > 0 || dels > 0 {
+			switch {
+			case strings.HasPrefix(l, "+"):
+				if !skip {
+					units++
+					findings = append(findings, ScanLine(file, line, l[1:])...)
+				}
+				adds--
+				line++
+			case strings.HasPrefix(l, "-"):
+				dels--
+			case strings.HasPrefix(l, " "):
+				adds--
+				dels--
+				line++
 			}
-		case strings.HasPrefix(l, "+") && file != "" && file != "/dev/null":
-			units++
-			findings = append(findings, ScanLine(file, line, l[1:])...)
-			line++
+			continue
+		}
+		switch {
+		case strings.HasPrefix(l, "diff --git "):
+			file, blob, skip, gitlink = "", "", true, false
+		case strings.HasPrefix(l, "new file mode ") || strings.HasPrefix(l, "new mode "):
+			gitlink = strings.HasSuffix(l, " 160000")
+		case strings.HasPrefix(l, "index "):
+			// index <old>..<new>[ <mode>]; mode 160000 is a submodule, whose id
+			// names a commit in another repository and which tree passes over.
+			if f := strings.Fields(l); len(f) >= 2 {
+				_, blob, _ = strings.Cut(f[1], "..")
+				gitlink = gitlink || len(f) >= 3 && f[2] == "160000"
+			}
+		case strings.HasPrefix(l, "+++ "):
+			file = patchPath(strings.TrimPrefix(l, "+++ "))
+			skip = file == "/dev/null" || blob == "" || gitlink
+			if !skip {
+				b, err := isBinary(blob)
+				if err != nil {
+					return nil, 0, err
+				}
+				skip = b
+			}
+		case strings.HasPrefix(l, "@@ "):
+			// @@ -a[,b] +c[,d] @@
+			f := strings.Fields(l)
+			if len(f) >= 3 {
+				_, dels = hunkRange(f[1])
+				line, adds = hunkRange(f[2])
+			}
 		}
 	}
 	return findings, units, nil
+}
+
+// hunkRange reads "-a,b" or "+c,d"; a count left out is 1.
+func hunkRange(s string) (start, count int) {
+	a, b, ok := strings.Cut(s[1:], ",")
+	start, _ = strconv.Atoi(a)
+	count = 1
+	if ok {
+		count, _ = strconv.Atoi(b)
+	}
+	return start, count
+}
+
+// patchPath turns the path of a "+++ " line into the path tree prints: git
+// quotes a name holding a quote, a backslash, a control character or a
+// non-ASCII byte, and writes a tab after a name holding a space.
+func patchPath(p string) string {
+	if strings.HasPrefix(p, `"`) {
+		if u, err := strconv.Unquote(p); err == nil {
+			p = u
+		}
+	} else {
+		p = strings.TrimSuffix(p, "\t")
+	}
+	return strings.TrimPrefix(p, "b/")
 }
 
 // blob reads objects through one long-lived cat-file process.
@@ -255,8 +342,10 @@ func (b *blobReader) read(sha string) ([]byte, error) {
 
 func (b *blobReader) close() { b.in.Close(); b.cmd.Wait() }
 
-const maxBlob = 2 << 20
-
+// scanBlobs skips what binary() calls binary, as scanRange does, so tree and
+// history read the files whose added lines diff and push read. It once also
+// skipped every text blob over 2 MiB, which diff reads (a 2.8 MB bundle,
+// 2026-10-13); the blob was in memory either way.
 func scanBlobs(g gitRunner, blobs [][2]string) ([]Finding, int, error) {
 	r, err := newBlobReader(g)
 	if err != nil {
@@ -270,7 +359,7 @@ func scanBlobs(g gitRunner, blobs [][2]string) ([]Finding, int, error) {
 		if err != nil {
 			return nil, 0, err
 		}
-		if len(data) > maxBlob || bytes.IndexByte(data[:min(len(data), 8000)], 0) >= 0 {
+		if binary(data) {
 			continue
 		}
 		units++
@@ -280,18 +369,22 @@ func scanBlobs(g gitRunner, blobs [][2]string) ([]Finding, int, error) {
 }
 
 func scanTree(g gitRunner, rev string) ([]Finding, int, error) {
-	out, err := g.out("ls-tree", "-r", "-z", "--format=%(objecttype) %(objectname)%x09%(path)", rev)
+	// The default format, not --format: git 2.56 quotes a --format %(path)
+	// holding a quote or a non-ASCII byte even under -z, and diff, push and
+	// history print those paths as they are.
+	out, err := g.out("ls-tree", "-r", "-z", rev)
 	if err != nil {
 		return nil, 0, err
 	}
 	var blobs [][2]string
 	for _, e := range strings.Split(out, "\x00") {
-		typ, rest, ok := strings.Cut(e, " ")
-		if !ok || typ != "blob" {
+		// <mode> <type> <object>\t<path>
+		meta, p, ok := strings.Cut(e, "\t")
+		f := strings.Fields(meta)
+		if !ok || len(f) != 3 || f[1] != "blob" {
 			continue
 		}
-		sha, p, _ := strings.Cut(rest, "\t")
-		blobs = append(blobs, [2]string{sha, p})
+		blobs = append(blobs, [2]string{f[2], p})
 	}
 	return scanBlobs(g, blobs)
 }

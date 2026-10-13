@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 	"testing"
 )
@@ -227,6 +228,222 @@ func TestHistoryFindsWhatTheTreeNoLongerHolds(t *testing.T) {
 	}
 }
 
+// longLine is one line of minified-code filler with probe placed at byte at.
+// The filler is chosen to fire no rule on its own, and its last byte is a
+// separator so a rule anchored on a word boundary sees one at every position.
+func longLine(at int, probe string) string {
+	filler := strings.Repeat("x=1;", at/4+1)[:at]
+	if at > 0 {
+		filler = filler[:at-1] + ";"
+	}
+	return filler + probe + ";" + strings.Repeat("y=2;", 64)
+}
+
+// Measured 2026-10-13 on it-rat: `diff` found three values past byte 4096 of
+// one line of a minified bundle and `tree` on the same content said clean,
+// because ScanText cut every line at 4096 bytes and scanPatch did not. The
+// positions straddle that old cut, sit past it, and sit far past it, so a
+// smaller cut, a larger one, and windows that do not overlap all go red here.
+// The fingerprint is checked because a cut through a value still finds a
+// value, a shorter one that no allowlist entry written from `diff` names; the
+// 1200-character token is longer than any overlap a window scheme would pick.
+func TestAValueAnywhereOnALongLineIsFound(t *testing.T) {
+	hx, gh, pass, long := hexOf("long line"), b62("long line", 36), "Kestrel-"+"Orbit-74", b62("jwt", 1200)
+	probes := []struct{ rule, text, value string }{
+		{"assignment:api_key", "API_" + "KEY=" + hx, hx},
+		{"github-token", "gh" + "p_" + gh, "gh" + "p_" + gh},
+		{"passphrase-in-text", "pass" + "word:`" + pass + "`", pass},
+		{"assignment:service_token", "SERVICE_" + "TOKEN=" + long, long},
+	}
+	for _, at := range []int{0, 4000, 4090, 4096, 4097, 8180, 65536, 1 << 20} {
+		for _, p := range probes {
+			got := ScanText("demo/assets/index.js", "first\n"+longLine(at, p.text)+"\nlast\n")
+			if len(got) != 1 || got[0].Rule != p.rule || got[0].Line != 2 || got[0].Fingerprint() != fingerprint(p.value) {
+				t.Errorf("%s at byte %d of line 2: want one %s on line 2 with the whole value, got %v", p.rule, at, p.rule, rules(got))
+			}
+		}
+	}
+}
+
+// The four modes read one content two ways, as added lines and as files, and
+// must report the same values: an allowlist entry that diff needs and tree
+// calls unused is the same disagreement seen from the allowlist's side.
+func TestTreeHistoryAndDiffAgreeOnALongLine(t *testing.T) {
+	dir := t.TempDir()
+	git(t, dir, "init", "-q")
+	os.WriteFile(filepath.Join(dir, "README"), []byte("base\n"), 0o644)
+	git(t, dir, "add", ".")
+	git(t, dir, "commit", "-q", "-m", "base")
+	base := git(t, dir, "rev-parse", "HEAD")
+	v := hexOf("past the cut")
+	os.WriteFile(filepath.Join(dir, "bundle.js"), []byte(longLine(5000, "API_"+"KEY="+v)+"\n"), 0o644)
+	git(t, dir, "add", ".")
+	git(t, dir, "commit", "-q", "-m", "bundle")
+	want := "bundle.js:1: assignment:api_key " + mask(v) + " fp=" + fingerprint(v) + "\n"
+	for _, mode := range [][]string{{"diff", base + "..HEAD"}, {"tree"}, {"history"}} {
+		var out, errb bytes.Buffer
+		code := run(append([]string{"-C", dir}, mode...), nil, &out, &errb)
+		if code != exitFound || out.String() != want {
+			t.Errorf("%s: want exit %d and %q, got exit %d and %q", mode[0], exitFound, want, code, out.String())
+		}
+	}
+	os.WriteFile(filepath.Join(dir, ".secretscan-allow"), []byte(fingerprint(v)+" bundle.js # a fixture value\n"), 0o644)
+	for _, mode := range [][]string{{"tree"}, {"history"}} {
+		var out, errb bytes.Buffer
+		if code := run(append([]string{"-C", dir}, mode...), nil, &out, &errb); code != exitClean || strings.Contains(errb.String(), "matched nothing") {
+			t.Errorf("%s with the entry: want exit %d and the entry used, got exit %d\n%s", mode[0], exitClean, code, errb.String())
+		}
+	}
+}
+
+// tree and history skipped every text blob over 2 MiB while diff read the
+// added lines of a file of any size (measured 2026-10-13: a 2.8 MB bundle,
+// found by diff, skipped by both). Short lines here, so only the file's size
+// is under test; a small file beside it so a skip cannot hide as exit 3. A
+// binary file beside it, with a value after its NUL, is the other direction:
+// git's diff calls it binary and prints no lines, so tree must skip it too.
+func TestTreeHistoryAndDiffAgreeOnAFileOverTwoMiB(t *testing.T) {
+	dir := t.TempDir()
+	git(t, dir, "init", "-q")
+	os.WriteFile(filepath.Join(dir, "README"), []byte("base\n"), 0o644)
+	git(t, dir, "add", ".")
+	git(t, dir, "commit", "-q", "-m", "base")
+	base := git(t, dir, "rev-parse", "HEAD")
+	v := hexOf("a large file")
+	body := strings.Repeat("x=1;\n", (2<<20)/5+1) + "API_" + "KEY=" + v + "\n"
+	os.WriteFile(filepath.Join(dir, "data.js"), []byte(body), 0o644)
+	os.WriteFile(filepath.Join(dir, "image.bin"), []byte("\x00\x01\nAPI_"+"KEY="+hexOf("in a binary")+"\n"), 0o644)
+	git(t, dir, "add", ".")
+	git(t, dir, "commit", "-q", "-m", "large")
+	want := "data.js:" + itoa(strings.Count(body, "\n")) + ": assignment:api_key " + mask(v) + " fp=" + fingerprint(v) + "\n"
+	for _, mode := range [][]string{{"diff", base + "..HEAD"}, {"tree"}, {"history"}} {
+		var out, errb bytes.Buffer
+		code := run(append([]string{"-C", dir}, mode...), nil, &out, &errb)
+		if code != exitFound || out.String() != want {
+			t.Errorf("%s: want exit %d and %q, got exit %d and %q", mode[0], exitFound, want, code, out.String())
+		}
+	}
+}
+
+// The other direction: diff and push read a patch, and what git prints in one
+// is not the file. Measured 2026-10-13, each of these made diff disagree with
+// tree: a file .gitattributes marks -diff (git prints "Binary files differ"),
+// a textconv driver in the repository's config, an added line beginning "++ "
+// (read as a file header, so the value on it went unscanned and the next
+// finding PRINTED it as its path), and three path spellings (quoted, a
+// trailing tab after a space, octal escapes for non-ASCII). The binary file is
+// skipped by every mode by the same NUL test.
+func TestDiffAndPushReadWhatTreeReads(t *testing.T) {
+	dir := t.TempDir()
+	git(t, dir, "init", "-q")
+	git(t, dir, "config", "diff.hide.textconv", "true")
+	os.WriteFile(filepath.Join(dir, "README"), []byte("base\n"), 0o644)
+	git(t, dir, "add", ".")
+	// Submodules: an id names a commit in another repository, which this one
+	// cannot read, and tree passes it over as not a blob. One is changed and
+	// one is added below, which git spells in two different header lines.
+	gitlink := func(path, seed string) {
+		git(t, dir, "update-index", "--add", "--cacheinfo", "160000,"+hexOf(seed)[:40]+","+path)
+	}
+	gitlink("vendor/old", "submodule at base")
+	git(t, dir, "commit", "-q", "-m", "base")
+	base := git(t, dir, "rev-parse", "HEAD")
+	key := func(n string) string { return "API_" + "KEY=" + hexOf(n) }
+	files := map[string]string{
+		".gitattributes": "*.min.js -diff\n*.cfg diff=hide\n",
+		"a.min.js":       key("v1") + "\n",
+		"fix.patch":      "--- a/src/x.c\n+++ b/src/x.c\n@@ -1 +1 @@\n++ counter;\n++ " + key("v2") + "\n" + key("v3") + "\n",
+		"нотатка.md":     key("v4"),
+		"image.bin":      "\x00\x01\n" + key("v5") + "\n",
+		"conv.cfg":       key("v6") + "\n",
+		"say hi.txt":     key("v7") + "\n",
+		"q\"uote.txt":    key("v8") + "\n",
+	}
+	for name, body := range files {
+		os.WriteFile(filepath.Join(dir, name), []byte(body), 0o644)
+	}
+	git(t, dir, "add", ".")
+	gitlink("vendor/old", "submodule moved")
+	gitlink("vendor/lib", "submodule added")
+	git(t, dir, "commit", "-q", "-m", "files")
+	head := git(t, dir, "rev-parse", "HEAD")
+	var want []string
+	for _, w := range []struct {
+		at, v string
+	}{{"a.min.js:1", "v1"}, {"fix.patch:5", "v2"}, {"fix.patch:6", "v3"}, {"нотатка.md:1", "v4"}, {"conv.cfg:1", "v6"}, {"say hi.txt:1", "v7"}, {"q\"uote.txt:1", "v8"}} {
+		want = append(want, w.at+": assignment:api_key "+mask(hexOf(w.v))+" fp="+fingerprint(hexOf(w.v)))
+	}
+	sort.Strings(want)
+	for _, mode := range [][]string{{"push"}, {"diff", base + "..HEAD"}, {"tree"}, {"history"}} {
+		var out, errb bytes.Buffer
+		stdin := strings.NewReader("refs/heads/main " + head + " refs/heads/main " + base + "\n")
+		code := run(append([]string{"-C", dir}, mode...), stdin, &out, &errb)
+		got := strings.Split(strings.TrimSpace(out.String()), "\n")
+		sort.Strings(got)
+		if code != exitFound || strings.Join(got, "\n") != strings.Join(want, "\n") {
+			t.Errorf("%s: want exit %d and\n%s\ngot exit %d and\n%s", mode[0], exitFound, strings.Join(want, "\n"), code, strings.Join(got, "\n"))
+		}
+		for _, n := range []string{"v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8"} {
+			if strings.Contains(out.String()+errb.String(), hexOf(n)[4:60]) {
+				t.Errorf("%s: the value %s reached the output", mode[0], n)
+			}
+		}
+	}
+}
+
+// git log -p shows no diff for a merge commit, so a value written only while
+// merging reached the remote past push and diff (measured 2026-10-13). The
+// value a side branch brought in must still be reported once, not again for
+// the merge that carried it.
+func TestDiffAndPushReadWhatAMergeAdds(t *testing.T) {
+	dir := t.TempDir()
+	git(t, dir, "init", "-q", "-b", "main")
+	os.WriteFile(filepath.Join(dir, "f"), []byte("a\n"), 0o644)
+	git(t, dir, "add", ".")
+	git(t, dir, "commit", "-q", "-m", "base")
+	base := git(t, dir, "rev-parse", "HEAD")
+	git(t, dir, "checkout", "-q", "-b", "side")
+	os.WriteFile(filepath.Join(dir, "side.env"), []byte("API_"+"KEY="+hexOf("side")+"\n"), 0o644)
+	git(t, dir, "add", ".")
+	git(t, dir, "commit", "-q", "-m", "side")
+	git(t, dir, "checkout", "-q", "main")
+	os.WriteFile(filepath.Join(dir, "h"), []byte("c\n"), 0o644)
+	git(t, dir, "add", ".")
+	git(t, dir, "commit", "-q", "-m", "main")
+	git(t, dir, "merge", "-q", "--no-commit", "--no-ff", "side")
+	os.WriteFile(filepath.Join(dir, "merge.env"), []byte("API_"+"KEY="+hexOf("merge")+"\n"), 0o644)
+	git(t, dir, "add", ".")
+	git(t, dir, "commit", "-q", "-m", "merge")
+	head := git(t, dir, "rev-parse", "HEAD")
+	var want []string
+	for _, w := range []string{"merge", "side"} {
+		want = append(want, w+".env:1: assignment:api_key "+mask(hexOf(w))+" fp="+fingerprint(hexOf(w)))
+	}
+	for _, mode := range [][]string{{"push"}, {"diff", base + "..HEAD"}, {"tree"}} {
+		var out, errb bytes.Buffer
+		stdin := strings.NewReader("refs/heads/main " + head + " refs/heads/main " + base + "\n")
+		code := run(append([]string{"-C", dir}, mode...), stdin, &out, &errb)
+		got := strings.Split(strings.TrimSpace(out.String()), "\n")
+		sort.Strings(got)
+		if code != exitFound || strings.Join(got, "\n") != strings.Join(want, "\n") {
+			t.Errorf("%s: want exit %d and\n%s\ngot exit %d and\n%s%s", mode[0], exitFound, strings.Join(want, "\n"), code, out.String(), errb.String())
+		}
+	}
+}
+
+// scanRange asks for -U0, but the hunk counts are what keep the parser in
+// step, so a patch with context lines must still put the value on its line
+// and still read the next file's header as a header.
+func TestAPatchWithContextKeepsTheHunkCounts(t *testing.T) {
+	v, w := hexOf("context"), hexOf("next file")
+	patch := "commit 1\n\ndiff --git a/f b/f\nindex 1..2 100644\n--- a/f\n+++ b/f\n@@ -1,2 +1,3 @@\n ctx\n+++ API_" + "KEY=" + v + "\n ctx\n" +
+		"diff --git a/g b/g\nindex 3..4 100644\n--- a/g\n+++ b/g\n@@ -0,0 +7 @@\n+API_" + "KEY=" + w + "\n"
+	got, units, err := scanPatch(patch, func(string) (bool, error) { return false, nil })
+	if err != nil || units != 2 || len(got) != 2 || got[0].Path != "f" || got[0].Line != 2 || got[0].value != v || got[1].Path != "g" || got[1].Line != 7 || got[1].value != w {
+		t.Fatalf("want f:2 and g:7 from 2 added lines, got %d lines, err %v, %+v", units, err, got)
+	}
+}
+
 // Each line below fired on a real estate repository on 2026-10-09 and is not
 // a secret. They are the measured noise the name and value rules exist for.
 func TestTheNoiseMeasuredOnTheEstateStaysQuiet(t *testing.T) {
@@ -254,5 +471,35 @@ func TestTheNoiseMeasuredOnTheEstateStaysQuiet(t *testing.T) {
 		if got := ScanLine("f", 1, c.line); len(got) != 0 {
 			t.Errorf("%s: want nothing, got %v", c.name, rules(got))
 		}
+	}
+}
+
+// The pair that answers why ScanText no longer cuts lines: one line of 2 MiB
+// against the same bytes as 4096-byte lines.
+// Run with: go test -run '^$' -bench SameBytes\|OneLongLine
+func minifiedBytes() string {
+	const size = 2 << 20
+	unit := "function(e){return e.type===`text`?{className:`row`,style:{}}:null};"
+	return strings.Repeat(unit, size/len(unit)+1)[:size]
+}
+
+func BenchmarkOneLongLine(b *testing.B) {
+	text := minifiedBytes()
+	b.SetBytes(int64(len(text)))
+	for b.Loop() {
+		ScanText("x.js", text)
+	}
+}
+
+func BenchmarkTheSameBytesAsShortLines(b *testing.B) {
+	raw := minifiedBytes()
+	var sb strings.Builder
+	for i := 0; i < len(raw); i += 4096 {
+		sb.WriteString(raw[i:min(i+4096, len(raw))] + "\n")
+	}
+	text := sb.String()
+	b.SetBytes(int64(len(raw)))
+	for b.Loop() {
+		ScanText("x.js", text)
 	}
 }

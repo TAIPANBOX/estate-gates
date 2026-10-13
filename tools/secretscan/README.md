@@ -85,7 +85,72 @@ other entry is unused there by definition.
 - **public CI**: `secretscan tree` as a step. Free on public repositories;
   on a private one it would be metered, so the hook is the place there.
 
-## 6. Measured on 2026-10-09
+## 6. Measured
+
+### On 2026-10-13: diff and push read what tree reads
+
+A patch is not the file, and six ways it differed made `diff` and `push`
+disagree with `tree`: a file `.gitattributes` marks `-diff` or `binary` (git
+prints "Binary files differ"), a textconv driver in the repository's config,
+a merge commit (`git log -p` shows no diff for one, so a value written while
+merging was never read), an added line beginning `++ `, which reads as `+++ `
+in the patch and was taken for a file header, and two path spellings, quoted
+(a quote, a backslash, a control character, a non-ASCII byte) and a trailing
+tab after a name holding a space. The `++ ` line was the worst: its value went
+unscanned and the next finding in the file PRINTED it as its path. `tree` had its own: `ls-tree` with
+a custom `--format` quotes such a path even under `-z`.
+
+So `diff` and `push` ask git for every file's own bytes (`--text
+--no-textconv --full-index`), and for each merge what it adds over git's own
+merge of its parents (`--diff-merges=remerge`, so a side branch's lines are not
+read twice), decide binary by the same NUL test on the same blob, read a hunk
+by the counts in its header, and unquote the path; `tree` uses `ls-tree`'s
+default format.
+
+- **Submodules**: a submodule's header names a commit in another repository.
+  `diff` passes it over as `tree` does; a first draft of this change read it
+  as a blob and failed every push in a repository with a submodule, which the
+  fixture now carries, added and changed.
+- **Tests**: 14 functions, coverage 86.9% of statements. Fourteen more
+  mutants, each caught: `--text` dropped, `--no-textconv` dropped, merges
+  shown as nothing again, a merge shown against its first parent (the side
+  branch's value reported twice), a `+++ ` line inside a hunk read as a header
+  again, a quoted path left quoted, the tab after a spaced path kept, diff no
+  longer skipping binary blobs, tree back on its old `--format`, an added line
+  not advancing the line number, a hunk count left out read as 0, context
+  lines not counted, and an added or a changed submodule read as a blob.
+- **Real runs**: `diff` over the last 30 first-parent commits of each of the
+  25 registered repositories and it-rat, pinned to commit ids, gives the same
+  exit code, byte-identical findings and the same number of lines read before
+  and after.
+
+### On 2026-10-13: tree and history read what diff reads
+
+`tree` and `history` cut every line at 4096 bytes and skipped every text blob
+over 2 MiB; `diff` and `push` did neither. On it-rat, `diff` reported three
+values past byte 4096 of one line of a minified demo bundle, and `tree` on the
+same commit said clean and called the two allowlist entries for them unused.
+So the CI workflow, which runs `tree`, could not see a value past byte 4096 of
+any line, nor anything in a text file over 2 MiB. Both bounds are gone.
+
+- **Why no window**: the cut had no recorded reason, and Go's regexp is linear
+  in its input. One line costs 545 to 660 ns per byte from 4 KiB to 2 MiB, on
+  the real bundle and on synthetic minified code, and the same per byte as
+  those bytes in 4096-byte lines (`go test -run '^$' -bench
+  SameBytes\|OneLongLine`). The 2 MiB skip saved no memory either: the blob was
+  read whole before its size was checked.
+- **Tests**: 11 functions, coverage 86.1% of statements. Seven more mutants,
+  each caught: the 4096 cut put back, a 64 KiB cut, 4096-byte windows with no
+  overlap, the same with 256 bytes of overlap (a value inside the overlap is
+  reported twice), the cut moved into `ScanLine` so every mode agrees and all
+  are blind, the 2 MiB skip put back, and the binary check removed.
+- **Real runs**: on it-rat `tree` now prints the same three fingerprints as
+  `diff`, and both allowlist entries are used. Over the 25 repositories of
+  `estate.json` and it-rat, each at its default branch, the old and new
+  binaries print byte-identical findings everywhere else: the fix adds no
+  noise. The cost is time: `history` on it-rat, 2329 blobs, went from 29 s to 39 s.
+
+### On 2026-10-09
 
 - **Tests**: 8 functions, coverage 85.5% of statements. Every rule and filter
   was broken on purpose and a test went red for each (15 mutants: no
@@ -115,3 +180,12 @@ other entry is unused there by definition.
   secret name passes. Raising the floor trades misses for noise, and the
   measured noise above is the reason the floor sits where it does.
 - It scans text: a key inside a binary, an archive or an image is skipped.
+  Binary means a NUL in the first 8000 bytes, git's own test, applied by this
+  program to the blob in every mode; what `.gitattributes` says does not
+  change what is read.
+- Every line and every text file is read in full, so a large text file costs
+  time in proportion to its size, about 0.6 seconds per megabyte, and
+  `history` pays that once per version of the file.
+- `diff` and `push` need a git that knows `--diff-merges=remerge` (2.36 or
+  newer). An older git fails the command and secretscan exits 2, which refuses
+  a push rather than passing it.
