@@ -518,13 +518,24 @@ price in effect today: an id naming the global endpoint with the list, one
 naming a regional endpoint with the list plus the stated premium, and one
 naming no endpoint (or a model priced in prompt-length tiers) must equal one
 of the prices, every component from the same one. Only components both sides
-state are compared, within half a percent. A dated change within 30 days is a
-WARN line on every run, and red the day it takes effect. Red for: a price
-that differs (with the row as it should read), a model the vendor's page marks
-current missing from a table declared to price every current model (with the
-row to add), a fallback below a current model's price, a page whose shape no
-longer parses, a table that cannot be read, a table none of whose rows maps to
-a vendor price, and no declaration at all. A page that could not be fetched is
+state are compared, within half a percent. Prompt-length tiers are read from
+both sides (tokenfuse's `price_book.long_context`, verdryx's
+`.with_long_context`, the vendors' "over 100,000 / 200K / 272K tokens"
+prices): a table that can carry a tier must carry the vendor's threshold and
+long price and no tier the vendor does not have; a flat table may carry
+either tier. A dated change within 30 days is a WARN line on every run, and
+red the day it takes effect. A disagreement a repository chose on purpose
+(tokenfuse's dearer dated rate for Gemini 3.x Flash, its fallback below
+gpt-6-astra's long price) is recorded in `expectations/model-prices.json`
+with its reason and printed as an EXCEPTION every run; an exception that
+excuses nothing is red, so a dated one has to be removed the day its price
+takes effect. Red for: a price that differs (with the row as it should read
+and the exception key a recorded choice would use), a model the vendor's page
+marks current missing from a table declared to price every current model
+(with the rows to add), a fallback below a current model's price, a page
+whose shape no longer parses, a table that cannot be read, a table none of
+whose rows maps to a vendor price, a stale or unreadable exception, and no
+declaration at all. A page that could not be fetched is
 NOT MEASURED and the run ends incomplete (exit 2), never partial. "Current" is
 what the vendor's page marks: Anthropic's rows above "Additional models",
 OpenAI's latest rows; Vertex AI marks none, so an unpriced Gemini model is

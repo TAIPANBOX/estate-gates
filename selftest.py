@@ -177,6 +177,7 @@ def run_checks(
 
     os.environ["ESTATE_GATES_EXPECTATIONS"] = str(expectations)
     os.environ["ESTATE_GATES_PRICE_SOURCES"] = str(root / PRICE_DIR)
+    os.environ["ESTATE_GATES_PRICE_EXCEPTIONS"] = str(root / fixture.PRICE_EXCEPTIONS_FILE)
     # A case may carry its own registry. The shared one is a single file for
     # every case, so a mutation that edited it would leak into every case run
     # after it; a case-local copy is the only way to plant a fault in the
@@ -231,6 +232,7 @@ def run_runner(
     if sources is None:
         sources = root / PRICE_DIR
     env["ESTATE_GATES_PRICE_SOURCES"] = str(sources)
+    env["ESTATE_GATES_PRICE_EXCEPTIONS"] = str(sources.parent / fixture.PRICE_EXCEPTIONS_FILE)
     return subprocess.run(args, capture_output=True, text=True, env=env).returncode
 
 
@@ -414,6 +416,14 @@ def run_c23(root: pathlib.Path, registry: pathlib.Path, **env: str):
                 os.environ.pop(k, None)
             else:
                 os.environ[k] = v
+
+
+def price_exceptions(root: pathlib.Path, fn) -> None:
+    """Rewrite the case's C23 exceptions file through `fn`."""
+    path = root / fixture.PRICE_EXCEPTIONS_FILE
+    data = json.loads(path.read_text())
+    fn(data["exceptions"])
+    path.write_text(json.dumps(data, indent=2) + "\n")
 
 
 def registry_drop_runs(root: pathlib.Path, repo: str) -> None:
@@ -2399,6 +2409,38 @@ MUTATIONS: dict[str, list[tuple[str, callable]]] = {
             "the mirror carries a price the vendor does not",
             lambda r: edit(r, "verdryx/verdryx/pricing.py", "ModelPrice(0.10, 0.50, 0.01, 0.125)", "ModelPrice(0.10, 0.50, 0.02, 0.125)"),
         ),
+        (
+            # The exception is what made the row green; without it the dated
+            # price ahead of its date is a disagreement like any other.
+            "a row at a dated price ahead of its date with its exception removed",
+            lambda r: price_exceptions(r, lambda e: e.pop("price-differs:tokenfuse:google/gemini-3.7-flash")),
+        ),
+        (
+            "a long-prompt tier's price differs from the vendor's",
+            lambda r: edit(r, TF_ART, '"above_prompt_tokens": 100000, "input_per_mtok_microusd": 500000', '"above_prompt_tokens": 100000, "input_per_mtok_microusd": 600000'),
+        ),
+        (
+            "a long-prompt tier starts at another threshold than the vendor's",
+            lambda r: edit(r, TF_ART, '"above_prompt_tokens": 100000', '"above_prompt_tokens": 200000'),
+        ),
+        (
+            # A book that can carry a tier and carries none bills every long
+            # prompt of that model at the base rate.
+            "a table that carries tiers has none for a model the vendor prices by prompt length",
+            lambda r: edit(r, TF_ART, '      { "model": "claude-haiku-5-5", "above_prompt_tokens": 100000, "input_per_mtok_microusd": 500000, "output_per_mtok_microusd": 2500000, "cache_read_per_mtok_microusd": 50000, "cache_write_per_mtok_microusd": 625000, "cache_write_1h_per_mtok_microusd": 1000000 },\n', ""),
+        ),
+        (
+            "a tier for a model the vendor prices at one rate",
+            lambda r: edit(r, TF_ART, '    "long_context": [\n', '    "long_context": [\n      { "model": "claude-sonnet-5-5", "above_prompt_tokens": 200000, "input_per_mtok_microusd": 4000000, "output_per_mtok_microusd": 15000000, "cache_read_per_mtok_microusd": 400000, "cache_write_per_mtok_microusd": 5000000 },\n'),
+        ),
+        (
+            # In a table that carries tiers the base row must be the base price:
+            # "either tier" is only for a flat table.
+            "a base row at the long-prompt price in a table that carries tiers",
+            lambda r: edit(r, TF_ART,
+                           '"model": "claude-haiku-5-5", "input_per_mtok_microusd": 100000, "output_per_mtok_microusd": 500000, "cache_read_per_mtok_microusd": 10000, "cache_write_per_mtok_microusd": 125000, "cache_write_1h_per_mtok_microusd": 200000',
+                           '"model": "claude-haiku-5-5", "input_per_mtok_microusd": 500000, "output_per_mtok_microusd": 2500000, "cache_read_per_mtok_microusd": 50000, "cache_write_per_mtok_microusd": 625000, "cache_write_1h_per_mtok_microusd": 1000000'),
+        ),
     ],
     "c23.current-model-missing": [
         (
@@ -2417,6 +2459,10 @@ MUTATIONS: dict[str, list[tuple[str, callable]]] = {
         (
             "the gateway's fallback lowered below a current model's input price",
             lambda r: edit(r, TF_ART, '"input_per_mtok_microusd": 15000000', '"input_per_mtok_microusd": 1500000'),
+        ),
+        (
+            "the recorded fallback exception is removed",
+            lambda r: price_exceptions(r, lambda e: e.pop("fallback-below-current:tokenfuse:gpt-6-sol")),
         ),
         (
             # And the other direction: the table did not move, the vendor did.
@@ -2457,6 +2503,52 @@ MUTATIONS: dict[str, list[tuple[str, callable]]] = {
          lambda r: registry_price(r, "verdryx", lambda e: e["price_table"].pop("why"))),
         ("the declared table file is gone",
          lambda r: drop(r, "costcrew/internal/engines/prices.go")),
+        ("the long-prompt tiers are not a list",
+         lambda r: edit(r, TF_ART, '    "long_context": [\n', '    "long_context": "see long_context_rows",\n    "long_context_rows": [\n')),
+        ("a long-prompt tier with no threshold",
+         lambda r: edit(r, TF_ART, '"above_prompt_tokens": 272000', '"above_prompt_tokens": "lots"')),
+        ("the mirror gains a long-prompt tier in a shape the reader cannot read",
+         lambda r: edit(r, "verdryx/verdryx/pricing.py", '.with_price("gpt-6-sol"', '.with_long_context("gpt-6-sol", "long")\n            .with_price("gpt-6-sol"')),
+    ],
+    "c23.stale-exception": [
+        (
+            "an exception for a row that agrees with today's price",
+            lambda r: price_exceptions(r, lambda e: e.update({"price-differs:tokenfuse:google/gemini-3.8-flash": {
+                "price_from": "2027-01-01", "why": "x", "recorded": "2026-10-13", "provenance": "x"}})),
+        ),
+        (
+            "an exception whose date has passed",
+            lambda r: price_exceptions(r, lambda e: e["price-differs:tokenfuse:google/gemini-3.7-flash"].update(price_from="2026-10-01")),
+        ),
+        (
+            "an exception with no reason",
+            lambda r: price_exceptions(r, lambda e: e["price-differs:tokenfuse:google/gemini-3.7-flash"].pop("why")),
+        ),
+        (
+            # The row moved to a price neither date has: the exception now
+            # describes nothing, and the row is red in its own right.
+            "an excepted row changes to a price neither date has",
+            lambda r: edit(r, TF_ART, '"model": "google/gemini-3.7-flash", "input_per_mtok_microusd": 1650000', '"model": "google/gemini-3.7-flash", "input_per_mtok_microusd": 9990000'),
+        ),
+        (
+            "a fallback exception for a model the fallback is not below",
+            lambda r: price_exceptions(r, lambda e: e.update({"fallback-below-current:tokenfuse:claude-sonnet-5-5": {
+                "why": "x", "recorded": "2026-10-13", "provenance": "x"}})),
+        ),
+        (
+            "an exception for a row the table no longer has",
+            lambda r: price_exceptions(r, lambda e: e.update({"price-differs:tokenfuse:google/gemini-1.0-flash": {
+                "price_from": "2027-01-01", "why": "x", "recorded": "2026-10-13", "provenance": "x"}})),
+        ),
+        (
+            "an exception of a kind the gate does not excuse",
+            lambda r: price_exceptions(r, lambda e: e.update({"current-model-missing:tokenfuse:claude-opus-9": {
+                "why": "x", "recorded": "2026-10-13", "provenance": "x"}})),
+        ),
+        (
+            "the exceptions file is not JSON",
+            lambda r: (r / fixture.PRICE_EXCEPTIONS_FILE).write_text("{ not json"),
+        ),
     ],
     "c23.nothing-matched": [(
         "not one row of a table maps to a price on a page this gate reads",
@@ -2614,6 +2706,7 @@ def main() -> int:
                         os.environ,
                         ESTATE_GATES_EXPECTATIONS=str(expectations),
                         ESTATE_GATES_PRICE_SOURCES=str(base / PRICE_DIR),
+                        ESTATE_GATES_PRICE_EXCEPTIONS=str(base / fixture.PRICE_EXCEPTIONS_FILE),
                     ),
                 )
                 # Exactly clean, because the fixture IS clean and every gate
@@ -2729,25 +2822,34 @@ def main() -> int:
         # -- 6. a price is a claim with a date, and a page can be missing ---
         if not problems:
             pages = base / PRICE_DIR
+            excs = str(base / fixture.PRICE_EXCEPTIONS_FILE)
             verdict, _ids, text, _ = run_c23(base, registry, ESTATE_GATES_TODAY="2026-12-10",
-                                             ESTATE_GATES_PRICE_SOURCES=str(pages))
+                                             ESTATE_GATES_PRICE_SOURCES=str(pages),
+                                             ESTATE_GATES_PRICE_EXCEPTIONS=excs)
             if verdict != E.OK or "WARN: Google Vertex AI Gemini 3.8 Flash changes price on 2027-01-01" not in text:
                 problems.append(
                     "C23 on 2026-12-10, three weeks before a dated Vertex price change, "
                     f"did not stay clean and print the WARN line (verdict {verdict}).\n{text[-600:]}"
                 )
             verdict, ids, text, _ = run_c23(base, registry, ESTATE_GATES_TODAY="2027-01-02",
-                                            ESTATE_GATES_PRICE_SOURCES=str(pages))
+                                            ESTATE_GATES_PRICE_SOURCES=str(pages),
+                                            ESTATE_GATES_PRICE_EXCEPTIONS=excs)
             if (E.DRIFT, "c23.price-differs") not in ids or "google/gemini-3.8-flash" not in text:
                 problems.append(
                     "C23 on 2027-01-02 did not turn the fixture's Gemini row red, though the "
                     "price it carries ended on 2026-12-31. A dated change nobody acts on must "
                     "be red the day it lands."
                 )
+            if (E.MISSING, "c23.stale-exception") not in ids or "price-differs:tokenfuse:google/gemini-3.7-flash" not in text:
+                problems.append(
+                    "C23 on 2027-01-02 did not report the Gemini 3.7 exception as stale, though "
+                    "the price it accepted early is in effect from that day, so it excuses nothing."
+                )
             partial = work / "pages-without-anthropic"
             shutil.copytree(pages, partial)
             (partial / "anthropic.html").unlink()
-            verdict, ids, text, est = run_c23(base, registry, ESTATE_GATES_PRICE_SOURCES=str(partial))
+            verdict, ids, text, est = run_c23(base, registry, ESTATE_GATES_PRICE_SOURCES=str(partial),
+                                              ESTATE_GATES_PRICE_EXCEPTIONS=excs)
             if verdict != E.UNAVAILABLE or "NOT MEASURED [c23.source-unreachable:anthropic]" not in text \
                     or "measured nothing for Anthropic" not in text or "Anthropic" not in est.unreachable_sources():
                 problems.append(
@@ -2756,6 +2858,11 @@ def main() -> int:
                 )
             if "c23.row:tokenfuse:claude-sonnet-5-5" in text:
                 problems.append("with Anthropic's page unfetchable, C23 still reported a Claude row as agreeing.")
+            if (E.MISSING, "c23.stale-exception") in ids:
+                problems.append(
+                    "with Anthropic's page unfetchable, C23 called an exception stale. An exception "
+                    "whose subject was not measured was not evaluated, and must say so instead."
+                )
 
         # -- 7. the page readers survive real pages and hostile bytes ------
         if not problems:

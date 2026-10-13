@@ -51,9 +51,11 @@ def _read(name: str) -> str:
     return (PAGES / name).read_text(encoding="utf-8")
 
 
-def _offer(v: P.Vendor, model: str, endpoint: str = "global", tier: str | None = None, day=None):
+def _offer(v: P.Vendor, model: str, endpoint: str = "global", tier: str | None = None, day=None, above="base"):
     for o in v.models.get(model, []):
         if o.endpoint != endpoint or (tier is not None and o.tier != tier):
+            continue
+        if above != "any" and o.above != (None if above == "base" else above):
             continue
         if day is not None and not o.in_effect(day):
             continue
@@ -75,7 +77,7 @@ def golden() -> list[str]:
            {"input": 2.0, "output": 10.0, "cache_write": 2.5, "cache_write_1h": 4.0, "cache_read": 0.1})
     expect("Anthropic Haiku 5.5, up to 100,000 tokens", _offer(a, "claude-haiku-5-5", tier="up to 100,000 tokens"),
            {"input": 0.1, "output": 0.5, "cache_write": 0.125, "cache_write_1h": 0.2, "cache_read": 0.01})
-    expect("Anthropic Haiku 5.5, over 100,000 tokens", _offer(a, "claude-haiku-5-5", tier="over 100,000 tokens"),
+    expect("Anthropic Haiku 5.5, over 100,000 tokens", _offer(a, "claude-haiku-5-5", tier="over 100,000 tokens", above=100000),
            {"input": 0.5, "output": 2.5, "cache_write": 0.625, "cache_write_1h": 1.0, "cache_read": 0.05})
     expect("Anthropic Opus 5 (the 2026-10-13 costcrew finding)", _offer(a, "claude-opus-5"),
            {"input": 5.0, "output": 25.0, "cache_write": 6.25, "cache_write_1h": 10.0, "cache_read": 0.5})
@@ -94,7 +96,15 @@ def golden() -> list[str]:
     expect("OpenAI gpt-5.5, its name's context suffix taken off", _offer(o, "gpt-5.5"),
            {"input": 5.0, "cache_read": 0.5, "output": 30.0})
     expect("OpenAI gpt-5-pro, no cached price", _offer(o, "gpt-5-pro"), {"input": 15.0, "output": 120.0})
-    expect("OpenAI model count", len(o.models), 40)
+    # 40 rows in the standard table, plus gpt-5.6-cyber and gpt-5.5-cyber from
+    # the grouped short/long table (gpt-5.6-sol is in both).
+    expect("OpenAI model count, the standard table and the grouped short/long one", len(o.models), 42)
+    expect("OpenAI gpt-6-astra above 272K, from the rendered Long context columns", _offer(o, "gpt-6-astra", above=272000),
+           {"input": 20.0, "cache_read": 2.0, "cache_write": 25.0, "output": 75.0})
+    expect("OpenAI gpt-5.6-sol above 272K, from the grouped table", _offer(o, "gpt-5.6-sol", above=272000),
+           {"input": 8.0, "cache_read": 0.8, "cache_write": 10.0, "output": 30.0})
+    expect("OpenAI gpt-6-sol's long price, which the page computes in script", _offer(o, "gpt-6-sol", above=272000), None)
+    expect("OpenAI tiers marked incomplete", o.tiers_complete, False)
 
     g = P.parse_vertex(_read("vertex.html"))
     autumn, winter = datetime.date(2026, 10, 13), datetime.date(2027, 1, 1)
@@ -107,13 +117,15 @@ def golden() -> list[str]:
     expect("Vertex Gemini 3.5 Flash, non-global (a Region cell carrying an asterisk)",
            _offer(g, "gemini-3.5-flash", "regional", "up to 200K input tokens", autumn),
            {"input": 1.65, "cache_read": 0.165, "output": 9.9})
-    expect("Vertex Gemini 2.5 Pro over 200K, no Region column", _offer(g, "gemini-2.5-pro", "any", "over 200K input tokens", autumn),
+    expect("Vertex Gemini 2.5 Pro over 200K, no Region column", _offer(g, "gemini-2.5-pro", "any", "over 200K input tokens", autumn, 200000),
            {"input": 2.5, "cache_read": 0.25, "output": 15.0})
     expect("Vertex Gemini 4 Argon, standard tab, not priority", _offer(g, "gemini-4-argon", "global", "", autumn),
            {"input": 2.0, "cache_read": 0.1, "output": 10.0})
     expect("Vertex Gemini 4 Argon from 2026-12-01 (a date in parentheses, two models in one cell)",
            _offer(g, "gemini-4-argon", "global", "", datetime.date(2026, 12, 1)),
            {"input": 4.0, "cache_read": 0.2, "output": 20.0})
+    expect("Vertex Gemini 3.8 Flash has no tier: its > 200K column repeats the base price",
+           [x.above for x in g.models["gemini-3.8-flash"] if x.above is not None], [])
     priority = [m for m, offers in g.models.items() for x in offers if x.prices.get("input") in (3.6, 2.7, 2.25)]
     expect("Vertex prices read off a Priority tab", priority, [])
     expect("Vertex marks current models", g.current, None)
@@ -123,6 +135,14 @@ def golden() -> list[str]:
     eps = P.parse_openrouter_endpoints(_read("openrouter-endpoints-openai_gpt-5.6-sol.json"))
     expect("OpenRouter's own OpenAI row for gpt-5.6-sol (it disagrees with OpenAI's page)",
            {k: eps["openai"][0].prices[k] for k in ("input", "output")}, {"input": 2.0, "output": 10.0})
+    shapes = (
+        'B().with_price("m", ModelPrice(1, 2)).with_long_context("m", 100000, ModelPrice(5, 10, 0.5, 6))',
+        'B().with_price("m", ModelPrice(1, 2)).with_long_context("m", above_prompt_tokens=100000, price=ModelPrice(5, 10, 0.5, 6))',
+        'B().with_price("m", ModelPrice(1, 2)).with_long_context("m", LongContext(100000, ModelPrice(5, 10, 0.5, 6)))',
+    )
+    for src in shapes:
+        expect(f"verdryx long tier read from {src.split('with_long_context', 1)[1]}",
+               P.verdryx_rows(src, "shape").long, {"m": [(100000, {"input": 5.0, "output": 10.0, "cache_read": 0.5, "cache_write": 6.0})]})
     return problems
 
 
@@ -169,6 +189,8 @@ READERS = [
 
 TABLE_HOSTILE = {
     "tokenfuse-constants": [
+        '{"price_book": {"units": "microusd_per_mtok", "models": [{"model": "m", "input_per_mtok_microusd": 1, "output_per_mtok_microusd": 1, "cache_read_per_mtok_microusd": 1, "cache_write_per_mtok_microusd": 1}], "fallback": {"input_per_mtok_microusd": 1, "output_per_mtok_microusd": 1, "cache_read_per_mtok_microusd": 1, "cache_write_per_mtok_microusd": 1}, "long_context": [null, {"model": "m", "above_prompt_tokens": true}]}}',
+        '{"price_book": {"units": "microusd_per_mtok", "models": [{"model": "m", "input_per_mtok_microusd": 1, "output_per_mtok_microusd": 1, "cache_read_per_mtok_microusd": 1, "cache_write_per_mtok_microusd": 1}], "fallback": {"input_per_mtok_microusd": 1, "output_per_mtok_microusd": 1, "cache_read_per_mtok_microusd": 1, "cache_write_per_mtok_microusd": 1}, "long_context": {"m": 1}}}',
         "", "{", "[]", '{"price_book": null}', '{"price_book": {"units": "microusd_per_mtok", "models": [1], "fallback": {}}}',
         '{"price_book": {"units": "microusd_per_mtok", "models": [{"model": "m", "input_per_mtok_microusd": true}], "fallback": {}}}',
         '{"price_book": {"units": "usd", "models": [{"model": "m"}], "fallback": {}}}',
@@ -177,6 +199,10 @@ TABLE_HOSTILE = {
     "verdryx-pricebook": [
         "", "def (", "x = PriceBook().with_price(1, 2)", 'PriceBook().with_price("m", ModelPrice("a", None))',
         'PriceBook().with_price("m", ModelPrice(*args))', "(" * 200 + ")" * 200,
+        'PriceBook().with_price("m", ModelPrice(1, 2)).with_long_context()',
+        'PriceBook().with_price("m", ModelPrice(1, 2)).with_long_context("m", -5, ModelPrice(1, 2))',
+        'PriceBook().with_price("m", ModelPrice(1, 2)).with_long_context("m", LongContext(price=ModelPrice(1, 2)))',
+        'PriceBook().with_price("m", ModelPrice(1, 2)).with_long_context("m", True, ModelPrice(1, 2))',
     ],
     "go-price-map": [
         "", "var prices = map[string]Price{", '// var prices = map[string]Price{"a": {InPerM: 1, OutPerM: 2}}',

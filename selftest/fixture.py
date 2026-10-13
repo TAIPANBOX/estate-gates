@@ -497,7 +497,12 @@ CONSTANTS_JSON = """{
       { "model": "anthropic.claude-sonnet-5-5", "input_per_mtok_microusd": 2200000, "output_per_mtok_microusd": 11000000, "cache_read_per_mtok_microusd": 110000, "cache_write_per_mtok_microusd": 2750000, "cache_write_1h_per_mtok_microusd": 4400000 },
       { "model": "claude-haiku-5-5", "input_per_mtok_microusd": 100000, "output_per_mtok_microusd": 500000, "cache_read_per_mtok_microusd": 10000, "cache_write_per_mtok_microusd": 125000, "cache_write_1h_per_mtok_microusd": 200000 },
       { "model": "gpt-6-sol", "input_per_mtok_microusd": 2000000, "output_per_mtok_microusd": 10000000, "cache_read_per_mtok_microusd": 200000, "cache_write_per_mtok_microusd": 2500000 },
-      { "model": "google/gemini-3.8-flash", "input_per_mtok_microusd": 825000, "output_per_mtok_microusd": 4125000, "cache_read_per_mtok_microusd": 82500, "cache_write_per_mtok_microusd": 825000 }
+      { "model": "google/gemini-3.8-flash", "input_per_mtok_microusd": 825000, "output_per_mtok_microusd": 4125000, "cache_read_per_mtok_microusd": 82500, "cache_write_per_mtok_microusd": 825000 },
+      { "model": "google/gemini-3.7-flash", "input_per_mtok_microusd": 1650000, "output_per_mtok_microusd": 8250000, "cache_read_per_mtok_microusd": 165000, "cache_write_per_mtok_microusd": 1650000 }
+    ],
+    "long_context": [
+      { "model": "claude-haiku-5-5", "above_prompt_tokens": 100000, "input_per_mtok_microusd": 500000, "output_per_mtok_microusd": 2500000, "cache_read_per_mtok_microusd": 50000, "cache_write_per_mtok_microusd": 625000, "cache_write_1h_per_mtok_microusd": 1000000 },
+      { "model": "gpt-6-sol", "above_prompt_tokens": 272000, "input_per_mtok_microusd": 20000000, "output_per_mtok_microusd": 15000000, "cache_read_per_mtok_microusd": 2000000, "cache_write_per_mtok_microusd": 25000000 }
     ]
   },
   "trace_parquet": {
@@ -568,6 +573,7 @@ class PriceBook:
             .with_price("claude-haiku-5-5", ModelPrice(0.10, 0.50, 0.01, 0.125))
             .with_price("gpt-6-sol", ModelPrice(2.00, 10.00, 0.20, 2.50))
             .with_price("google/gemini-3.8-flash", ModelPrice(0.825, 4.125, 0.0825, 0.825))
+            .with_price("google/gemini-3.7-flash", ModelPrice(1.65, 8.25, 0.165, 1.65))
             .with_fallback(ModelPrice(15.0, 75.0, 1.5, 18.75))
         )
 '''
@@ -2157,24 +2163,54 @@ REGISTRY["repos"]["costcrew"]["price_table"] = {
 PRICE_TODAY = "2026-10-13"
 
 
-def _openai_island(tier: str, latest: int | None, rows: list) -> str:
+def _ser(v):
+    """Astro's prop serialisation: [0, value], [1, [items]], dicts by value."""
+    if isinstance(v, list):
+        return [1, [_ser(x) for x in v]]
+    if isinstance(v, dict):
+        return [0, {k: _ser(x) for k, x in v.items()}]
+    return [0, v]
+
+
+def _openai_island(tier: str, latest: int | None, rows: list, long_rows: list = ()) -> str:
+    """The real island's shape: props with every row's short price, and the
+    rendered table with a Long context column group for the latest rows."""
     import html as _html
     import json as _json
 
-    def ser(v):
-        if isinstance(v, list):
-            return [1, [ser(x) for x in v]]
-        return [0, v]
-
-    props = {"tier": ser(tier), "rows": ser(rows)}
+    props = {"tier": _ser(tier), "rows": _ser(rows)}
     if latest is not None:
-        props["collapsedLatestRowCount"] = ser(latest)
+        props["collapsedLatestRowCount"] = _ser(latest)
+    body = "".join(
+        "<tr><td>" + r[0] + "</td>" + "".join(f"<td>${x}</td>" for x in r[1:]) + "</tr>" for r in long_rows
+    )
     return (
         f'<astro-island component-export="TextTokenPricingTables" props="{_html.escape(_json.dumps(props))}">'
-        "<table><tr><th></th><th>Short context</th></tr>"
-        "<tr><th>Model</th><th>Input</th><th>Cached input</th><th>Cache writes</th><th>Output</th></tr>"
-        "</table></astro-island>\n"
+        "<table><tr><th></th><th>Short context</th><th>Long context</th></tr>"
+        "<tr><th>Model</th><th>Input</th><th>Cached input</th><th>Cache writes</th><th>Output</th>"
+        "<th>Input</th><th>Cached input</th><th>Cache writes</th><th>Output</th></tr>"
+        + body + "</table></astro-island>\n"
     )
+
+
+def _openai_grouped() -> str:
+    """The grouped short/long table, which is where the page states the
+    threshold, in a tooltip."""
+    import html as _html
+    import json as _json
+
+    heads = ["Model"] + [f"{s} context {c}" for s in ("Short", "Long") for c in ("input", "cached input", "cache writes", "output")]
+    props = {
+        "headings": heads,
+        "headingGroups": [
+            {"label": "", "colSpan": 1},
+            {"label": {"__pricingTooltipHeading": {"label": "Short context", "tooltip": "\u2264272K input tokens"}}, "colSpan": 4},
+            {"label": {"__pricingTooltipHeading": {"label": "Long context", "tooltip": ">272K input tokens"}}, "colSpan": 4},
+        ],
+        "groups": [{"model": "gpt-5.6-sol", "rows": [[4, 0.4, 5, 20, 8, 0.8, 10, 30]]}],
+    }
+    return f'<astro-island component-export="GroupedPricingTable" props="{_html.escape(_json.dumps({k: _ser(v) for k, v in props.items()}))}"></astro-island>\n'
+
 
 
 def _vertex_rows(name: str, g: tuple, n: tuple) -> str:
@@ -2216,8 +2252,10 @@ PRICE_SOURCES = {
 </body></html>
 """,
     "openai.html": "<html><body>\n"
-    + _openai_island("standard", 1, [["gpt-6-sol", 2, 0.2, 2.5, 10], ["gpt-4o", 2.5, 1.25, 10]])
+    + _openai_island("standard", 1, [["gpt-6-sol", 2, 0.2, 2.5, 10], ["gpt-4o", 2.5, 1.25, 10]],
+                     [["gpt-6-sol", "2.00", "0.20", "2.50", "10.00", "20.00", "2.00", "25.00", "15.00"]])
     + _openai_island("batch", 1, [["gpt-6-sol", 1, 0.1, 1.25, 5], ["gpt-4o", 1.25, 0.625, 5]])
+    + _openai_grouped()
     + "</body></html>\n",
     "vertex.html": "<html><body><h1>Google models</h1><h2>Gemini 3</h2>\n"
     '<div role="tablist"><button role="tab" id="t0" track-metadata-eventdetail="Standard Model">Standard Model</button>'
@@ -2226,6 +2264,8 @@ PRICE_SOURCES = {
     + _VERTEX_HEAD
     + _vertex_rows("Gemini 3.8 Flash* through December 31, 2026", ("0.75", "3.75", "0.075"), ("0.825", "4.125", "0.0825"))
     + _vertex_rows("Gemini 3.8 Flash Starting January 1, 2027", ("1.50", "7.50", "0.15"), ("1.65", "8.25", "0.165"))
+    + _vertex_rows("Gemini 3.7 Flash * through December 31, 2026", ("0.75", "3.75", "0.075"), ("0.825", "4.125", "0.0825"))
+    + _vertex_rows("Gemini 3.7 Flash starting January 1, 2027", ("1.50", "7.50", "0.15"), ("1.65", "8.25", "0.165"))
     + "</table></div></div>\n"
     '<div role="tabpanel" aria-labelledby="t1"><div><table>\n'
     + _VERTEX_HEAD
@@ -2243,6 +2283,32 @@ PRICE_SOURCES = {
 }
 
 
+#: C23's exceptions file for the fixture: the two kinds, each in use, so the
+#: baseline proves an applied exception is printed and not red.
+PRICE_EXCEPTIONS = {
+    "exceptions": {
+        "price-differs:tokenfuse:google/gemini-3.7-flash": {
+            "price_from": "2027-01-01",
+            "why": "fixture: the dearer of two dated rates, taken ahead of its date",
+            "recorded": "2026-10-13",
+            "provenance": "fixture",
+        },
+        "price-differs:verdryx:google/gemini-3.7-flash": {
+            "price_from": "2027-01-01",
+            "why": "fixture: the mirror carries the gateway's choice",
+            "recorded": "2026-10-13",
+            "provenance": "fixture",
+        },
+        "fallback-below-current:tokenfuse:gpt-6-sol": {
+            "why": "fixture: raising the fallback moves every unknown model's price",
+            "recorded": "2026-10-13",
+            "provenance": "fixture",
+        },
+    }
+}
+PRICE_EXCEPTIONS_FILE = "_price-exceptions.json"
+
+
 def write_price_sources(directory) -> None:
     import pathlib as _pathlib
 
@@ -2250,3 +2316,8 @@ def write_price_sources(directory) -> None:
         path = _pathlib.Path(directory) / rel
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(body, encoding="utf-8")
+    import json as _json
+
+    (_pathlib.Path(directory).parent / PRICE_EXCEPTIONS_FILE).write_text(
+        _json.dumps(PRICE_EXCEPTIONS, indent=2) + "\n", encoding="utf-8"
+    )

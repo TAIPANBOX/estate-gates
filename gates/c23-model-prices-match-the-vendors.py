@@ -51,11 +51,19 @@ HOW A ROW IS MATCHED (`_prices.resolve`)
               the row must equal ONE of the endpoint prices, every component
               from the same one
 
-The same rule covers prompt-length tiers. A flat row cannot say how long a
-prompt will be, so where a page prices a model in tiers (Haiku 5.5 up to and
-over 100,000 tokens; Gemini up to and over 200K) the row must equal one tier,
-every component from it. That accepts a book that chose the long-context rate
-on purpose, which tokenfuse does for Gemini 2.5 Pro.
+PROMPT-LENGTH TIERS. Haiku 5.5 is priced up to and over 100,000 prompt
+tokens, Gemini 2.5 and 3.1 Pro up to and over 200K, OpenAI's long-context
+models up to and over 272K. A table that cannot express a tier (no
+`long_context` block, no `.with_long_context`) is flat, and a flat row may
+equal either tier, every component from the same one. A table that CAN
+express one is held to more: its base row must be the base price, each tier
+it carries must start at the vendor's threshold at the vendor's long price,
+a tier for a model the vendor prices at one rate is red, and a model the
+vendor prices by prompt length with no tier in such a table is red, because
+every long prompt is then billed at the base rate. OpenAI's page shows its
+long prices only for its latest rows and its grouped short/long table, and
+computes the rest in script, so an OpenAI tier the page does not show is
+listed as not judged rather than called absent.
 
 Only components BOTH sides state are compared. A vendor that states no cache
 write price is not a disagreement with a table that wrote one.
@@ -64,6 +72,16 @@ DATED PRICES. The tokenfuse book has no effective date, so a row is compared
 with the price in effect today (UTC; ESTATE_GATES_TODAY overrides it for the
 self-test). A dated change within 30 days is printed as a WARN line on every
 run; on the day it takes effect a row still at the old price is red.
+
+RECORDED CHOICES. A repository may choose a disagreement on purpose: tokenfuse
+carries Gemini 3.6 to 3.8 Flash at the standard rate that takes effect on
+2027-01-01 (the dearer of two dated rates), and keeps its fallback below
+gpt-6-astra's long-prompt price (its invariant 99, decisions 2 and 6).
+`expectations/model-prices.json` records each such choice with its reason
+and provenance (`Exceptions` below). An applied one is printed as an
+EXCEPTION on every run, never a silent pass; one that excuses nothing in a
+run where its subject was measured is red, so the dated one goes red the day
+its price takes effect and has to be removed, and none can outlive its reason.
 
 WHAT COUNTS AS A FAILURE
 
@@ -85,6 +103,9 @@ WHAT COUNTS AS A FAILURE
                                incompletely in estate.json
   c23.nothing-matched          not one row of a table maps to a vendor price:
                                measured nothing for that table
+  c23.stale-exception          a recorded exception excused nothing (its row
+                               agrees, matches neither price, or is gone; its
+                               date has passed), or it cannot be read
   c23.no-subjects              no repository declares a price table
 
 A page nobody could FETCH is NOT MEASURED, never OK, and the runner exits 2 for
@@ -122,6 +143,7 @@ import datetime
 import json
 import os
 import pathlib
+import re
 import sys
 import time
 import urllib.error
@@ -199,26 +221,133 @@ class Table:
     the runner loads gate files without registering them in sys.modules, and
     dataclasses looks its module up there."""
 
-    def __init__(self, repo, path, fmt, where, rows, fallback, every_current, why):
+    def __init__(self, repo, path, fmt, where, data, every_current, why):
         self.repo, self.path, self.fmt, self.where = repo, path, fmt, where
-        self.rows, self.fallback, self.every_current, self.why = rows, fallback, every_current, why
+        self.rows, self.fallback, self.long = data.rows, data.fallback, data.long
+        self.every_current, self.why = every_current, why
+
+
+# ------------------------------------------------------------- exceptions
+
+EXCEPTIONS_DEFAULT = E.REPO_ROOT / "expectations" / "model-prices.json"
+_EXCEPTION_KEY = re.compile(r"^(price-differs|fallback-below-current):([^:\s]+):(\S+)$")
+
+
+class Exceptions:
+    """Disagreements a repository chose on purpose, recorded with a reason.
+
+    `expectations/model-prices.json`, the same bargain C5's expectations file
+    makes: a recorded choice is printed as an EXCEPTION on every run, never a
+    silent pass, and one that no longer describes anything is red, so the file
+    cannot become a graveyard. Two kinds, keyed exactly as the gate prints them:
+
+      price-differs:<repo>:<row>[:above-<N>]   the row may carry the vendor's
+          DATED price from `price_from` ahead of that date (the dearer of two
+          dated rates, chosen so passing the date never leaves the row under-
+          charging). Red as stale once `price_from` has passed, because the
+          row then needs no exception.
+      fallback-below-current:<repo>:<model>   the fallback may stay below that
+          current model's price. Red as stale once it no longer is.
+
+    ESTATE_GATES_PRICE_EXCEPTIONS points the gate at another file, so the
+    self-test can plant a stale one.
+    """
+
+    def __init__(self, c: E.Check, day: datetime.date):
+        path = os.environ.get("ESTATE_GATES_PRICE_EXCEPTIONS")
+        self.path = pathlib.Path(path) if path else EXCEPTIONS_DEFAULT
+        self.entries: dict[str, dict] = {}
+        self.seen: set[str] = set()
+        self.used: set[str] = set()
+        if not self.path.is_file():
+            c.note(f"No exceptions file at {self.path}: no disagreement below is excused.")
+            return
+        try:
+            data = json.loads(self.path.read_text(encoding="utf-8"))
+            entries = data["exceptions"]
+            if not isinstance(entries, dict):
+                raise ValueError("'exceptions' is not an object")
+        except (ValueError, KeyError, TypeError) as e:
+            c.missing(
+                "c23.stale-exception",
+                f"{self.path} cannot be read as an exceptions file ({e}), so every decision "
+                f"recorded in it is unaccounted for.",
+            )
+            return
+        for key, entry in sorted(entries.items()):
+            problem = self._problem(key, entry, day)
+            if problem:
+                c.missing("c23.stale-exception", f"the exception {key!r} {problem}.", [f"  file: {self.path}"])
+                continue
+            self.entries[key] = entry
+
+    @staticmethod
+    def _problem(key: str, entry, day: datetime.date) -> str | None:
+        m = _EXCEPTION_KEY.match(key)
+        if not m:
+            return "is not keyed `price-differs:<repo>:<row>` or `fallback-below-current:<repo>:<model>`"
+        if not isinstance(entry, dict):
+            return "is not an object"
+        for field in ("why", "recorded", "provenance"):
+            if not str(entry.get(field, "")).strip():
+                return f"has no `{field}`"
+        if m.group(1) == "price-differs":
+            try:
+                start = datetime.date.fromisoformat(str(entry.get("price_from")))
+            except ValueError:
+                return "has no `price_from` date, the dated price the row may carry early"
+            if start <= day:
+                return (f"accepts the price from {start.isoformat()}, which is in effect now, so the row "
+                        f"needs no exception (or no longer matches it). Remove the entry")
+        return None
+
+    def ask(self, key: str) -> dict | None:
+        self.seen.add(key)
+        return self.entries.get(key)
+
+    def apply(self, c: E.Check, key: str, what: str) -> None:
+        e = self.entries[key]
+        self.used.add(key)
+        c.ok(f"c23.excepted:{key}", f"EXCEPTION {key}: {what}")
+        c.note(f"EXCEPTION {key}: {e['why']} (recorded {e['recorded']}; {e['provenance']}).")
+
+    def finish(self, c: E.Check, evaluable) -> None:
+        for key in sorted(self.entries):
+            if key in self.used:
+                continue
+            if key in self.seen or evaluable(key):
+                c.missing(
+                    "c23.stale-exception",
+                    f"the exception {key!r} excused nothing this run: the subject agrees without it, "
+                    f"matches neither price, or is gone. Remove it or correct it.",
+                    [f"  file: {self.path}", f"  why it was recorded: {self.entries[key]['why']}"],
+                )
+            else:
+                c.note(f"exception {key}: its subject was not measured this run, so it was not evaluated.")
 
 
 # ----------------------------------------------------------- row printing
 
 
-def suggested(fmt: str, key: str, prices: dict, url: str, day: datetime.date) -> str:
+def suggested(fmt: str, key: str, prices: dict, url: str, day: datetime.date, above: int | None = None) -> str:
     """The row as it should read, in the table's own format."""
     if fmt == "tokenfuse-constants":
         row = {"model": key}
+        if above is not None:
+            row["above_prompt_tokens"] = above
         for comp, field in P._TF_FIELDS.items():
             if comp in prices:
                 row[field] = round(prices[comp] * 1e6)
-        return json.dumps(row)
+        where = "price_book.long_context" if above is not None else "price_book.models"
+        return f"{json.dumps(row)}  (in {where})"
     if fmt == "verdryx-pricebook":
         args = ", ".join(P.fmt(prices.get(c, 0.0)) for c in P._VERDRYX_ORDER)
+        if above is not None:
+            return f'.with_long_context("{key}", {above}, ModelPrice({args}))'
         return f'.with_price("{key}", ModelPrice({args}))'
     if fmt == "go-price-map":
+        if above is not None:
+            return "(this table has no prompt-length tier)"
         return (
             f'"{key}": {{InPerM: {P.fmt(prices.get("input", 0.0))}, OutPerM: {P.fmt(prices.get("output", 0.0))}, '
             f'Recorded: "{day.isoformat()}", Source: "{url}"}},'
@@ -279,27 +408,16 @@ def _subjects(c: E.Check, estate: E.Estate) -> list[Table]:
             continue
         where = estate.where(repo, path)
         try:
-            rows, fallback = reader(text, where)
+            data = reader(text, where)
         except E.Missing as m:
             c.missing("c23.table-unreadable", f"{repo}'s price table could not be read: {m}.")
             continue
-        tables.append(Table(repo, path, decl["format"], where, rows, fallback,
+        tables.append(Table(repo, path, decl["format"], where, data,
                             decl["every_current_model"], str(decl.get("why", "")).strip()))
     return tables
 
 
-def run(estate: E.Estate) -> E.Check:
-    c = E.Check("C23", "built-in model price tables match the vendors' current prices", estate)
-    day = today()
-    fetch = Fetcher()
-    c.note(f"Vendor prices read from {fetch.label()}; today is {day.isoformat()} (UTC).")
-
-    tables = _subjects(c, estate)
-    if not tables:
-        return c
-
-    resolved = {t.repo: {k: P.resolve(k) for k in t.rows} for t in tables}
-    needed = sorted({tg.vendor for rs in resolved.values() for tg in rs.values() if tg})
+def _fetch_vendors(c: E.Check, estate: E.Estate, fetch: Fetcher, needed: list) -> tuple[dict, set]:
     vendors: dict[str, P.Vendor] = {}
     unmeasured: set[str] = set()
     for key in needed:
@@ -328,17 +446,65 @@ def run(estate: E.Estate) -> E.Check:
             continue
         vendors[key] = v
         for problem in v.problems:
-            c.missing(
-                "c23.source-unparseable",
-                f"{name}: {problem}.",
-                [f"  source: {url}"],
-            )
+            c.missing("c23.source-unparseable", f"{name}: {problem}.", [f"  source: {url}"])
         for n in v.notes:
             c.note(f"{name}: {n}.")
-        if v.current is not None:
-            c.note(f"{name}: {len(v.models)} models on the page, current: {', '.join(v.current)}.")
-        else:
-            c.note(f"{name}: {len(v.models)} models {'listed' if key == 'openrouter' else 'on the page'}.")
+        listed = "listed" if key == "openrouter" else "on the page"
+        current = f", current: {', '.join(v.current)}" if v.current is not None else ""
+        c.note(f"{name}: {len(v.models)} models {listed}{current}.")
+    return vendors, unmeasured
+
+
+def _differs(c, t, key, row, v, label, cands, exc, ekey, tiers, day, above=None) -> bool:
+    """Report a row that equals none of `cands`, unless a recorded exception
+    accepts the vendor's dated price. Returns True when it was excused."""
+    entry = exc.ask(ekey)
+    if entry:
+        start = datetime.date.fromisoformat(str(entry["price_from"]))
+        later = [o for o in P.candidates(v.models.get(label[1], []), label[2], start, tiers)
+                 if P.shared(row, o) and (above is None or o.above == above)]
+        ok = [o for o in later if not P.mismatches(row, o)]
+        if ok:
+            exc.apply(c, ekey, f"{t.repo}: {key} carries {label[0]}'s price {ok[0].describe()} ahead of its date "
+                               f"({fmt_prices({k: row[k] for k in P.shared(row, ok[0])})}).")
+            return True
+    best = min(cands, key=lambda o: (len(P.mismatches(row, o)), P.distance(row, o), o.tier != cands[0].tier))
+    fixed = dict(row)
+    fixed.update({k: best.prices[k] for k in P.shared(row, best)})
+    detail = [
+        f"  ours:     {t.where}, row {key!r}" + (f", tier above {above:,} prompt tokens" if above else ""),
+        f"  official: {v.url}, {label[0]}, {best.describe()}",
+    ]
+    for comp in P.mismatches(row, best):
+        detail.append(f"  {comp}: ours {P.fmt(row[comp])}, official {P.fmt(best.prices[comp])} (USD per 1M tokens)")
+    if len(cands) > 1:
+        detail.append(f"  ({len(cands)} official prices apply to this id; it matches none of them, the nearest is shown)")
+    detail.append(f"  should read: {suggested(t.fmt, key, fixed, v.url, day, above)}")
+    kept = [k for k in P.COMPONENTS if k in row and k not in best.prices]
+    if kept:
+        detail.append(f"  ({', '.join(kept)}: not stated by {v.name}, kept as the table has them; the table's own rule decides)")
+    if entry:
+        detail.append(f"  the exception {ekey} accepts the price from {entry['price_from']}, and the row matches that neither")
+    else:
+        detail.append(f"  exception key, if this is a recorded choice: {ekey}")
+    c.drift("c23.price-differs", f"{t.repo} prices {key}{' above ' + format(above, ',') + ' prompt tokens' if above else ''} differently from {v.name}'s page.", detail)
+    return False
+
+
+def run(estate: E.Estate) -> E.Check:
+    c = E.Check("C23", "built-in model price tables match the vendors' current prices", estate)
+    day = today()
+    fetch = Fetcher()
+    c.note(f"Vendor prices read from {fetch.label()}; today is {day.isoformat()} (UTC).")
+
+    tables = _subjects(c, estate)
+    exc = Exceptions(c, day)
+    if not tables:
+        return c
+
+    resolved = {t.repo: {k: P.resolve(k) for k in set(t.rows) | set(t.long or {})} for t in tables}
+    needed = sorted({tg.vendor for rs in resolved.values() for tg in rs.values() if tg})
+    vendors, unmeasured = _fetch_vendors(c, estate, fetch, needed)
 
     compared: dict[tuple[str, str], P.Vendor] = {}
     failed_models: set[tuple[str, str]] = set()
@@ -346,6 +512,7 @@ def run(estate: E.Estate) -> E.Check:
     # -- every row against the vendor's price in effect today -----------------
     for t in tables:
         matched, nosource, notlisted, unjudged = 0, [], [], []
+        tiers = "base" if t.long is not None else "all"
         for key in sorted(t.rows):
             row, tg = t.rows[key], resolved[t.repo][key]
             if tg is None:
@@ -362,43 +529,109 @@ def run(estate: E.Estate) -> E.Check:
             if tg.endpoint == "regional" and not any(o.endpoint in ("regional", "any") for o in offers):
                 unjudged.append(key)
                 continue
-            cands = [o for o in P.candidates(offers, tg.endpoint, day) if P.shared(row, o)]
+            cands = [o for o in P.candidates(offers, tg.endpoint, day, tiers) if P.shared(row, o)]
             if not cands:
                 unjudged.append(key)
                 continue
             matched += 1
             compared[(tg.vendor, tg.model)] = v
+            label = (f"{v.name} {v.names.get(tg.model, tg.model)}", tg.model, tg.endpoint)
             good = [o for o in cands if not P.mismatches(row, o)]
-            label = f"{v.name} {v.names.get(tg.model, tg.model)}"
+            ekey = f"price-differs:{t.repo}:{key}"
             if good:
+                exc.ask(ekey)
                 c.ok(
                     f"c23.row:{t.repo}:{key}",
-                    f"{t.repo}: {key} = {label}, {good[0].describe()} ({fmt_prices({k: row[k] for k in P.shared(row, good[0])})}).",
+                    f"{t.repo}: {key} = {label[0]}, {good[0].describe()} ({fmt_prices({k: row[k] for k in P.shared(row, good[0])})}).",
                 )
+            elif not _differs(c, t, key, row, v, label, cands, exc, ekey, tiers, day):
+                failed_models.add((tg.vendor, tg.model))
+            # A table that CAN carry a tier and carries none for a model the
+            # vendor prices by prompt length bills every long prompt at the base.
+            if t.long is not None and key not in t.long:
+                vlong = P.candidates(offers, tg.endpoint, day, "long")
+                if vlong:
+                    endpoint = good[0].endpoint if good else vlong[0].endpoint
+                    pick = next((o for o in vlong if o.endpoint == endpoint), vlong[0])
+                    failed_models.add((tg.vendor, tg.model))
+                    c.drift(
+                        "c23.price-differs",
+                        f"{t.repo} has no prompt-length tier for {key}, and {v.name} prices "
+                        f"{v.names.get(tg.model, tg.model)} prompts above {pick.above:,} tokens higher, so every "
+                        f"long prompt is billed at the base rate.",
+                        [
+                            f"  ours:     {t.where}, row {key!r}, no tier",
+                            f"  official: {v.url}, {pick.describe()}: {fmt_prices(pick.prices)}",
+                            f"  add:      {suggested(t.fmt, key, pick.prices, v.url, day, pick.above)}",
+                        ],
+                    )
+        # -- the tiers the table carries ----------------------------------------
+        for key in sorted(t.long or {}):
+            tg = resolved[t.repo][key]
+            if tg is None:
+                nosource.append(f"{key} (tier)")
                 continue
-            best = min(cands, key=lambda o: (len(P.mismatches(row, o)), P.distance(row, o), o.tier != cands[0].tier))
-            failed_models.add((tg.vendor, tg.model))
-            fixed = dict(row)
-            fixed.update({k: best.prices[k] for k in P.shared(row, best)})
-            detail = [
-                f"  ours:     {t.where}, row {key!r}",
-                f"  official: {v.url}, {label}, {best.describe()}",
-            ]
-            for comp in P.mismatches(row, best):
-                detail.append(f"  {comp}: ours {P.fmt(row[comp])}, official {P.fmt(best.prices[comp])} (USD per 1M tokens)")
-            if len(cands) > 1:
-                detail.append(f"  ({len(cands)} official prices apply to this id; it matches none of them, the nearest is shown)")
-            detail.append(f"  should read: {suggested(t.fmt, key, fixed, v.url, day)}")
-            kept = [k for k in P.COMPONENTS if k in row and k not in best.prices]
-            if kept:
-                detail.append(f"  ({', '.join(kept)}: not stated by {v.name}, kept as the table has them; the table's own rule decides)")
-            c.drift("c23.price-differs", f"{t.repo} prices {key} differently from {v.name}'s page.", detail)
+            v = vendors.get(tg.vendor)
+            if v is None:
+                unjudged.append(f"{key} (tier)")
+                continue
+            if key not in t.rows:
+                c.note(f"{t.repo}: {key} has a prompt-length tier and no base row.")
+            offers = v.models.get(tg.model)
+            if not offers:
+                notlisted.append(f"{key} (tier)")
+                continue
+            label = (f"{v.name} {v.names.get(tg.model, tg.model)}", tg.model, tg.endpoint)
+            for above, row in t.long[key]:
+                ekey = f"price-differs:{t.repo}:{key}:above-{above}"
+                longs = [o for o in P.candidates(offers, tg.endpoint, day, "long") if P.shared(row, o)]
+                if not longs:
+                    if v.tiers_complete:
+                        failed_models.add((tg.vendor, tg.model))
+                        base = P.candidates(offers, tg.endpoint, day, "base")
+                        c.drift(
+                            "c23.price-differs",
+                            f"{t.repo} prices {key} higher above {above:,} prompt tokens, and {v.name}'s page "
+                            f"prices {v.names.get(tg.model, tg.model)} at one rate for every prompt length.",
+                            [
+                                f"  ours:     {t.where}, row {key!r}, tier above {above:,}: {fmt_prices(row)}",
+                                f"  official: {v.url}, {base[0].describe() if base else 'one rate'}: {fmt_prices(base[0].prices) if base else ''}",
+                                "  should read: no tier for this model",
+                            ],
+                        )
+                    else:
+                        unjudged.append(f"{key} (tier above {above:,}, which {v.name}'s page does not show)")
+                    continue
+                matched += 1
+                compared[(tg.vendor, tg.model)] = v
+                same = [o for o in longs if o.above == above]
+                good = [o for o in same if not P.mismatches(row, o)]
+                if good:
+                    exc.ask(ekey)
+                    c.ok(f"c23.tier:{t.repo}:{key}:{above}",
+                         f"{t.repo}: {key} above {above:,} tokens = {label[0]}, {good[0].describe()} ({fmt_prices({k: row[k] for k in P.shared(row, good[0])})}).")
+                    continue
+                if not same:
+                    failed_models.add((tg.vendor, tg.model))
+                    c.drift(
+                        "c23.price-differs",
+                        f"{t.repo} starts {key}'s long-prompt price above {above:,} tokens, and {v.name}'s page "
+                        f"starts it above {longs[0].above:,}.",
+                        [
+                            f"  ours:     {t.where}, row {key!r}, tier above {above:,}",
+                            f"  official: {v.url}, {longs[0].describe()}",
+                            f"  should read: {suggested(t.fmt, key, {**row, **longs[0].prices}, v.url, day, longs[0].above)}",
+                        ],
+                    )
+                    continue
+                if not _differs(c, t, key, row, v, label, same, exc, ekey, "long", day, above):
+                    failed_models.add((tg.vendor, tg.model))
         if nosource:
             c.note(f"{t.repo}: {len(nosource)} row(s) no source here prices, not judged: {', '.join(nosource)}.")
         if notlisted:
             c.note(f"{t.repo}: {len(notlisted)} row(s) whose vendor page lists no such model, not judged: {', '.join(notlisted)}.")
         if unjudged:
-            c.note(f"{t.repo}: {len(unjudged)} row(s) NOT MEASURED because their source was not read or states no price for that endpoint today: {', '.join(unjudged)}.")
+            c.note(f"{t.repo}: {len(unjudged)} row(s) NOT MEASURED because their source was not read or states no price for them today: {', '.join(unjudged)}.")
         if matched == 0 and not unjudged:
             c.missing(
                 "c23.nothing-matched",
@@ -413,7 +646,8 @@ def run(estate: E.Estate) -> E.Check:
             c.note(f"{t.repo}: not asked to price every current model ({t.why}).")
             continue
         priced: dict[str, set] = {}
-        for tg in resolved[t.repo].values():
+        for k in t.rows:
+            tg = resolved[t.repo][k]
             if tg:
                 priced.setdefault(tg.vendor, set()).add(tg.model)
         for vk in sorted(priced):
@@ -426,20 +660,23 @@ def run(estate: E.Estate) -> E.Check:
                     c.ok(f"c23.current:{t.repo}:{mid}", f"{t.repo} prices {name}, a current model.")
                     continue
                 offers = [o for o in v.models.get(mid, []) if o.in_effect(day) and o.endpoint in ("global", "any")]
-                if not offers:
+                base = [o for o in offers if o.above is None]
+                if not base:
                     continue
-                base = offers[0]
                 compared[(vk, mid)] = v
                 detail = [
                     f"  table:    {t.where}",
-                    f"  official: {v.url}, {name}, {base.describe()}: {fmt_prices(base.prices)}",
-                    f"  add:      {suggested(t.fmt, mid, base.prices, v.url, day)}",
+                    f"  official: {v.url}, {name}, {base[0].describe()}: {fmt_prices(base[0].prices)}",
+                    f"  add:      {suggested(t.fmt, mid, base[0].prices, v.url, day)}",
                 ]
-                unstated = [comp for comp in P.COMPONENTS if comp not in base.prices]
+                for o in offers:
+                    if o.above is not None and t.long is not None:
+                        detail.append(f"  add:      {suggested(t.fmt, mid, o.prices, v.url, day, o.above)}")
+                    elif o is not base[0]:
+                        detail.append(f"  the page also prices it {o.describe()}: {fmt_prices(o.prices)}")
+                unstated = [comp for comp in P.COMPONENTS if comp not in base[0].prices]
                 if unstated and t.fmt == "tokenfuse-constants":
                     detail.append(f"  ({', '.join(unstated)}: not stated by {v.name}; the book's own rule decides)")
-                for other in offers[1:]:
-                    detail.append(f"  the page also prices it {other.describe()}: {fmt_prices(other.prices)}")
                 if t.fallback:
                     detail.append(f"  until then it is billed at the fallback: {fmt_prices(t.fallback)}")
                 c.drift(
@@ -448,19 +685,28 @@ def run(estate: E.Estate) -> E.Check:
                     detail,
                 )
 
-    # -- the fallback is never cheaper than a current model --------------------
+    # -- the gateway's fallback is never cheaper than a current model ---------
     for t in tables:
-        if not t.fallback:
+        if not t.fallback or not t.every_current:
             continue
         below = []
         for vk, v in sorted(vendors.items()):
             for mid in v.current or []:
+                ekey = f"fallback-below-current:{t.repo}:{mid}"
+                lines = []
                 for o in v.models.get(mid, []):
                     if not o.in_effect(day):
                         continue
                     for comp in P.COMPONENTS:
                         if comp in t.fallback and comp in o.prices and t.fallback[comp] < o.prices[comp] and not P.close(t.fallback[comp], o.prices[comp]):
-                            below.append(f"  {comp}: fallback {P.fmt(t.fallback[comp])} < {v.name} {v.names.get(mid, mid)} {P.fmt(o.prices[comp])} ({o.describe()})")
+                            lines.append(f"  {comp}: fallback {P.fmt(t.fallback[comp])} < {v.name} {v.names.get(mid, mid)} {P.fmt(o.prices[comp])} ({o.describe()})")
+                if not lines:
+                    exc.ask(ekey)
+                    continue
+                if exc.ask(ekey):
+                    exc.apply(c, ekey, f"{t.repo}'s fallback stays below {v.name} {v.names.get(mid, mid)}: " + "; ".join(x.strip() for x in lines))
+                    continue
+                below += lines + [f"  exception key, if this is a recorded choice: {ekey}"]
         if below:
             c.drift(
                 "c23.fallback-below-current",
@@ -469,7 +715,16 @@ def run(estate: E.Estate) -> E.Check:
                 [f"  table: {t.where}"] + below,
             )
         else:
-            c.ok(f"c23.fallback:{t.repo}", f"{t.repo}'s fallback ({fmt_prices(t.fallback)}) is at or above every current model's price.")
+            c.ok(f"c23.fallback:{t.repo}", f"{t.repo}'s fallback ({fmt_prices(t.fallback)}) is at or above every current model's price, or the exception says why not.")
+
+    read_repos = {t.repo for t in tables}
+
+    def evaluable(key: str) -> bool:
+        # Its table was read and every page was measured: an exception that
+        # excused nothing in such a run describes nothing, whatever the reason.
+        return _EXCEPTION_KEY.match(key).group(2) in read_repos and not unmeasured
+
+    exc.finish(c, evaluable)
 
     # -- dated changes ahead ----------------------------------------------------
     horizon = day + datetime.timedelta(days=WARN_DAYS)
@@ -484,7 +739,7 @@ def run(estate: E.Estate) -> E.Check:
             if when is None or (vk, mid, when) in seen_changes:
                 continue
             seen_changes.add((vk, mid, when))
-            new = [x for x in v.models[mid] if x.in_effect(when) and x.endpoint in ("global", "any")]
+            new = [x for x in v.models[mid] if x.in_effect(when) and x.endpoint in ("global", "any") and x.above is None]
             what = f"{v.name} {v.names.get(mid, mid)} changes price on {when.isoformat()}"
             if new:
                 what += f" (global then: {fmt_prices(new[0].prices)})"
@@ -515,8 +770,8 @@ def _secondary(c: E.Check, fetch: Fetcher, vendors: dict, keys: list, day: datet
         except (Unreachable, E.Missing) as e:
             unread.append(f"{oid} ({str(e)[:200]})")
             continue
-        theirs = eps.get(P.FIRST_PARTY_TAG[vk])
-        ours = [o for o in v.models.get(mid, []) if o.in_effect(day) and o.endpoint in ("global", "any")]
+        theirs = [o for o in eps.get(P.FIRST_PARTY_TAG[vk], []) if o.above is None]
+        ours = [o for o in v.models.get(mid, []) if o.in_effect(day) and o.endpoint in ("global", "any") and o.above is None]
         if not theirs or not ours:
             unread.append(f"{oid} (no {P.FIRST_PARTY_TAG[vk]} endpoint row)")
             continue

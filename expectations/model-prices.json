@@ -1,0 +1,65 @@
+{
+  "comment": [
+    "C23's record of price disagreements a repository chose on purpose. Read by",
+    "gates/c23-model-prices-match-the-vendors.py and by nothing else.",
+    "",
+    "Every entry is printed as an EXCEPTION on every run, with its reason, so a",
+    "recorded choice is never a silent pass. An entry that excuses nothing in a run",
+    "where its subject was measured is red (c23.stale-exception), so this file",
+    "cannot become a graveyard: a dated exception goes red the day its price takes",
+    "effect, because the row then needs no exception.",
+    "",
+    "Keys are copied from the gate's own output ('exception key, if this is a",
+    "recorded choice: ...'). Two kinds:",
+    "  price-differs:<repo>:<row>[:above-<N>]   with 'price_from': the row may carry",
+    "      the vendor's dated price from that day ahead of it.",
+    "  fallback-below-current:<repo>:<model>   the fallback may stay below that",
+    "      current model's price.",
+    "Each entry carries 'why', 'recorded' and 'provenance'. Provenance says whose",
+    "choice it is and where it is written; a reading of another repository's record",
+    "is @claude, never a decision nobody stated."
+  ],
+  "exceptions": {
+    "price-differs:tokenfuse:google/gemini-3.6-flash": {
+      "price_from": "2027-01-01",
+      "why": "The book has no effective date, so where Vertex AI publishes two dated rates for one id the row carries the dearer one, the standard rate that takes effect on 2027-01-01, and passing the date never leaves the row under-charging. The introductory rate is a credit back on net spend, billed at the standard rate first.",
+      "recorded": "2026-10-13",
+      "provenance": "@claude 2026-10-13: tokenfuse records this as decision 2 of its invariant 99 (tokenfuse#416), itself taken under delegated authority and open to reversal; recorded here so the choice is printed every run rather than read as drift."
+    },
+    "price-differs:verdryx:google/gemini-3.6-flash": {
+      "price_from": "2027-01-01",
+      "why": "The book has no effective date, so where Vertex AI publishes two dated rates for one id the row carries the dearer one, the standard rate that takes effect on 2027-01-01, and passing the date never leaves the row under-charging. The introductory rate is a credit back on net spend, billed at the standard rate first.",
+      "recorded": "2026-10-13",
+      "provenance": "@claude 2026-10-13: verdryx mirrors tokenfuse's book row for row (C3), so it carries tokenfuse's decision 2 of invariant 99 (tokenfuse#416) with it."
+    },
+    "price-differs:tokenfuse:google/gemini-3.7-flash": {
+      "price_from": "2027-01-01",
+      "why": "The book has no effective date, so where Vertex AI publishes two dated rates for one id the row carries the dearer one, the standard rate that takes effect on 2027-01-01, and passing the date never leaves the row under-charging. The introductory rate is a credit back on net spend, billed at the standard rate first.",
+      "recorded": "2026-10-13",
+      "provenance": "@claude 2026-10-13: tokenfuse records this as decision 2 of its invariant 99 (tokenfuse#416), itself taken under delegated authority and open to reversal; recorded here so the choice is printed every run rather than read as drift."
+    },
+    "price-differs:verdryx:google/gemini-3.7-flash": {
+      "price_from": "2027-01-01",
+      "why": "The book has no effective date, so where Vertex AI publishes two dated rates for one id the row carries the dearer one, the standard rate that takes effect on 2027-01-01, and passing the date never leaves the row under-charging. The introductory rate is a credit back on net spend, billed at the standard rate first.",
+      "recorded": "2026-10-13",
+      "provenance": "@claude 2026-10-13: verdryx mirrors tokenfuse's book row for row (C3), so it carries tokenfuse's decision 2 of invariant 99 (tokenfuse#416) with it."
+    },
+    "price-differs:tokenfuse:google/gemini-3.8-flash": {
+      "price_from": "2027-01-01",
+      "why": "The book has no effective date, so where Vertex AI publishes two dated rates for one id the row carries the dearer one, the standard rate that takes effect on 2027-01-01, and passing the date never leaves the row under-charging. The introductory rate is a credit back on net spend, billed at the standard rate first.",
+      "recorded": "2026-10-13",
+      "provenance": "@claude 2026-10-13: tokenfuse records this as decision 2 of its invariant 99 (tokenfuse#416), itself taken under delegated authority and open to reversal; recorded here so the choice is printed every run rather than read as drift."
+    },
+    "price-differs:verdryx:google/gemini-3.8-flash": {
+      "price_from": "2027-01-01",
+      "why": "The book has no effective date, so where Vertex AI publishes two dated rates for one id the row carries the dearer one, the standard rate that takes effect on 2027-01-01, and passing the date never leaves the row under-charging. The introductory rate is a credit back on net spend, billed at the standard rate first.",
+      "recorded": "2026-10-13",
+      "provenance": "@claude 2026-10-13: verdryx mirrors tokenfuse's book row for row (C3), so it carries tokenfuse's decision 2 of invariant 99 (tokenfuse#416) with it."
+    },
+    "fallback-below-current:tokenfuse:gpt-6-astra": {
+      "why": "The fallback stays 15 / 75 / 1.50 / 18.75 / 30 although gpt-6-astra's price for prompts above 272,000 tokens is above it, because raising the fallback moves the price of every unknown model; gpt-6-astra itself is priced from its own row and tier.",
+      "recorded": "2026-10-13",
+      "provenance": "@claude 2026-10-13: tokenfuse records this as decision 6 of its invariant 99 (tokenfuse#416), taken under delegated authority and open to reversal."
+    }
+  }
+}

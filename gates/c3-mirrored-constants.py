@@ -72,7 +72,10 @@ VERDRYX_PRICING = "verdryx/pricing.py"
 
 
 def from_artifact(text: str) -> dict:
-    data = json.loads(text)
+    try:
+        data = json.loads(text)
+    except ValueError as e:
+        raise E.Missing(f"{ARTIFACT} is not JSON ({e})") from None
     blocked = data.get("blocked_decisions")
     if not isinstance(blocked, list) or not blocked:
         raise E.Missing(

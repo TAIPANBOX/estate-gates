@@ -94,14 +94,49 @@ def tokenfuse_book(book, where: str) -> tuple[dict[str, dict], dict]:
     return prices, rates(fallback, "the fallback")
 
 
-def tokenfuse_artifact(text: str, where: str) -> tuple[dict[str, dict], dict]:
+def _tf_rates(entry: dict, label: str, where: str) -> dict:
+    out = {}
+    for comp, field in _TF_FIELDS.items():
+        v = entry.get(field)
+        if v is None and comp in _TF_OPTIONAL:
+            continue
+        if isinstance(v, bool) or not isinstance(v, (int, float)):
+            raise E.Missing(f"{where}: {label} has no numeric {field}")
+        out[comp] = v / 1e6
+    return out
+
+
+def tokenfuse_long(book, where: str) -> dict[str, list] | None:
+    """`price_book.long_context`: model -> [(above_prompt_tokens, prices)].
+
+    None when the artifact has no such block: a book that cannot express a
+    prompt-length tier, whose flat rows are then free to carry either tier.
+    """
+    if not isinstance(book, dict) or "long_context" not in book:
+        return None
+    block = book["long_context"]
+    if not isinstance(block, list):
+        raise E.Missing(f"{where}: 'price_book.long_context' is not a list")
+    out: dict[str, list] = {}
+    for m in block:
+        if not isinstance(m, dict) or not isinstance(m.get("model"), str):
+            raise E.Missing(f"{where}: a long_context row has no 'model' string")
+        above = m.get("above_prompt_tokens")
+        if isinstance(above, bool) or not isinstance(above, int) or above <= 0:
+            raise E.Missing(f"{where}: the long_context row for {m['model']} has no positive integer above_prompt_tokens")
+        out.setdefault(m["model"], []).append((above, _tf_rates(m, f"the long_context row for {m['model']}", where)))
+    return out
+
+
+def tokenfuse_artifact(text: str, where: str) -> "TableData":
     try:
         data = json.loads(text)
     except ValueError as e:
         raise E.Missing(f"{where} is not JSON ({e})") from None
     if not isinstance(data, dict):
         raise E.Missing(f"{where} is not a JSON object")
-    return tokenfuse_book(data.get("price_book"), where)
+    rows, fallback = tokenfuse_book(data.get("price_book"), where)
+    return TableData(rows, fallback, tokenfuse_long(data.get("price_book"), where))
 
 
 #: verdryx's ModelPrice takes (input, output, cache_read, cache_write).
@@ -161,10 +196,67 @@ def verdryx_book(pricing_py: str, where: str) -> tuple[dict[str, tuple], tuple |
     return prices, fallback
 
 
-def verdryx_rows(pricing_py: str, where: str) -> tuple[dict[str, dict], dict | None]:
+def _model_price(node) -> dict | None:
+    if not isinstance(node, ast.Call):
+        return None
+    fn = node.func
+    if (fn.id if isinstance(fn, ast.Name) else getattr(fn, "attr", "")) != "ModelPrice":
+        return None
+    vals = [_literal(a) for a in node.args]
+    if not vals or any(isinstance(v, bool) or not isinstance(v, (int, float)) for v in vals):
+        return None
+    vals = [float(v) for v in vals] + [0.0] * 4
+    return dict(zip(_VERDRYX_ORDER, vals[:4]))
+
+
+def verdryx_long(pricing_py: str, where: str) -> dict[str, list] | None:
+    """`.with_long_context(...)` calls: model -> [(above_prompt_tokens, prices)].
+
+    Read in the shapes a builder call plausibly takes: (model, above, price),
+    the same with keywords (`above_prompt_tokens=`, `price=`), or (model,
+    LongContext(above, price)). A call in any other shape is refused rather
+    than skipped, because a tier this reader cannot see would leave the long
+    prompts of that model compared with nothing. None when the module neither
+    defines nor calls `with_long_context`.
+    """
+    try:
+        tree = ast.parse(pricing_py)
+    except SyntaxError as e:
+        raise E.Missing(f"{where} does not parse as Python ({e.msg}, line {e.lineno})") from None
+    defined = any(isinstance(n, ast.FunctionDef) and n.name == "with_long_context" for n in ast.walk(tree))
+    out: dict[str, list] = {}
+    called = False
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call) or getattr(node.func, "attr", "") != "with_long_context":
+            continue
+        called = True
+        args = list(node.args)
+        kw = {k.arg: k.value for k in node.keywords if k.arg}
+        model = _literal(args[0]) if args else _literal(kw.get("model"))
+        rest = args[1:]
+        if len(rest) == 1 and isinstance(rest[0], ast.Call) and getattr(rest[0].func, "id", getattr(rest[0].func, "attr", "")) == "LongContext":
+            inner = rest[0]
+            rest = list(inner.args)
+            kw = {**kw, **{k.arg: k.value for k in inner.keywords if k.arg}}
+        above = _literal(rest[0]) if rest else _literal(kw.get("above_prompt_tokens", kw.get("above")))
+        price = _model_price(rest[1]) if len(rest) > 1 else _model_price(kw.get("price"))
+        if not isinstance(model, str) or isinstance(above, bool) or not isinstance(above, int) or above <= 0 or price is None:
+            raise E.Missing(
+                f"{where} line {node.lineno}: a `.with_long_context(...)` call this reader cannot read "
+                f"as (model, above_prompt_tokens, ModelPrice(...))"
+            )
+        out.setdefault(model, []).append((above, price))
+    return out if (called or defined) else None
+
+
+def verdryx_rows(pricing_py: str, where: str) -> "TableData":
     prices, fallback = verdryx_book(pricing_py, where)
     as_dict = lambda t: dict(zip(_VERDRYX_ORDER, t))  # noqa: E731
-    return {m: as_dict(t) for m, t in prices.items()}, (as_dict(fallback) if fallback else None)
+    return TableData(
+        {m: as_dict(t) for m, t in prices.items()},
+        as_dict(fallback) if fallback else None,
+        verdryx_long(pricing_py, where),
+    )
 
 
 def go_code_only(src: str) -> str:
@@ -210,7 +302,7 @@ _GO_FIELD = {"input": "InPerM", "output": "OutPerM"}
 _GO_NUMBER = re.compile(r"^[0-9]+(?:\.[0-9]+)?(?:[eE][+-]?[0-9]+)?$")
 
 
-def costcrew_rows(src: str, where: str) -> tuple[dict[str, dict], None]:
+def costcrew_rows(src: str, where: str) -> "TableData":
     """costcrew's `var prices = map[string]Price{...}`: key -> input, output.
 
     costcrew has no fallback, on purpose: an unknown model is refused rather
@@ -247,10 +339,20 @@ def costcrew_rows(src: str, where: str) -> tuple[dict[str, dict], None]:
         rows[key] = row
     if not rows:
         raise E.Missing(f"{where}: the prices map holds no entry this check can read")
-    return rows, None
+    return TableData(rows, None, None)
 
 
-#: format name (as estate.json declares it) -> reader(text, where) -> (rows, fallback)
+@dataclasses.dataclass
+class TableData:
+    """One price table as read: base rows, the fallback (None: the table has
+    none), and the prompt-length tiers (None: the table cannot express one)."""
+
+    rows: dict
+    fallback: dict | None
+    long: dict | None
+
+
+#: format name (as estate.json declares it) -> reader(text, where) -> TableData
 TABLE_READERS = {
     "tokenfuse-constants": tokenfuse_artifact,
     "verdryx-pricebook": verdryx_rows,
@@ -270,13 +372,18 @@ class Offer:
     tier: str = ""
     start: datetime.date | None = None
     end: datetime.date | None = None
+    #: a prompt-length tier: this price applies to prompts strictly above this
+    #: many tokens. None is the base price.
+    above: int | None = None
 
     def in_effect(self, day: datetime.date) -> bool:
         return (self.start is None or self.start <= day) and (self.end is None or day <= self.end)
 
     def describe(self) -> str:
         bits = [self.endpoint if self.endpoint != "any" else "every endpoint"]
-        if self.tier:
+        if self.above is not None:
+            bits.append(f"prompts above {self.above:,} tokens")
+        elif self.tier:
             bits.append(self.tier)
         if self.start:
             bits.append(f"from {self.start.isoformat()}")
@@ -290,6 +397,10 @@ class Vendor:
     key: str
     name: str
     url: str
+    #: whether the page shows every model's prompt-length tiers. OpenAI's shows
+    #: them for its latest rows only, so a tier it does not show is unknown,
+    #: not absent.
+    tiers_complete: bool = True
     models: dict = dataclasses.field(default_factory=dict)  # id -> [Offer]
     names: dict = dataclasses.field(default_factory=dict)  # id -> name as printed
     current: list | None = None  # ids the page itself marks current; None: unmarked
@@ -597,8 +708,12 @@ def parse_anthropic(page: str, url: str = ANTHROPIC_URL) -> Vendor:
                 continue
             tier_m = re.search(r"for prompts ([^$]*?tokens)", cells[cols["input"] + offset].text)
             tier = tier_m.group(1).strip() if tier_m else ""
+            above = None
+            over = re.match(r"(?:over|above|more than)\s+([0-9][0-9,]*)\s+tokens", tier)
+            if over:
+                above = int(over.group(1).replace(",", ""))
             mid = anthropic_id(name)
-            v.add(mid, name, Offer(prices, "global", tier))
+            v.add(mid, name, Offer(prices, "global", tier, above=above))
             last = (mid, name)
             if gi == 0 and not divider_seen and mid not in current:
                 current.append(mid)
@@ -622,7 +737,7 @@ def parse_anthropic(page: str, url: str = ANTHROPIC_URL) -> Vendor:
                 if o.endpoint == "global":
                     v.models[mid].append(Offer(
                         {c: round(p * factor, 9) for c, p in o.prices.items()},
-                        "regional", o.tier, o.start, o.end,
+                        "regional", o.tier, o.start, o.end, o.above,
                     ))
         v.notes.append(f"regional and multi-region endpoints: list plus {pm.group(1)} percent, as the page states")
     else:
@@ -679,14 +794,14 @@ def parse_openai(page: str, url: str = OPENAI_URL) -> Vendor:
             f"exactly one. The page changed shape"
         )
     idx, props = standard[0]
-    heads = []
+    heads, ssr = [], None
     for t in doc.tables:
         if t.context.get("island") != idx:
             continue
         for row in t.rows():
             labels = [c.text.lower() for c in row]
             if labels and labels[0] == "model":
-                heads = labels
+                heads, ssr = labels, t
                 break
         if heads:
             break
@@ -736,7 +851,97 @@ def parse_openai(page: str, url: str = OPENAI_URL) -> Vendor:
             "the standard text-token table no longer says how many of its rows are the "
             "latest models (collapsedLatestRowCount), so which models are current could not be read"
         )
+    _openai_long(v, doc, ssr, heads)
     return v
+
+
+def _walk(value):
+    yield value
+    if isinstance(value, dict):
+        for x in value.values():
+            yield from _walk(x)
+    elif isinstance(value, list):
+        for x in value:
+            yield from _walk(x)
+
+
+def _openai_long(v: Vendor, doc: TableReader, ssr, heads: list) -> None:
+    """OpenAI's long-context prices, where the page states them.
+
+    The page shows a "Long context" price beside the short one for its latest
+    rows (rendered into the standard table) and for the models in its grouped
+    short/long table; for the rest it computes the long price in script, which
+    this reader does not run. So OpenAI's tiers are marked incomplete: a tier
+    the page does not show is unknown, not absent. The threshold is the one
+    the page states (">272K input tokens"), read from its own tooltip or from
+    a row name's "(<272K context length)", and there must be exactly one.
+    """
+    v.tiers_complete = False
+    thresholds = set()
+    props_all = []
+    for island in doc.islands:
+        try:
+            props_all.append(_astro(json.loads(island.get("props", ""))))
+        except ValueError:
+            props_all.append(None)
+    for props in props_all:
+        for node in _walk(props):
+            if isinstance(node, dict) and str(node.get("label", "")).strip().lower() == "long context":
+                m = re.search(r">\s*([0-9]+)\s*K", str(node.get("tooltip", "")))
+                if m:
+                    thresholds.add(int(m.group(1)) * 1000)
+    for offers in v.models.values():
+        for o in offers:
+            m = re.search(r"<\s*([0-9]+)\s*K", o.tier)
+            if m:
+                thresholds.add(int(m.group(1)) * 1000)
+    if len(thresholds) != 1:
+        v.notes.append(
+            f"the page states {len(thresholds)} long-context thresholds ({sorted(thresholds)}), so no "
+            f"OpenAI long-context price was read"
+        )
+        return
+    above = thresholds.pop()
+    long_heads = ["input", "cached input", "cache writes", "output"]
+    found = 0
+    if ssr is not None and heads[5:9] == long_heads and len(heads) == 9:
+        for row in ssr.rows():
+            texts = [c.text for c in row]
+            if len(texts) != 9 or texts[0].lower() == "model":
+                continue
+            name = re.sub(r"\s*\(.*\)\s*$", "", texts[0]).strip()
+            prices = {c: dollars(x) for c, x in zip(("input", "cache_read", "cache_write", "output"), texts[5:9])}
+            prices = {c: x for c, x in prices.items() if x is not None}
+            if name in v.models and "input" in prices and "output" in prices:
+                v.models[name].append(Offer(prices, "global", f"over {above // 1000}K context", above=above))
+                found += 1
+    for idx, island in enumerate(doc.islands):
+        props = props_all[idx]
+        if island.get("component-export") != "GroupedPricingTable" or not isinstance(props, dict):
+            continue
+        headings = [str(h).strip().lower() for h in props.get("headings") or [] if isinstance(h, str)]
+        want = [f"{s} context {c}" for s in ("short", "long") for c in long_heads]
+        if headings[1:9] != want:
+            continue
+        for group in props.get("groups") or []:
+            if not isinstance(group, dict) or not isinstance(group.get("model"), str):
+                continue
+            for row in group.get("rows") or []:
+                if not isinstance(row, list) or len(row) != 8:
+                    continue
+                comps = ("input", "cache_read", "cache_write", "output")
+                short = {c: _number(x) for c, x in zip(comps, row[:4])}
+                long = {c: _number(x) for c, x in zip(comps, row[4:])}
+                short = {c: x for c, x in short.items() if x is not None}
+                long = {c: x for c, x in long.items() if x is not None}
+                name = group["model"]
+                if name not in v.models and "input" in short and "output" in short:
+                    v.add(name, name, Offer(short, "global"))
+                if "input" in long and "output" in long:
+                    v.models.setdefault(name, []).append(Offer(long, "global", f"over {above // 1000}K context", above=above))
+                    v.names.setdefault(name, name)
+                    found += 1
+    v.notes.append(f"long-context prices (prompts above {above:,} tokens) stated for {found} model(s); for the rest the page computes them in script and they are not judged")
 
 
 # ----------------------------------------------------------------- Vertex
@@ -800,7 +1005,14 @@ def parse_vertex(page: str, url: str = VERTEX_URL) -> Vendor:
         for i, h in enumerate(header):
             if i in cols.values() or "price" not in h:
                 continue
-            tier = "over 200K input tokens" if "> 200k" in h else ("up to 200K input tokens" if "<= 200k" in h else "")
+            over = re.search(r">\s*([0-9]+)\s*k\b", h)
+            upto = re.search(r"<=\s*([0-9]+)\s*k\b", h)
+            if over:
+                tier = (f"over {over.group(1)}K input tokens", int(over.group(1)) * 1000)
+            elif upto:
+                tier = (f"up to {upto.group(1)}K input tokens", None)
+            else:
+                tier = ("", None)
             price_cols.append((i, "cached" if "cached" in h else "price", tier))
         if not any(kind == "price" for _, kind, _ in price_cols):
             continue
@@ -835,9 +1047,16 @@ def parse_vertex(page: str, url: str = VERTEX_URL) -> Vendor:
                     continue
                 for name, start, end in names:
                     rows_by.setdefault((name, start, end, endpoint, tier), {})[c] = val
-        for (name, start, end, endpoint, tier), prices in rows_by.items():
-            if "input" in prices and "output" in prices:
-                v.add(gemini_id(name), name, Offer(prices, endpoint, tier, start, end))
+        for (name, start, end, endpoint, (tier, above)), prices in rows_by.items():
+            if "input" not in prices or "output" not in prices:
+                continue
+            if above is not None:
+                # A "> 200K" column that repeats the base price is not a tier.
+                base = [p for (n2, s2, e2, ep2, (_, a2)), p in rows_by.items()
+                        if (n2, s2, e2, ep2) == (name, start, end, endpoint) and a2 is None]
+                if base and base[0] == prices:
+                    continue
+            v.add(gemini_id(name), name, Offer(prices, endpoint, tier, start, end, above))
     if not v.models:
         raise E.Missing(
             f"no Standard token price table under Vertex AI's 'Google models' heading parsed "
@@ -884,7 +1103,8 @@ def _openrouter_offers(pricing: dict) -> list[Offer]:
         p = dict(base)
         p.update(_per_token(ov))
         n = ov.get("min_prompt_tokens")
-        offers.append(Offer(p, "global", f"prompts of {n} tokens and more" if n else "override"))
+        above = n if isinstance(n, int) and not isinstance(n, bool) and n > 0 else None
+        offers.append(Offer(p, "global", f"prompts of {n} tokens and more" if n else "override", above=above))
     return offers
 
 
@@ -994,9 +1214,13 @@ def close(ours: float, theirs: float) -> bool:
     return abs(ours - theirs) <= max(1e-6, 0.005 * max(abs(ours), abs(theirs)))
 
 
-def candidates(offers: list[Offer], endpoint: str, day: datetime.date) -> list[Offer]:
+def candidates(offers: list[Offer], endpoint: str, day: datetime.date, tiers: str = "all") -> list[Offer]:
+    """The offers a row on `endpoint` may equal on `day`. `tiers` is "all" (a
+    flat row in a table that cannot express a tier may carry either), "base"
+    or "long"."""
     allowed = {"global": ("global", "any"), "regional": ("regional", "any")}.get(endpoint, ("global", "regional", "any"))
-    return [o for o in offers if o.in_effect(day) and o.endpoint in allowed]
+    keep = {"all": lambda o: True, "base": lambda o: o.above is None, "long": lambda o: o.above is not None}[tiers]
+    return [o for o in offers if o.in_effect(day) and o.endpoint in allowed and keep(o)]
 
 
 def mismatches(row: dict, offer: Offer) -> list[str]:

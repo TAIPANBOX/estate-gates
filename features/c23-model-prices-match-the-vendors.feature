@@ -49,6 +49,21 @@ Feature: Every built-in model price table matches the vendors' current prices
     Then every run prints a WARN line naming the model, the date and the new price
     And on that date a row still at the old price is refused
 
+  @fires:c23.price-differs
+  Scenario: A model is priced by prompt length
+    Given a vendor prices a model higher above a prompt-length threshold
+    And a table can carry a prompt-length tier
+    When the table's tier starts at another threshold, carries another long price, or is missing
+    Then it is refused, because a long prompt would be billed at the wrong price
+    And a tier the table carries for a model the vendor prices at one rate is refused too
+
+  @fires:c23.stale-exception
+  Scenario: A recorded choice stops describing anything
+    Given a repository chose a disagreement on purpose and it is recorded with its reason
+    When the row agrees without it, matches neither price, is gone, or the dated price it took early is now in effect
+    Then the exception is refused as stale, because a choice nobody needs any more must be removed
+    And while it still applies it is printed as an EXCEPTION on every run, never passed in silence
+
   @fires:c23.current-model-missing
   Scenario: A current model has no row in the gateway's book
     Given a vendor's page marks a model as current

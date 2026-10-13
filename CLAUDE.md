@@ -737,13 +737,28 @@ Stop and tell the user, then wait:
     "Additional models", OpenAI's latest rows), so Vertex AI's Gemini models
     are listed and not judged; a missing current model is red rather than a
     warning, because the fallback bills it at many times its price and this
-    suite has no warning level.
-    *(gate: `gates/c23-model-prices-match-the-vendors.py`, thirty cases across
-    seven findings in `selftest.py`, among them a price one percent off, a
-    regional profile at the list price, an unnamed-endpoint row and a tiered
-    row each mixing two prices, a dated change taking effect, and each of four
-    page anchors going away; property 6 of `selftest.py` proves the WARN line
-    before a dated change, the red the day after, and NOT MEASURED plus exit 2
-    for a page nobody could fetch; property 7 runs `selftest/price_pages.py`,
-    the readers against the pages as saved on 2026-10-13 and against a seeded
-    sweep of hostile bytes)*
+    suite has no warning level. Prompt-length tiers are compared on both
+    sides once a table can express them (tokenfuse's `long_context`, from
+    tokenfuse#416): the vendor's threshold, the long price, and no tier the
+    vendor does not have; a flat table may carry either tier.
+
+    **A choice a repository made on purpose is recorded, never absorbed.**
+    `expectations/model-prices.json` holds each one with its reason and its
+    provenance, the bargain invariant 7 makes for the deployments: printed as
+    an EXCEPTION on every run, red as stale once it excuses nothing. The first
+    two are tokenfuse's own (its invariant 99, decisions 2 and 6, themselves
+    `@claude` under delegated authority): Gemini 3.6 to 3.8 Flash at the
+    standard rate that takes effect on 2027-01-01, and the fallback kept below
+    gpt-6-astra's long price. Recording them here is a reading of tokenfuse's
+    record, not a decision of this repository's.
+    *(gate: `gates/c23-model-prices-match-the-vendors.py`, forty-eight cases
+    across eight findings in `selftest.py`, among them a price one percent
+    off, a regional profile at the list price, an unnamed-endpoint row and a
+    tiered row each mixing two prices, a dated change taking effect, a tier at
+    the wrong threshold, a tier for a one-rate model, a tiered model with no
+    tier, each of four page anchors going away, and eight stale or unreadable
+    exceptions; property 6 of `selftest.py` proves the WARN line before a
+    dated change, the red and the stale exception the day after, and NOT
+    MEASURED plus exit 2 for a page nobody could fetch; property 7 runs
+    `selftest/price_pages.py`, the readers against the pages as saved on
+    2026-10-13 and against a seeded sweep of hostile bytes)*
