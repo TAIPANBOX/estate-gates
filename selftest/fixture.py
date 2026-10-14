@@ -1965,6 +1965,21 @@ for _repo, _files in ESTATE.items():
 # files are rendered from the others' commits.
 ESTATE["architecture"] = {"_render": render_architecture}
 
+# C24, the owner-quote scan reads every public repository's tracked text. These
+# are the NON-faults the baseline must pass: an authorship line naming the owner
+# as copyright holder, a URL carrying his name (blanked before the scan), a
+# Cyrillic string literal in a Go test and in a Python test (hostile input).
+# The name is assembled, as the gate assembles it, so this file does not carry it.
+_OWNER_FIRST = "Y" + "urii"
+ESTATE["tokenfuse"]["NOTICE"] = (
+    "Copyright 2026 " + _OWNER_FIRST + "\n"
+    "Sources at https://example.org/@" + _OWNER_FIRST.lower() + "\n"
+)
+ESTATE["wardryx"]["internal/api/hostile_test.go"] = (
+    'package api\n\nconst hostile = "обмеження"\n'
+)
+ESTATE["verdryx"]["tests/test_hostile.py"] = 'HOSTILE = """обмеження"""\n'
+
 # The expectations file the fixture's C5 run measures against. The fixture
 # estate is built so that the divergences below are the only ones.
 EXPECTATIONS = {

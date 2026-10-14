@@ -656,6 +656,15 @@ def registry_drop_runs(root: pathlib.Path, repo: str) -> None:
 
 TF_ART = "tokenfuse/contracts/tokenfuse-constants.json"
 
+
+def registry_no_public_remotes(root: pathlib.Path) -> None:
+    """Record every repository as having no public GitHub remote (C24's subjects)."""
+    path, reg = _case_registry(root)
+    for entry in reg["repos"].values():
+        entry["github"] = None
+    path.write_text(json.dumps(reg, indent=2) + "\n")
+
+
 MUTATIONS: dict[str, list[tuple[str, callable]]] = {
     # ---- C1
     "c1.no-tags": [(
@@ -899,6 +908,63 @@ MUTATIONS: dict[str, list[tuple[str, callable]]] = {
             registry_del(r, "tokenfuse", "request_path"),
             registry_del(r, "wardryx", "request_path"),
         ],
+    )],
+    # ---- C24
+    # The four shapes an owner quote takes, each planted into a public fixture
+    # repository. The name and the marker are assembled, so this file does not
+    # carry them. The baseline's NOTICE, Go test and Python test are the
+    # non-faults: they must stay green with the same shapes present in quotes.
+    "c24.marker": [(
+        "a public repository carries the old provenance marker",
+        lambda r: plant(
+            r, "tokenfuse/DECISIONS.md",
+            "Decided 2026-10-13 " + "@" + "yurii" + ", paraphrased below.\n",
+        ),
+    )],
+    "c24.guillemet": [(
+        "a quotation in guillemets, in Ukrainian, in a public repository's prose",
+        lambda r: plant(r, "tokenfuse/QUOTES.md", "Текст: «тест».\n"),
+    )],
+    "c24.cyrillic-prose": [
+        (
+            "Ukrainian prose in a Go comment, outside any string literal",
+            lambda r: plant(
+                r, "wardryx/internal/api/note.go",
+                "package api\n\n// тест коментар\nvar _ = 1\n",
+            ),
+        ),
+        (
+            "Ukrainian prose in a Markdown file",
+            lambda r: plant(r, "wardryx/NOTES.md", "Текст без лапок.\n"),
+        ),
+    ],
+    "c24.owner-named": [
+        (
+            "the owner named as the one who found something, in prose",
+            lambda r: plant(
+                r, "tokenfuse/FINDINGS.md",
+                "Y" + "urii found the parser bug.\n",
+            ),
+        ),
+        (
+            "the owner named inside a Go string literal, which does not exempt it",
+            lambda r: plant(
+                r, "wardryx/internal/api/who_test.go",
+                'package api\n\nvar who = "Y' + 'urii"\n',
+            ),
+        ),
+    ],
+    "c24.no-subjects": [(
+        "no repository records a public GitHub remote",
+        lambda r: registry_no_public_remotes(r),
+    )],
+    "c24.file-unreadable": [(
+        "a tracked file is deleted from disk and is still in git's index",
+        lambda r: drop(r, "verdryx/verdryx/costper.py"),
+    )],
+    "c24.nothing-scanned": [(
+        "a public repository tracks no file at all",
+        lambda r: git(r / "wardryx", "rm", "-r", "-q", "--", "."),
     )],
     # ---- C7
     # ---- C9

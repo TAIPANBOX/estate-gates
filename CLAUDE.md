@@ -791,3 +791,18 @@ Stop and tell the user, then wait:
     MEASURED plus exit 2 for a page nobody could fetch; property 7 runs
     `selftest/price_pages.py`, the readers against the pages as saved on
     2026-10-13 and against a seeded sweep of hostile bytes)*
+26. **No public repository quotes the owner, or names him as the one who
+    decided.** `@decided 2026-10-13`, paraphrased: every public repository the
+    registry names is free of quotations of the owner and of the old provenance
+    marker that carried his first name, and each decision is recorded as a date
+    and a paraphrase in English. The owner's name stays allowed as copyright
+    holder, author or maintainer. Four shapes are refused on their own line, and
+    the output names the file and the line without printing the text, because a
+    CI log is public too. A repository recorded as private is skipped and said so.
+    *(gate: `gates/c24-no-owner-quotes.py`. `selftest.py` plants each shape into a
+    public fixture repository and requires its finding: the marker, a guillemet
+    quotation, Ukrainian prose, the name as the one who found something, a
+    deleted tracked file, a repository tracking nothing, and no public remote at
+    all. Its baseline carries the non-faults: the name on a copyright line, a
+    URL that carries the name, and a Cyrillic string literal in a Go test and in a
+    Python test.)*

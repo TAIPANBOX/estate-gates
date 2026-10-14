@@ -561,6 +561,21 @@ book. C23 does not read Bedrock's, DeepSeek's or AWS's own price lists, so the
 rows priced from those are declared not judged by cause, each one named by its
 id in `expectations/model-prices.json`. A row no cause declares is NOT MEASURED
 and counted, exit 2 in a repository with a public remote.
+**C24, no owner quotes in any public repository** (`gates/c24-no-owner-quotes.py`).
+Decided on 2026-10-13: every public repository is free of quotations of the
+owner and of the old provenance marker that carried his first name, and a
+decision is recorded as a date and a paraphrase in English. The gate reads the
+tracked files of every repository `estate.json` records a public GitHub remote
+for, and refuses four shapes on the line they occur on: the old marker, a
+guillemet quotation beside Cyrillic, Ukrainian prose outside a string literal
+(string literals in code files may carry Cyrillic, as hostile-input tests do,
+and so may a `testdata/` file), and the owner's first name capitalised outside
+an authorship line. The owner as copyright holder, author or maintainer is
+allowed. Output names the file and the line number and never the line's text,
+because a CI log of a public repository is public too. A private repository is
+skipped, and the output says so. It does not catch an English quotation in
+ordinary quotation marks, an attribution that avoids his name, or a translation
+passed off as a paraphrase; those are prose a reader judges.
 
 ## Running it
 
