@@ -290,6 +290,18 @@ SERVICE_KIND = {
     "typryx-wardryx-proxy": "typryx-wardryx-proxy",
     # stack-single (compose service keys)
     "tokenfuse-gateway": "tokenfuse-gateway",
+    # stack-single, behind the compose profile `openai-door` since
+    # stack-single#124 (2026-10-14): the same `tokenfuse` binary in `serve`,
+    # with `TOKENFUSE_WIRE=openai`, its own client keys, identity map and data
+    # directory, published on 4110. A second door of the gateway plane, not a
+    # component of its own, which is the line the `tokenfuse-mcp-broker` entry
+    # above draws ("its own kind rather than a second gateway"); heraldyx and
+    # idryx read its `tokenfuse-openai` stream as source `tokenfuse` for the
+    # same reason. The services comparison folds names into a SET, so this
+    # cannot double-count, the argument `scopyx-browser` makes. What the fold
+    # costs, stated rather than implied away: this check does not report that
+    # only stack-single offers an OpenAI-wire door. @claude 2026-10-15.
+    "tokenfuse-gateway-openai": "tokenfuse-gateway",
     "tokenfuse-cloud": "tokenfuse-cloud",
     "policy-db": "policy-db",
     "console": "console",

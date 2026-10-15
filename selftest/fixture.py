@@ -1042,6 +1042,15 @@ services:
     ports:
       - "${GATEWAY_BIND:-127.0.0.1}:4100:4100"
 
+  tokenfuse-gateway-openai:
+    image: stack/tokenfuse:dev
+    profiles: ["openai-door"]
+    environment:
+      TOKENFUSE_ADDR: 0.0.0.0:4100
+      TOKENFUSE_WIRE: openai
+    ports:
+      - "${GATEWAY_BIND:-127.0.0.1}:4110:4100"
+
   wg:
     image: stack/wg:dev
 
