@@ -75,50 +75,100 @@
       "recorded": "2026-10-13",
       "provenance": "@claude 2026-10-13: recorded for PR #131 under the supervisor's instruction; a reading of the vendor's pricing page as it stands today, not a decision the repository's owner made."
     },
+    "tier-not-on-page:tokenfuse:openai/gpt-5.4:above-272000": {
+      "why": "the vendor page lists no long-prompt tier; the row is the book's own",
+      "recorded": "2026-10-15",
+      "provenance": "@claude 2026-10-15: the openai/ twin of gpt-5.4, which tokenfuse inserts with the same rows and tier as the bare id (tokenfuse invariant 107, #434) and verdryx mirrors; the same reading of the vendor's pricing page as the entry for gpt-5.4 above, recorded so the twin is declared like the id it copies; not a decision the repository's owner made."
+    },
     "tier-not-on-page:tokenfuse:gpt-5.5:above-272000": {
       "why": "the vendor page lists no long-prompt tier; the row is the book's own",
       "recorded": "2026-10-13",
       "provenance": "@claude 2026-10-13: recorded for PR #131 under the supervisor's instruction; a reading of the vendor's pricing page as it stands today, not a decision the repository's owner made."
+    },
+    "tier-not-on-page:tokenfuse:openai/gpt-5.5:above-272000": {
+      "why": "the vendor page lists no long-prompt tier; the row is the book's own",
+      "recorded": "2026-10-15",
+      "provenance": "@claude 2026-10-15: the openai/ twin of gpt-5.5, which tokenfuse inserts with the same rows and tier as the bare id (tokenfuse invariant 107, #434) and verdryx mirrors; the same reading of the vendor's pricing page as the entry for gpt-5.5 above, recorded so the twin is declared like the id it copies; not a decision the repository's owner made."
     },
     "tier-not-on-page:tokenfuse:gpt-5.6-luna:above-272000": {
       "why": "the vendor page lists no long-prompt tier; the row is the book's own",
       "recorded": "2026-10-13",
       "provenance": "@claude 2026-10-13: recorded for PR #131 under the supervisor's instruction; a reading of the vendor's pricing page as it stands today, not a decision the repository's owner made."
     },
+    "tier-not-on-page:tokenfuse:openai/gpt-5.6-luna:above-272000": {
+      "why": "the vendor page lists no long-prompt tier; the row is the book's own",
+      "recorded": "2026-10-15",
+      "provenance": "@claude 2026-10-15: the openai/ twin of gpt-5.6-luna, which tokenfuse inserts with the same rows and tier as the bare id (tokenfuse invariant 107, #434) and verdryx mirrors; the same reading of the vendor's pricing page as the entry for gpt-5.6-luna above, recorded so the twin is declared like the id it copies; not a decision the repository's owner made."
+    },
     "tier-not-on-page:tokenfuse:gpt-5.6-terra:above-272000": {
       "why": "the vendor page lists no long-prompt tier; the row is the book's own",
       "recorded": "2026-10-13",
       "provenance": "@claude 2026-10-13: recorded for PR #131 under the supervisor's instruction; a reading of the vendor's pricing page as it stands today, not a decision the repository's owner made."
+    },
+    "tier-not-on-page:tokenfuse:openai/gpt-5.6-terra:above-272000": {
+      "why": "the vendor page lists no long-prompt tier; the row is the book's own",
+      "recorded": "2026-10-15",
+      "provenance": "@claude 2026-10-15: the openai/ twin of gpt-5.6-terra, which tokenfuse inserts with the same rows and tier as the bare id (tokenfuse invariant 107, #434) and verdryx mirrors; the same reading of the vendor's pricing page as the entry for gpt-5.6-terra above, recorded so the twin is declared like the id it copies; not a decision the repository's owner made."
     },
     "tier-not-on-page:tokenfuse:gpt-6-sol:above-272000": {
       "why": "the vendor page lists no long-prompt tier; the row is the book's own",
       "recorded": "2026-10-13",
       "provenance": "@claude 2026-10-13: recorded for PR #131 under the supervisor's instruction; a reading of the vendor's pricing page as it stands today, not a decision the repository's owner made."
     },
+    "tier-not-on-page:tokenfuse:openai/gpt-6-sol:above-272000": {
+      "why": "the vendor page lists no long-prompt tier; the row is the book's own",
+      "recorded": "2026-10-15",
+      "provenance": "@claude 2026-10-15: the openai/ twin of gpt-6-sol, which tokenfuse inserts with the same rows and tier as the bare id (tokenfuse invariant 107, #434) and verdryx mirrors; the same reading of the vendor's pricing page as the entry for gpt-6-sol above, recorded so the twin is declared like the id it copies; not a decision the repository's owner made."
+    },
     "tier-not-on-page:verdryx:gpt-5.4:above-272000": {
       "why": "the vendor page lists no long-prompt tier; the row is the book's own",
       "recorded": "2026-10-13",
       "provenance": "@claude 2026-10-13: recorded for PR #131 under the supervisor's instruction; a reading of the vendor's pricing page as it stands today, not a decision the repository's owner made."
+    },
+    "tier-not-on-page:verdryx:openai/gpt-5.4:above-272000": {
+      "why": "the vendor page lists no long-prompt tier; the row is the book's own",
+      "recorded": "2026-10-15",
+      "provenance": "@claude 2026-10-15: the openai/ twin of gpt-5.4, which tokenfuse inserts with the same rows and tier as the bare id (tokenfuse invariant 107, #434) and verdryx mirrors; the same reading of the vendor's pricing page as the entry for gpt-5.4 above, recorded so the twin is declared like the id it copies; not a decision the repository's owner made."
     },
     "tier-not-on-page:verdryx:gpt-5.5:above-272000": {
       "why": "the vendor page lists no long-prompt tier; the row is the book's own",
       "recorded": "2026-10-13",
       "provenance": "@claude 2026-10-13: recorded for PR #131 under the supervisor's instruction; a reading of the vendor's pricing page as it stands today, not a decision the repository's owner made."
     },
+    "tier-not-on-page:verdryx:openai/gpt-5.5:above-272000": {
+      "why": "the vendor page lists no long-prompt tier; the row is the book's own",
+      "recorded": "2026-10-15",
+      "provenance": "@claude 2026-10-15: the openai/ twin of gpt-5.5, which tokenfuse inserts with the same rows and tier as the bare id (tokenfuse invariant 107, #434) and verdryx mirrors; the same reading of the vendor's pricing page as the entry for gpt-5.5 above, recorded so the twin is declared like the id it copies; not a decision the repository's owner made."
+    },
     "tier-not-on-page:verdryx:gpt-5.6-luna:above-272000": {
       "why": "the vendor page lists no long-prompt tier; the row is the book's own",
       "recorded": "2026-10-13",
       "provenance": "@claude 2026-10-13: recorded for PR #131 under the supervisor's instruction; a reading of the vendor's pricing page as it stands today, not a decision the repository's owner made."
+    },
+    "tier-not-on-page:verdryx:openai/gpt-5.6-luna:above-272000": {
+      "why": "the vendor page lists no long-prompt tier; the row is the book's own",
+      "recorded": "2026-10-15",
+      "provenance": "@claude 2026-10-15: the openai/ twin of gpt-5.6-luna, which tokenfuse inserts with the same rows and tier as the bare id (tokenfuse invariant 107, #434) and verdryx mirrors; the same reading of the vendor's pricing page as the entry for gpt-5.6-luna above, recorded so the twin is declared like the id it copies; not a decision the repository's owner made."
     },
     "tier-not-on-page:verdryx:gpt-5.6-terra:above-272000": {
       "why": "the vendor page lists no long-prompt tier; the row is the book's own",
       "recorded": "2026-10-13",
       "provenance": "@claude 2026-10-13: recorded for PR #131 under the supervisor's instruction; a reading of the vendor's pricing page as it stands today, not a decision the repository's owner made."
     },
+    "tier-not-on-page:verdryx:openai/gpt-5.6-terra:above-272000": {
+      "why": "the vendor page lists no long-prompt tier; the row is the book's own",
+      "recorded": "2026-10-15",
+      "provenance": "@claude 2026-10-15: the openai/ twin of gpt-5.6-terra, which tokenfuse inserts with the same rows and tier as the bare id (tokenfuse invariant 107, #434) and verdryx mirrors; the same reading of the vendor's pricing page as the entry for gpt-5.6-terra above, recorded so the twin is declared like the id it copies; not a decision the repository's owner made."
+    },
     "tier-not-on-page:verdryx:gpt-6-sol:above-272000": {
       "why": "the vendor page lists no long-prompt tier; the row is the book's own",
       "recorded": "2026-10-13",
       "provenance": "@claude 2026-10-13: recorded for PR #131 under the supervisor's instruction; a reading of the vendor's pricing page as it stands today, not a decision the repository's owner made."
+    },
+    "tier-not-on-page:verdryx:openai/gpt-6-sol:above-272000": {
+      "why": "the vendor page lists no long-prompt tier; the row is the book's own",
+      "recorded": "2026-10-15",
+      "provenance": "@claude 2026-10-15: the openai/ twin of gpt-6-sol, which tokenfuse inserts with the same rows and tier as the bare id (tokenfuse invariant 107, #434) and verdryx mirrors; the same reading of the vendor's pricing page as the entry for gpt-6-sol above, recorded so the twin is declared like the id it copies; not a decision the repository's owner made."
     },
     "not-judged-cause:no-reader-deepseek": {
       "rows": [
