@@ -610,6 +610,20 @@ exception, `3` clean but every unread or unmeasured subject sits in a repository
 with no public remote. CI treats 3 as success with a notice and fails on
 everything else.
 
+## Shared tools for the service repositories
+
+Some checks have to run inside the repository they judge, on its own pull
+requests, so this repository ships them as tools and reusable workflows that a
+caller pins to a commit. They are not cross-repository checks and nothing here
+runs them against another repository.
+
+- `tools/secretscan` and `.github/workflows/secretscan.yml`: no secret in a
+  tree (invariant 23).
+- `tools/diffcover` and `.github/workflows/diff-coverage.yml`: the coverage
+  floor on the lines a pull request adds, and the whole-repository baseline
+  (invariant 27). See [`tools/diffcover/README.md`](tools/diffcover/README.md)
+  for the rules, the measured-nothing cases and what the number does not say.
+
 ## What is deliberately NOT covered
 
 Written down rather than left implied, because an unstated gap reads as a

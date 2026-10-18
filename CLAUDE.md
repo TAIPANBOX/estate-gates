@@ -58,11 +58,12 @@ somebody's uncommitted work is a finding they did not make yet.
 ./scripts/no-long-dashes.sh --prove
 ./scripts/features-are-bound.sh --prove
 (cd tools/secretscan && go test -count=1 ./... && go run . -C ../.. tree)
+(cd tools/diffcover && go test -race -count=1 ./...)
 ./run-gates.py --mode ref --ref origin/main
 ```
 
-CI runs the first four and then `./run-gates.py --mode clone`. Only that
-last one is allowed to be red: it is a report about the estate.
+CI runs every line above except the last, then `./run-gates.py --mode clone`.
+Only that last one is allowed to be red: it is a report about the estate.
 
 ## Hard invariants
 
@@ -147,8 +148,10 @@ an absent invariant.
    only, because it runs as a pre-push hook in repositories of every language
    and has to be one static binary with nothing to install beside it
    (`@decided 2026-10-09`: the secret gate is one Go tool in this repository).
-   *(not enforced: no import outside the standard library today, and
-   `tools/secretscan/go.mod` has no require line)*
+   `tools/diffcover` is Go and standard library only for the same reason: it
+   is one binary that a caller builds from a pinned commit.
+   *(not enforced: no import outside the standard library today, and neither
+   `tools/secretscan/go.mod` nor `tools/diffcover/go.mod` has a require line)*
 
 9. **Nothing metered.** This repository is public, so standard-runner Actions
    minutes and the nightly cron cost nothing. A matrix, a larger runner, a
@@ -806,3 +809,22 @@ Stop and tell the user, then wait:
     all. Its baseline carries the non-faults: the name on a copyright line, a
     URL that carries the name, and a Cyrillic string literal in a Go test and in a
     Python test.)*
+
+27. **New and changed code is covered by tests, and the coverage floor never
+    drops.** `@decided 2026-10-18`, paraphrased: on every pull request, at least
+    90% of the executable lines the change adds are covered by tests, and
+    whole-repository line coverage never falls below its committed baseline and
+    is raised toward 90% over time. `tools/diffcover` measures both, from a
+    coverage file and the diff, and `.github/workflows/diff-coverage.yml` is the
+    reusable workflow a service repository calls. A run that measures nothing
+    fails: an empty coverage file, a diff that names no covered file, or a diff
+    with no executable line. An added line in a file that no coverage record
+    names is excluded and printed, never counted.
+    *(test: `tools/diffcover/diffcover_test.go`, a table row per rule and one
+    integration test against a real git repository, run with `-race` by
+    `gates.yml` on every pull request here. The rows were first run against
+    stubs and failed; five hand-made mutants of the implementation were each
+    caught, in a scratch copy and not wired into CI. Not proven: the LCOV reader
+    against a real `cargo llvm-cov` or `coverage lcov` run, any service
+    repository's own floor (none calls the workflow yet), and whether a test
+    asserts anything, which coverage cannot show.)*

@@ -1,0 +1,151 @@
+# The coverage floor on what a pull request adds (CLAUDE.md invariant 27) for any
+# repository in the estate.
+#
+# A repository calls it from its own pull_request workflow, with one job pinned
+# to a commit of this repository:
+#
+#   on:
+#     pull_request:
+#   jobs:
+#     diff-coverage:
+#       uses: TAIPANBOX/estate-gates/.github/workflows/diff-coverage.yml@<commit>
+#       with:
+#         scanner-ref: <the same commit>
+#         language: go
+#         coverage-command: go test -count=1 -coverpkg=./... -coverprofile=cover.out ./...
+#         coverage-file: cover.out
+#
+# The commit is written twice for the reason secretscan.yml gives: a reusable
+# workflow cannot see the ref it was called at.
+#
+# It checks out the caller's full history, builds tools/diffcover at scanner-ref,
+# runs the caller's coverage command in the caller's tree, and fails when the
+# lines the change adds are covered below `threshold`, when the whole repository
+# falls below its .coverage-baseline, or when nothing could be measured.
+#
+# language selects the coverage format: go reads a `go test -coverprofile`
+# profile, rust and python read LCOV. setup-command runs before the coverage
+# command, for tools the workflow does not install (cargo-llvm-cov, for one).
+#
+# COST: one standard ubuntu-latest job per pull request. Free on a public
+# repository. On a PRIVATE repository it is metered Actions minutes, so a caller
+# that is private needs that spend agreed before it is wired. The timeout below
+# bounds a runaway run.
+
+name: diff-coverage
+
+on:
+  workflow_call:
+    inputs:
+      scanner-ref:
+        description: the estate-gates commit whose tools/diffcover is built; the same commit as the uses pin
+        required: true
+        type: string
+      language:
+        description: go, rust or python; go reads a cover profile, rust and python read LCOV
+        required: true
+        type: string
+      coverage-command:
+        description: shell command, run in the caller's tree, that writes the coverage file
+        required: true
+        type: string
+      coverage-file:
+        description: the file coverage-command writes, relative to the repository root
+        required: true
+        type: string
+      setup-command:
+        description: optional shell command run before coverage-command, for tools it needs
+        required: false
+        type: string
+        default: ""
+      go-version:
+        description: the Go toolchain; it builds diffcover and runs a go caller's tests
+        required: false
+        type: string
+        default: "1.27.2"
+      python-version:
+        description: the Python used when language is python
+        required: false
+        type: string
+        default: "3.12"
+      threshold:
+        description: the floor, a percentage, for the lines the change adds
+        required: false
+        type: number
+        default: 90
+
+permissions:
+  contents: read
+
+jobs:
+  diff-coverage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - name: The caller's tree, with full history for the base commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: target
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Check the inputs
+        env:
+          SCANNER_REF: ${{ inputs.scanner-ref }}
+          LANGUAGE: ${{ inputs.language }}
+          COVERAGE_FILE: ${{ inputs.coverage-file }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          echo "$SCANNER_REF" | grep -Eq '^[0-9a-f]{40}$' || { echo "scanner-ref must be a 40-hex commit"; exit 1; }
+          case "$LANGUAGE" in go|rust|python) ;; *) echo "language must be go, rust or python"; exit 1 ;; esac
+          [ -n "$COVERAGE_FILE" ] || { echo "coverage-file is empty"; exit 1; }
+          echo "$BASE" | grep -Eq '^[0-9a-f]{40}$' || { echo "no pull request base commit: call this from a pull_request event"; exit 1; }
+
+      # The scanner at the commit the caller names, not at whatever main is today.
+      - name: The scanner at scanner-ref
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: TAIPANBOX/estate-gates
+          ref: ${{ inputs.scanner-ref }}
+          path: estate-gates
+          persist-credentials: false
+
+      - name: Go, to build the scanner
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: ${{ inputs.go-version }}
+          cache: false
+
+      - name: Python, for a python caller
+        if: inputs.language == 'python'
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ inputs.python-version }}
+
+      - name: The caller's setup command
+        if: inputs.setup-command != ''
+        env:
+          SETUP_COMMAND: ${{ inputs.setup-command }}
+        run: cd "$GITHUB_WORKSPACE/target" && bash -eo pipefail -c "$SETUP_COMMAND"
+
+      - name: Build diffcover
+        run: cd estate-gates/tools/diffcover && go build -o "$RUNNER_TEMP/diffcover" .
+
+      - name: The caller's coverage command
+        env:
+          COVERAGE_COMMAND: ${{ inputs.coverage-command }}
+        run: cd "$GITHUB_WORKSPACE/target" && bash -eo pipefail -c "$COVERAGE_COMMAND"
+
+      - name: Judge the lines this change adds, and the baseline
+        env:
+          LANGUAGE: ${{ inputs.language }}
+          COVERAGE_FILE: ${{ inputs.coverage-file }}
+          THRESHOLD: ${{ inputs.threshold }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          format=lcov
+          [ "$LANGUAGE" = go ] && format=gocover
+          "$RUNNER_TEMP/diffcover" -C "$GITHUB_WORKSPACE/target" -base "$BASE" \
+            -coverage "$COVERAGE_FILE" -format "$format" -threshold "$THRESHOLD"
