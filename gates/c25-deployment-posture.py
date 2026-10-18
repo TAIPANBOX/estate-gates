@@ -614,13 +614,26 @@ def load_expectations() -> tuple[dict | None, str | None]:
 
 
 def _revision(estate: E.Estate, repo: str) -> str:
+    """The commit a launcher was read at, and its date.
+
+    The date is printed so a reader can judge staleness. In ref mode the ref is
+    the checkout's LOCAL origin/main, as the last `git fetch` left it, and this
+    gate never fetches: a stale checkout reads as stale history. Refresh with
+    `git -C <checkout> fetch origin` before running the gate.
+    """
     rev = estate.ref if estate.mode == "ref" else "HEAD"
     proc = subprocess.run(
-        ["git", "-C", str(estate.dir_of(repo)), "rev-parse", "--short", rev or "HEAD"],
+        [
+            "git", "-C", str(estate.dir_of(repo)), "log", "-1",
+            "--format=%h %cd", "--date=short", rev or "HEAD",
+        ],
         capture_output=True,
         text=True,
     )
-    return proc.stdout.strip() if proc.returncode == 0 else "an unknown revision"
+    if proc.returncode != 0:
+        return "an unknown revision"
+    sha, date = proc.stdout.strip().split(" ", 1)
+    return f"{sha} (committed {date})"
 
 
 def _drift(c: E.Check, posture: str, launcher: str, message: str, detail: list[str]) -> None:
@@ -674,6 +687,12 @@ def run(estate: E.Estate) -> E.Check:
             f"about the exceptions.",
         )
         expectations = {}
+
+    if estate.mode == "ref":
+        c.note(
+            "Each ref is the checkout's local origin/main as its last fetch left it. "
+            "This gate does not fetch, so a stale checkout reads as the history it has."
+        )
 
     cell_names = {f"{p}:{launcher}" for p, launcher, *_ in CELLS}
     holding: set[str] = set()
