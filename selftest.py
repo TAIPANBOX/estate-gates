@@ -2076,6 +2076,19 @@ MUTATIONS: dict[str, list[tuple[str, callable]]] = {
         ),
     )],
     "c5.unrecorded-divergence": [
+        # keyryx's witness is a second `register` name for one component. With
+        # the mapping it is the kind keyryx, and stack-up's extra is unrecorded.
+        # Without the mapping the name is unmapped and only c5.service-unmapped
+        # fires, so this case is what proves the two names are mapped.
+        (
+            "stack-up registers the keyryx witness, and the name is mapped to keyryx",
+            lambda r: edit(
+                r,
+                "stack-up/up.sh",
+                'register vouchryx "$!" TERM\n',
+                'register vouchryx "$!" TERM\nregister keyryx-witness "$!" TERM\n',
+            ),
+        ),
         # One per fact family, because each family computes its divergence keys
         # with its own code. A single case would prove the reporting works and
         # leave three of the four computations unexercised.

@@ -284,6 +284,11 @@
           "recorded": "2026-10-04",
           "provenance": "@claude 2026-10-04",
           "why": "typryx's own `wardryx-proxy` subcommand (typryx v0.4.0): a separate process, on its own port (4330, in the agreed port map), that sits between tokenfuse's MCP broker and wardryx and adds a typed risk signal to a pending tool call, which a `hold_if_signal` rule can turn into a hold and nothing else. OPT-IN in all three launchers and off by default, behind the same opt-in that brings up typryx plus a flag of its own: stack-up `--typed-risk-signal`, stack-single `TYPED_RISK_SIGNAL=1 ./install.sh` (compose profile `typed-risk-signal`), stack-k8s `deploy.sh --typed-risk-signal` with `manifests/56-typryx-wardryx-proxy.yaml` outside the kustomization. Recorded as `extra` in all three rather than added to `agreed`, for the reason the typryx entry gives: `agreed` is what every deployment brings up, and an opt-in profile is not that. It is its own kind and not part of `typryx`, for the reason the broker is its own kind: a separate process with its own port and its own failure mode. The launchers' own files record the wiring as a decision of 2026-10-04; this entry is a reading of them by @claude 2026-10-04."
+        },
+        "services:stack-up:extra:keyryx": {
+          "recorded": "2026-10-18",
+          "provenance": "@claude",
+          "why": "A GAP, not a decision. stack-up runs keyryx from L3 (`register keyryx` and `register keyryx-witness`, both mapped to the one component `keyryx`), so keyryx is no longer installable by nothing. stack-single and stack-k8s do not carry it yet: their keyryx lands in L1 and L2, and until both do keyryx is an extra beside the agreed set, which nothing here decides. Red as stale the day all three carry it and the agreed set is decided, or the day stack-up stops carrying it."
         }
       }
     },
@@ -329,11 +334,6 @@
           "recorded": "2026-10-04",
           "provenance": "@claude 2026-10-04",
           "why": "@measured `./run-gates.py --mode ref --ref origin/main` with `typryx-wardryx-proxy` added to typryx's `runs` in estate.json 2026-10-04: C15 reports c15.registry-names-what-the-repo-does-not, because typryx's components.json (main 64c7d5c) declares one component, `typryx`. So the claim is NOT made in estate.json. The proxy is typryx's own `wardryx-proxy` subcommand and typryx is the repository that would claim it; declaring it as a component is typryx's change, not this repository's, and this repository reads and never writes to another. Recorded here instead, the same shape as `coverage:tokenfuse-mcp-broker:claimed-by-no-repository`. When typryx declares the component and `typryx-wardryx-proxy` is added to typryx's `runs`, this entry goes stale and C5 says so. @claude 2026-10-04."
-        },
-        "coverage:keyryx:installable-by-nothing": {
-          "recorded": "2026-10-18",
-          "provenance": "@claude",
-          "why": "A GAP, not a decision. keyryx is registered with the component it will run (`keyryx`, the custody and witness service), and no launcher installs it yet, so it is installable by nothing. Its own manifest says the distribution is not released (no tag yet) and the witness role is not built. Recorded so the gap stays visible until a launcher carries it; no launcher has been asked to, and nothing here says one should. Red as stale the day a deployment installs it and it stops diverging."
         }
       }
     }
