@@ -806,3 +806,19 @@ Stop and tell the user, then wait:
     all. Its baseline carries the non-faults: the name on a copyright line, a
     URL that carries the name, and a Cyrillic string literal in a Go test and in a
     Python test.)*
+27. **Each security posture a launcher sets is read from that launcher, and a
+    launcher that lacks one is either recorded with a reason or red.** The
+    2026-10-17 review found that the products ship permissive defaults and rely
+    on their launchers to switch enforcement on, and that nothing gated what the
+    launchers set. C25 reads the three launchers together. A posture a launcher
+    does not hold is a FAIL unless `expectations/deployment-posture.json` records
+    it with a reason and a provenance; an entry with no reason, or one that
+    excuses nothing any more, is red; and a posture whose anchor matches nothing
+    is MISSING, never a skip. The rule holds the value a launcher's TEXT sets. That
+    a product enforces it is the product's own suite's question, and this rule
+    does not claim it.
+    *(gate: `gates/c25-deployment-posture.py`. `selftest.py` breaks each posture on
+    one launcher at a time in that launcher's own shape, and requires its finding
+    every time; a vanished launcher file, a renamed service, a wardryx-wired start
+    without its `else`, a missing role line, and a missing expectations file each
+    read red by name.)*

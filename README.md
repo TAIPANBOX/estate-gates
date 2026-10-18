@@ -577,6 +577,27 @@ skipped, and the output says so. It does not catch an English quotation in
 ordinary quotation marks, an attribution that avoids his name, or a translation
 passed off as a paraphrase; those are prose a reader judges.
 
+**C25, each launcher keeps the security postures it sets today** (`gates/c25-deployment-posture.py`).
+The 2026-10-17 review found that the products ship permissive defaults and rely
+on their launchers to turn enforcement on, and nothing read what the launchers
+set. The gate reads `stack-single` (compose.yaml and install.sh), `stack-k8s`
+(its manifests and install.sh) and `stack-up` (up.sh) at the ref the run is
+given, and judges twelve postures on each launcher that carries one: client keys
+required on the metered door, identity strict, the agent firewall, the gateway's
+policy-plane mode and fail mode, the gateway's policy-plane key role, the
+declassify key, the MCP broker's DLP and scan blocks, its policy-plane mode and
+fail mode, and the admin key. A posture is judged on the text the launcher sets,
+and each value is named with the line it came from. An anchor that matches
+nothing (a service, a Deployment, the wardryx-wired start of up.sh, the installer's
+role line) and a file that is gone are red, naming what vanished, never a skip.
+A launcher may lack a posture on purpose only when
+`expectations/deployment-posture.json` records why. That record is printed on
+every run, and it goes red when it has no reason or when it excuses nothing any
+more. The gate does not catch that a binary enforces what its launcher sets,
+which is the product's own suite's question, nor the opt-in components' flags,
+the no-wardryx fallback in up.sh, or the opt-in OpenAI door of stack-single. The
+header of the gate states each of those limits.
+
 ## Running it
 
 Locally, against the sibling checkouts in the parent directory:
