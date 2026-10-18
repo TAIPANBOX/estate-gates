@@ -788,6 +788,18 @@ def run(estate: E.Estate) -> E.Check:
                     f"RESERVED claim about it was not checked.",
                 )
                 continue
+            except E.Missing as m:
+                # A RESERVED claim about a repository estate.json does not
+                # register cannot be checked at all. That is a finding, not an
+                # uncaught exception: the runner would abort and report nothing.
+                c.missing(
+                    "c4.reserved-unregistered",
+                    f"6.2 records `{source}` as RESERVED, but estate.json has no entry "
+                    f"for `{repo}`, so nothing here knows where that claim is checked "
+                    f"({m}). Register the repository, or the claim is unverifiable.",
+                    [f"  registry: {E.REPO_ROOT / 'estate.json'}"],
+                )
+                continue
             try:
                 writers = writer_sites(estate, repo)
             except E.Missing as m:

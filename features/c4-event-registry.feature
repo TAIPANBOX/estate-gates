@@ -110,3 +110,10 @@ Feature: The event registry and what the producers emit, in both directions
     When the const block loses a name, or no case writes a declared type, or the source written is not the declared one
     Then the producer is reported unreadable
     Because a constant nobody writes is a type the registry would go on claiming
+
+  @fires:c4.reserved-unregistered
+  Scenario: A RESERVED row names a source the registry does not know
+    Given SPEC 6.2 records a source as RESERVED, and estate.json has no entry for its repository
+    When the estate is read
+    Then the claim is named as unverifiable, and the run does not abort
+    Because a reserved claim about a repository nobody registered cannot be checked at all

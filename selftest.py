@@ -1881,6 +1881,18 @@ MUTATIONS: dict[str, list[tuple[str, callable]]] = {
             "| `idryx` | RESERVED, not emitted today: `identity_finding` |",
         ),
     )],
+    # A RESERVED row about a repository estate.json does not register. It used
+    # to abort the whole runner with an uncaught Missing (found 2026-10-18, when
+    # 6.2 carried `keyryx` before estate.json did); now it is a finding.
+    "c4.reserved-unregistered": [(
+        "a RESERVED row names a source estate.json does not register",
+        lambda r: edit(
+            r,
+            "agent-passport/SPEC.md",
+            "| `idryx` | `identity_finding` |",
+            "| `idryx` | `identity_finding` |\n| `keyring` | RESERVED, not emitted today: `keyring_event` |",
+        ),
+    )],
     "c4.registered-source-silent": [(
         "a registered producer's code is gone entirely",
         lambda r: drop(r, "mockryx/internal/events/events.go"),
