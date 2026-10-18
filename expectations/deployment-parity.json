@@ -329,6 +329,11 @@
           "recorded": "2026-10-04",
           "provenance": "@claude 2026-10-04",
           "why": "@measured `./run-gates.py --mode ref --ref origin/main` with `typryx-wardryx-proxy` added to typryx's `runs` in estate.json 2026-10-04: C15 reports c15.registry-names-what-the-repo-does-not, because typryx's components.json (main 64c7d5c) declares one component, `typryx`. So the claim is NOT made in estate.json. The proxy is typryx's own `wardryx-proxy` subcommand and typryx is the repository that would claim it; declaring it as a component is typryx's change, not this repository's, and this repository reads and never writes to another. Recorded here instead, the same shape as `coverage:tokenfuse-mcp-broker:claimed-by-no-repository`. When typryx declares the component and `typryx-wardryx-proxy` is added to typryx's `runs`, this entry goes stale and C5 says so. @claude 2026-10-04."
+        },
+        "coverage:keyryx:installable-by-nothing": {
+          "recorded": "2026-10-18",
+          "provenance": "@claude",
+          "why": "A GAP, not a decision. keyryx is registered with the component it will run (`keyryx`, the custody and witness service), and no launcher installs it yet, so it is installable by nothing. Its own manifest says the distribution is not released (no tag yet) and the witness role is not built. Recorded so the gap stays visible until a launcher carries it; no launcher has been asked to, and nothing here says one should. Red as stale the day a deployment installs it and it stops diverging."
         }
       }
     }
