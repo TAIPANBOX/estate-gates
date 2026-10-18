@@ -1770,6 +1770,18 @@ MUTATIONS: dict[str, list[tuple[str, callable]]] = {
         ),
     ],
     "c4.producer-unreadable": [
+        # The const block carries a chain-type constant this extractor does not
+        # name. That is the failure that hid chain_restarted: a hand-kept list
+        # goes stale silently, so an unlisted typeChain* constant is refused.
+        (
+            "the verifier declares a chain-type constant the extractor does not read",
+            lambda r: edit(
+                r,
+                "agent-stack-go/cmd/agent-conform/watchdir.go",
+                'typeChainRestarted = "chain_restarted"\n',
+                'typeChainRestarted = "chain_restarted"\n\ttypeChainQuiet    = "chain_quiet"\n',
+            ),
+        ),
         (
             "a producer's emit sites stop parsing",
             lambda r: edit(
@@ -1899,6 +1911,15 @@ MUTATIONS: dict[str, list[tuple[str, callable]]] = {
     )],
     "c4.registered-type-not-emitted": [
         (
+            "keyryx's witness stops raising a finding its 6.2 row lists",
+            lambda r: edit(
+                r,
+                "keyryx/internal/witness/witness.go",
+                "\tt.find(RootMissing, false, nil)\n",
+                "",
+            ),
+        ),
+        (
             "a registered type has no emit site",
             lambda r: edit(
                 r, "tokenfuse/crates/core/src/agent_event.rs",
@@ -1909,8 +1930,8 @@ MUTATIONS: dict[str, list[tuple[str, callable]]] = {
             "6.2 lists a type the on-box verifier never writes",
             lambda r: edit(
                 r, "agent-passport/SPEC.md",
-                "`chain_broken` . `chain_unchained` |",
-                "`chain_broken` . `chain_unchained` . `chain_phantom` |",
+                "`chain_restarted` |",
+                "`chain_restarted` . `chain_phantom` |",
             ),
         ),
     ],
@@ -1931,6 +1952,15 @@ MUTATIONS: dict[str, list[tuple[str, callable]]] = {
         ),
     ],
     "c4.unregistered-type": [
+        (
+            "the verifier's restart constant is renamed and 6.2 still says chain_restarted",
+            lambda r: edit(
+                r,
+                "agent-stack-go/cmd/agent-conform/watchdir.go",
+                'typeChainRestarted = "chain_restarted"',
+                'typeChainRestarted = "chain_resumed"',
+            ),
+        ),
         (
             "the on-box verifier's type constant is changed and 6.2 is not",
             lambda r: edit(

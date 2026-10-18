@@ -269,11 +269,17 @@ def _agent_conform(estate: E.Estate) -> dict[str, set[str]]:
     builder writes `Type: f.typ`, a variable, so `go_types` would call it
     unresolved and refuse; and `go_consts` reads only `[a-z0-9_]` values, which
     the hyphen of the source name `agent-conform` is not. So this reads what
-    the file itself names in one place, the `const (...)` block (`watchSource`,
-    `typeChainBroken`, `typeChainUnchained`), and then requires the alert
-    builder to still USE each of those names: `Source: watchSource` and one
+    the file itself names in one place, the `const (...)` block (`watchSource`
+    and the three `typeChain*` constants), and then requires the alert builder
+    to still USE each of those names: `Source: watchSource` and one
     `case <name>:` per type. A constant nobody switches on would be a type the
     verifier no longer writes, and the registry would go on claiming it.
+
+    The three names are listed here by hand, and that list is the kind that goes
+    stale: `typeChainRestarted` was added by AS1 and this extractor read two names
+    for months, so 6.2's `chain_restarted` looked unemitted when the verifier
+    wrote it. So a `typeChain*` constant the list does not name is a finding, not
+    a silent omission.
 
     Comments are stripped first (invariant 14): the file's own header prose
     names both types.
@@ -287,7 +293,15 @@ def _agent_conform(estate: E.Estate) -> dict[str, set[str]]:
     if not block:
         raise E.Missing(f"{path}: no `const (...)` block at the top level")
     consts = dict(re.findall(r"^\s*(\w+)\s*=\s*\"([a-z0-9_-]+)\"\s*$", block.group(1), re.M))
-    for name in ("watchSource", "typeChainBroken", "typeChainUnchained"):
+    chain_types = ("typeChainBroken", "typeChainUnchained", "typeChainRestarted")
+    unlisted = sorted(n for n in consts if n.startswith("typeChain") and n not in chain_types)
+    if unlisted:
+        raise E.Missing(
+            f"{path}: the const block declares {', '.join('`' + n + '`' for n in unlisted)}, "
+            f"which this extractor does not read, so their types are not compared "
+            f"with 6.2"
+        )
+    for name in ("watchSource",) + chain_types:
         if name not in consts:
             raise E.Missing(
                 f"{path}: the const block has no string constant `{name}`, so "
@@ -295,13 +309,13 @@ def _agent_conform(estate: E.Estate) -> dict[str, set[str]]:
             )
     if not re.search(r"\bSource:\s*watchSource\b", code):
         raise E.Missing(f"{path}: no `Source: watchSource`, so the declared source is not the one written")
-    for name in ("typeChainBroken", "typeChainUnchained"):
+    for name in chain_types:
         if not re.search(rf"\bcase\s+{name}\s*:", code):
             raise E.Missing(
                 f"{path}: no `case {name}:` in the alert builder, so the "
                 f"constant is declared and nothing writes it"
             )
-    return {consts["watchSource"]: {consts["typeChainBroken"], consts["typeChainUnchained"]}}
+    return {consts["watchSource"]: {consts[name] for name in chain_types}}
 
 
 def _scopyx(estate: E.Estate) -> dict[str, set[str]]:
@@ -355,6 +369,24 @@ def _wardryx(estate: E.Estate) -> dict[str, set[str]]:
     if not types:
         raise E.Missing("wardryx internal/api/api.go: no `s.emit(` call resolved to a type")
     return {"wardryx": types}
+
+
+def _keyryx(estate: E.Estate) -> dict[str, set[str]]:
+    """The witness writes each finding through `t.find`, with the finding type as
+    a named constant, so the first argument of every call is that constant.
+
+    Only the witness is read. The custody side writes no event at origin/main,
+    and 6.2 declares its `key_*` types ahead of it, so they are not in the row
+    and this extractor does not look for them.
+    """
+    path = "internal/witness/witness.go"
+    text = estate.read_text("keyryx", path)
+    consts = go_consts(text)
+    types, unresolved = go_call_first_args(text, "t.find", consts)
+    _refuse_unresolved("keyryx", path, unresolved)
+    if not types:
+        raise E.Missing(f"keyryx {path}: no `t.find(` call resolved to a finding type")
+    return {"keyryx": types}
 
 
 def _mockryx(estate: E.Estate) -> dict[str, set[str]]:
@@ -593,6 +625,11 @@ PRODUCERS: dict[str, dict] = {
         "writer": ("internal/events/events.go", "event.NewWriter"),
         "extract": _idryx,
         "owns": ["idryx"],
+    },
+    "keyryx": {
+        "writer": ("internal/witness/witness.go", "event.NewChainedWriter"),
+        "extract": _keyryx,
+        "owns": ["keyryx"],
     },
 }
 
