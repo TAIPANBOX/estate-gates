@@ -362,12 +362,23 @@ def _qryx(estate: E.Estate) -> dict[str, set[str]]:
 
 
 def _wardryx(estate: E.Estate) -> dict[str, set[str]]:
-    text = estate.read_text("wardryx", "internal/api/api.go")
+    """Every type the API writes, through either of its two helpers.
+
+    `s.emit(` writes an event that carries no decision. `s.recordDecision(` writes
+    one that does, and W2a moved `policy_allow` and `approval_requested` onto it, so
+    a search that read only `s.emit(` reported both as never emitted. Both helpers
+    take the event type as their first argument.
+    """
+    path = "internal/api/api.go"
+    text = estate.read_text("wardryx", path)
     consts = go_consts(text)
     types, unresolved = go_call_first_args(text, "s.emit", consts)
-    _refuse_unresolved("wardryx", "internal/api/api.go", unresolved)
+    decided, decided_unresolved = go_call_first_args(text, "s.recordDecision", consts)
+    types |= decided
+    unresolved |= decided_unresolved
+    _refuse_unresolved("wardryx", path, unresolved)
     if not types:
-        raise E.Missing("wardryx internal/api/api.go: no `s.emit(` call resolved to a type")
+        raise E.Missing("wardryx internal/api/api.go: no `s.emit(` or `s.recordDecision(` call resolved to a type")
     return {"wardryx": types}
 
 

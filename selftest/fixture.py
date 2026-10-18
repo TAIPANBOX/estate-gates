@@ -865,8 +865,14 @@ const (
 )
 
 func (s *Server) decide() {
-\ts.emit(evPolicyAllow, "info", "", "", nil, nil)
+\tif !s.recordDecision(evPolicyAllow, "info", "", "", nil, nil) {
+\t\treturn
+\t}
 \ts.emit(evPolicyDeny, "high", "", "", nil, nil)
+}
+
+func (s *Server) recordDecision(evType, severity, agentID, runID string, onBehalfOf []string, data map[string]any) bool {
+\treturn true
 }
 """
 

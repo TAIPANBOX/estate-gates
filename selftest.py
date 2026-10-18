@@ -1784,9 +1784,15 @@ MUTATIONS: dict[str, list[tuple[str, callable]]] = {
         ),
         (
             "a producer's emit sites stop parsing",
-            lambda r: edit(
-                r, "wardryx/internal/api/api.go", "s.emit(", "s.dispatch(", every=True
-            ),
+            lambda r: [
+                edit(
+                    r, "wardryx/internal/api/api.go", "s.emit(", "s.dispatch(", every=True
+                ),
+                # Both helpers, or the second one keeps the producer readable.
+                edit(
+                    r, "wardryx/internal/api/api.go", "s.recordDecision(", "s.record(", every=True
+                ),
+            ],
         ),
         # G4.4. Both of these were CLEAN before the fix: the identifier was
         # dropped, the anchor still matched the file, and the run said "every
@@ -1910,6 +1916,17 @@ MUTATIONS: dict[str, list[tuple[str, callable]]] = {
         lambda r: drop(r, "mockryx/internal/events/events.go"),
     )],
     "c4.registered-type-not-emitted": [
+        # wardryx moved policy_allow onto recordDecision (W2a). A search that read
+        # only s.emit( could not see it, and reported it as never emitted.
+        (
+            "wardryx stops writing policy_allow through recordDecision, which 6.2 lists",
+            lambda r: edit(
+                r,
+                "wardryx/internal/api/api.go",
+                '\tif !s.recordDecision(evPolicyAllow, "info", "", "", nil, nil) {\n\t\treturn\n\t}\n',
+                "",
+            ),
+        ),
         (
             "keyryx's witness stops raising a finding its 6.2 row lists",
             lambda r: edit(
@@ -1952,6 +1969,23 @@ MUTATIONS: dict[str, list[tuple[str, callable]]] = {
         ),
     ],
     "c4.unregistered-type": [
+        (
+            "wardryx writes a decision type through recordDecision that 6.2 does not list",
+            lambda r: [
+                edit(
+                    r,
+                    "wardryx/internal/api/api.go",
+                    '\tevPolicyDeny  = "policy_deny"\n',
+                    '\tevPolicyDeny  = "policy_deny"\n\tevUnlisted    = "decision_unlisted"\n',
+                ),
+                edit(
+                    r,
+                    "wardryx/internal/api/api.go",
+                    "func (s *Server) decide() {\n",
+                    'func (s *Server) decide() {\n\ts.recordDecision(evUnlisted, "info", "", "", nil, nil)\n',
+                ),
+            ],
+        ),
         (
             "the verifier's restart constant is renamed and 6.2 still says chain_restarted",
             lambda r: edit(
