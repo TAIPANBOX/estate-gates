@@ -686,6 +686,16 @@ def reflect(events, agent_id):
     return None
 '''
 
+# A second module of the engram package that emits a registered type. The
+# baseline needs C4 to read it, and to find nothing it does not expect.
+ENGRAM_EXTRA_PY = '''"""engram: a second module of the package."""
+
+
+class Extra:
+    def note(self, agent_id):
+        self._events.emit("memory_written", agent_id, {})
+'''
+
 # ---------------------------------------------------------------- Go planes
 
 
@@ -795,6 +805,15 @@ AGENT_STACK_GO_README = """# agent-stack-go (fixture)
 The image is ghcr.io/taipanbox/agent-conform:<tag>, static and non-root.
 
 Verify: cosign verify ghcr.io/taipanbox/agent-conform:<tag>
+"""
+
+# A second file of the record package that answers through the same helper, with
+# its constant declared in record.go. Baseline only.
+TYPRYX_SECOND_GO = """package record
+
+func (j *Journal) AnswerAgain(agentID string) Outcome {
+	return j.emit(TypeAnswer, agentID)
+}
 """
 
 TYPRYX_RECORD_GO = """package record
@@ -938,6 +957,18 @@ func (j *Journal) Write() error {
 }
 """
 
+# A second file of the events package that writes the registered finding type,
+# with its constant declared in events.go: cross-file resolution is in the baseline.
+IDRYX_SECOND_GO = """package events
+
+import "github.com/TAIPANBOX/agent-stack-go/event"
+
+func (s *Sink) writeAgain(agentID string) error {
+	e := event.Event{Source: Source, Type: TypeIdentityFinding, AgentID: agentID}
+	return s.w.Write(e)
+}
+"""
+
 IDRYX_EVENTS_GO = """package events
 
 import "github.com/TAIPANBOX/agent-stack-go/event"
@@ -978,6 +1009,18 @@ func Load(path string) ([]event.Event, error) {
 """
 
 # ------------------------------------------------------------------ genaryx
+
+# A second file of the crate that writes the registered console line, the way a
+# second emitting file would. Baseline only: C4 reads it and finds nothing new.
+GENARYX_SECOND_RS = """//! A second file of the crate that writes the registered console line.
+
+pub fn build_again() -> Value {
+    let mut obj = Map::new();
+    obj.insert("source".to_string(), Value::String("console".to_string()));
+    obj.insert("type".to_string(), Value::String("console_command".to_string()));
+    Value::Object(obj)
+}
+"""
 
 GENARYX_COMMAND_RS = """//! The console command record.
 
@@ -1858,6 +1901,7 @@ ESTATE: dict[str, dict] = {
         "engram/events.py": ENGRAM_EVENTS_PY,
         "engram/core.py": ENGRAM_CORE_PY,
         "engram/reflection.py": ENGRAM_REFLECTION_PY,
+        "engram/extra.py": ENGRAM_EXTRA_PY,
         "tests/fixtures/agent-event.v0.2.schema.json": EVENT_V02,
         "tests/fixtures/agent-event.v1.0.schema.json": EVENT_V10,
         "tests/test_events.py": CHAIN_TEST_PY,
@@ -1867,6 +1911,7 @@ ESTATE: dict[str, dict] = {
         "crates/core/src/schemas/agent-event.v0.2.schema.json": EVENT_V02,
         "crates/core/src/schemas/agent-event.v1.0.schema.json": EVENT_V10,
         "crates/core/src/command.rs": GENARYX_COMMAND_RS,
+        "crates/core/src/second.rs": GENARYX_SECOND_RS,
     },
     "idryx": {
         "README.md": IDRYX_README,
@@ -1874,6 +1919,7 @@ ESTATE: dict[str, dict] = {
         "go.mod": gomod("idryx", "v0.5.1"),
         "internal/ingest/tokenfuse/tokenfuse.go": IDRYX_INGEST_GO,
         "internal/events/events.go": IDRYX_EVENTS_GO,
+        "internal/events/second.go": IDRYX_SECOND_GO,
     },
     "qryx": {
         "go.mod": gomod("qryx", "v0.5.1"),
@@ -1886,6 +1932,7 @@ ESTATE: dict[str, dict] = {
     "typryx": {
         "go.mod": gomod("typryx", "v0.5.1"),
         "internal/record/record.go": TYPRYX_RECORD_GO,
+        "internal/record/second.go": TYPRYX_SECOND_GO,
     },
     # costcrew DECLARES its wire types and its own suite holds the declaration
     # to its call sites, which is why C4 reads a list here rather than trying to

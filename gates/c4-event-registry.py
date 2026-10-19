@@ -105,19 +105,6 @@ def _resolve(raw: str, consts: dict[str, str], unresolved: set[str]) -> str | No
     return None
 
 
-def go_types(text: str, consts: dict[str, str]) -> tuple[set[str], set[str]]:
-    """Every `Type:` field value in a composite literal.
-
-    Returns (resolved, unresolved). The second is never discarded by a caller:
-    see `_resolve`.
-    """
-    found: set[str] = set()
-    unresolved: set[str] = set()
-    for raw in _GO_TYPE_FIELD.findall(text):
-        v = _resolve(raw, consts, unresolved)
-        if v is not None:
-            found.add(v)
-    return found, unresolved
 
 
 def go_call_first_args(
@@ -153,24 +140,6 @@ def rust_match_arms(text: str, fn: str, after: str | None = None) -> set[str]:
     return set(_RUST_ARM.findall(text[start : end if end > 0 else len(text)]))
 
 
-def python_emit_types(text: str, funcs: set[str]) -> set[str]:
-    """Literal first arguments to the emit helpers, from the AST."""
-    tree = ast.parse(text)
-    found: set[str] = set()
-    for node in ast.walk(tree):
-        if not isinstance(node, ast.Call) or not node.args:
-            continue
-        fn = node.func
-        name = fn.id if isinstance(fn, ast.Name) else getattr(fn, "attr", "")
-        if name not in funcs:
-            continue
-        try:
-            first = ast.literal_eval(node.args[0])
-        except (ValueError, SyntaxError, TypeError):
-            continue
-        if isinstance(first, str) and re.fullmatch(r"[a-z0-9_]+", first):
-            found.add(first)
-    return found
 
 
 # ----------------------------------------------------------- the producers
@@ -181,48 +150,244 @@ def python_emit_types(text: str, funcs: set[str]) -> set[str]:
 # E.Missing rather than return an empty set when its anchor stops matching.
 
 
+# ------------------------------------------------- reading a producer's files
+#
+# Every producer reads the non-test source files of its own code directories,
+# never only the file that once held its emits. A file this run cannot read,
+# or a scan that finds no type at all, says "measured nothing" in its finding:
+# the same red a missing subject gets, never a quiet zero.
+
+#: The trees whose non-test Go files can open an event writer or emit one.
+GO_TREES = ("internal/", "cmd/")
+
+_EVENT_LITERAL = re.compile(r"\bevent\.Event\{")
+_PY_TEST = re.compile(r"(^|/)(tests?/|test_[^/]*\.py$|[^/]*_test\.py$)")
+_RUST_TEST = re.compile(r"(^|/)(tests?/|it/)|_test\.rs$")
+_RUST_TYPE_INSERT = re.compile(
+    r'insert\(\s*"type"\.to_string\(\),\s*Value::String\(\s*"([a-z0-9_-]+)"'
+)
+_RUST_SOURCE_INSERT = re.compile(
+    r'insert\(\s*"source"\.to_string\(\),\s*Value::String\(\s*"([a-z0-9_-]+)"'
+)
+
+
+def _measured_nothing(repo: str, what: str) -> E.Missing:
+    """The one wording every reader uses when it could not read its emits."""
+    return E.Missing(f"{repo}: {what}, so this run measured nothing about {repo}'s emits")
+
+
+def go_package_files(
+    estate: E.Estate, repo: str, trees: tuple[str, ...] = GO_TREES
+) -> dict[str, list[tuple[str, str]]]:
+    """Every non-test .go file under `trees`, read now and grouped by directory.
+
+    Go scopes a constant to its package, so the directory is the unit in which a
+    constant is resolved. A tracked file this run cannot read raises rather than
+    being skipped: a skipped file is an emit nobody compared.
+    """
+    by_dir: dict[str, list[tuple[str, str]]] = {}
+    for path in estate.list_files(repo, ".go"):
+        if not path.startswith(trees) or path.endswith("_test.go"):
+            continue
+        try:
+            text = estate.read_text(repo, path)
+        except E.Missing as m:
+            raise _measured_nothing(repo, f"{m}. That file's emits were not read") from None
+        by_dir.setdefault(posixpath.dirname(path), []).append((path, text))
+    return by_dir
+
+
+def _braced_body(text: str, start: int) -> str:
+    """The text between an opening brace consumed just before `start` and its match."""
+    depth, i = 1, start
+    while i < len(text) and depth:
+        if text[i] == "{":
+            depth += 1
+        elif text[i] == "}":
+            depth -= 1
+        i += 1
+    return text[start : i - 1]
+
+
+def _top_level(body: str) -> str:
+    """`body` with everything nested inside a brace blanked: the literal's own fields."""
+    out: list[str] = []
+    depth = 0
+    for c in body:
+        if c == "{":
+            depth += 1
+            out.append(" ")
+        elif c == "}":
+            depth -= 1
+            out.append(" ")
+        else:
+            out.append(c if depth == 0 else " ")
+    return "".join(out)
+
+
+def go_event_literal_types(text: str, consts: dict[str, str]) -> tuple[set[str], set[str]]:
+    """The `Type:` field of every event.Event literal, its own fields only.
+
+    A `Type:` inside a nested struct names something else (an identity, a
+    finding's kind), and a `Type:` outside an event literal is not an event at
+    all. So only the top-level fields of an event literal count. Returns
+    (resolved, unresolved), the pair go_call_first_args returns.
+    """
+    found: set[str] = set()
+    unresolved: set[str] = set()
+    for m in _EVENT_LITERAL.finditer(text):
+        for raw in _GO_TYPE_FIELD.findall(_top_level(_braced_body(text, m.end()))):
+            v = _resolve(raw, consts, unresolved)
+            if v is not None:
+                found.add(v)
+    return found, unresolved
+
+
+def go_producer_types(
+    estate: E.Estate,
+    repo: str,
+    *,
+    calls: tuple[str, ...] = (),
+    event_literals: bool = False,
+    trees: tuple[str, ...] = GO_TREES,
+) -> set[str]:
+    """The types a Go producer writes, from every non-test file under `trees`.
+
+    `calls` are emit helpers whose first argument is the type (`j.emit(`); with
+    `event_literals` the `Type:` field of each event.Event literal counts. A
+    type that is neither a literal nor a constant of its package is refused.
+    """
+    types: set[str] = set()
+    for members in go_package_files(estate, repo, trees).values():
+        consts = go_consts(*(text for _path, text in members))
+        for path, text in members:
+            for call in calls:
+                found, unresolved = go_call_first_args(text, call, consts)
+                _refuse_unresolved(repo, path, unresolved)
+                types |= found
+            if event_literals:
+                found, unresolved = go_event_literal_types(text, consts)
+                _refuse_unresolved(repo, path, unresolved)
+                types |= found
+    if not types:
+        raise _measured_nothing(
+            repo,
+            f"no non-test Go file under {' or '.join(trees)} writes an event this "
+            f"reader resolves",
+        )
+    return types
+
+
+def python_emit_calls(text: str, funcs: set[str]) -> tuple[set[str], int]:
+    """Literal first arguments to the emit helpers, and how many calls carry none.
+
+    The second number counts calls whose type is computed at runtime, or passed
+    by keyword, or absent. The caller refuses them: a type nobody can read is a
+    hole, never an agreement.
+    """
+    tree = ast.parse(text)
+    literal: set[str] = set()
+    computed = 0
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        fn = node.func
+        name = fn.id if isinstance(fn, ast.Name) else getattr(fn, "attr", "")
+        if name not in funcs:
+            continue
+        if not node.args:
+            computed += 1
+            continue
+        try:
+            first = ast.literal_eval(node.args[0])
+        except (ValueError, SyntaxError, TypeError):
+            computed += 1
+            continue
+        if isinstance(first, str) and re.fullmatch(r"[a-z0-9_]+", first):
+            literal.add(first)
+        else:
+            computed += 1
+    return literal, computed
+
+
+def python_package_types(
+    estate: E.Estate, repo: str, package: str, funcs: set[str]
+) -> set[str]:
+    """The literal types emitted from every non-test .py file of one package."""
+    types: set[str] = set()
+    for path in estate.list_files(repo, ".py"):
+        if not path.startswith(package + "/") or _PY_TEST.search(path):
+            continue
+        try:
+            text = estate.read_text(repo, path)
+        except E.Missing as m:
+            raise _measured_nothing(repo, f"{m}. That file's emits were not read") from None
+        literal, computed = python_emit_calls(text, funcs)
+        if computed:
+            raise E.Missing(
+                f"{repo} {path}: {computed} emit call(s) take a type that is not a "
+                f"literal string, which this check cannot read. Nothing here compared "
+                f"those types against the registry, and reporting that as agreement "
+                f"would be a clean run over a producer nobody read."
+            )
+        types |= literal
+    if not types:
+        raise _measured_nothing(repo, f"no non-test Python file under {package}/ emits a literal type")
+    return types
+
+
 def _tokenfuse(estate: E.Estate) -> dict[str, set[str]]:
+    """tokenfuse's vocabulary is the `as_wire_str` mapping of its `EventType` enum.
+
+    One enum in one file, and a `match` that names every variant. The compiler
+    refuses a variant nobody mapped, and a wildcard arm would let one through with
+    a wrong wire string, so a wildcard is refused here. Every emit names a variant,
+    so the enum's file is the whole vocabulary rather than a sample of it.
+    """
     text = estate.read_text("tokenfuse", "crates/core/src/agent_event.rs")
     types = rust_match_arms(text, "pub fn as_wire_str", after="impl EventType")
     if not types:
+        raise _measured_nothing(
+            "tokenfuse",
+            "`impl EventType`'s `pub fn as_wire_str` matched no `EventType::X => \"y\"` arms",
+        )
+    origin = text.find("impl EventType")
+    start = text.find("pub fn as_wire_str", origin)
+    end = text.find("\n    }", start)
+    body = text[start : end if end > 0 else len(text)]
+    if re.search(r"^\s*_\s*=>", body, re.M):
         raise E.Missing(
-            "crates/core/src/agent_event.rs: `impl EventType`'s `pub fn "
-            "as_wire_str` matched no `EventType::X => \"y\"` arms"
+            "tokenfuse crates/core/src/agent_event.rs: `as_wire_str` has a wildcard "
+            "arm, so a variant nobody mapped would be written with a wrong wire "
+            "string and this check would not see it"
         )
     return {"tokenfuse": types}
 
 
+
+
 def _engram(estate: E.Estate) -> dict[str, set[str]]:
-    types: set[str] = set()
-    for f in ("engram/core.py", "engram/reflection.py"):
-        types |= python_emit_types(estate.read_text("engram", f), {"emit", "_emit"})
-    if not types:
-        raise E.Missing(
-            "engram/core.py and engram/reflection.py: no literal event type "
-            "reached an emit call"
-        )
-    return {"engram": types}
+    """engram emits from its package: every non-test .py under engram/."""
+    return {"engram": python_package_types(estate, "engram", "engram", {"emit", "_emit"})}
+
+
 
 
 def _verdryx(estate: E.Estate) -> dict[str, set[str]]:
-    types: set[str] = set()
-    for f in ("verdryx/cli.py", "verdryx/store.py", "verdryx/drift.py", "verdryx/events.py"):
-        try:
-            types |= python_emit_types(estate.read_text("verdryx", f), {"emit"})
-        except E.Missing:
-            continue
-    # verdryx names its taxonomy in one place as well; a type in the severity
-    # map that no call site emits is worth seeing, so both are unioned and the
-    # registry comparison below reports either direction.
+    """verdryx emits from its package, and names its taxonomy in EVENT_SEVERITY.
+
+    The severity map is unioned in, so a type in it that no call site emits shows
+    in either direction of the comparison below.
+    """
+    types = python_package_types(estate, "verdryx", "verdryx", {"emit"})
     ev = estate.read_text("verdryx", "verdryx/events.py")
-    tree = ast.parse(ev)
-    for node in tree.body:
+    for node in ast.parse(ev).body:
         if isinstance(node, ast.AnnAssign) and getattr(node.target, "id", "") == "EVENT_SEVERITY":
             got = ast.literal_eval(node.value) if node.value else {}
             types |= set(got)
-    if not types:
-        raise E.Missing("verdryx: no event types found at any emit site or in EVENT_SEVERITY")
     return {"verdryx": types}
+
+
 
 
 def _refuse_unresolved(repo: str, path: str, unresolved: set[str]) -> None:
@@ -245,18 +410,13 @@ def _refuse_unresolved(repo: str, path: str, unresolved: set[str]) -> None:
 
 
 def _typryx(estate: E.Estate) -> dict[str, set[str]]:
-    """The typed-answer service, registered in 6.2 on 2026-09-25.
+    """The typed-answer service: its types are constants passed to `j.emit(`.
 
-    Its journal was adapted from scopyx's and keeps the same shape: the types
-    are constants and `j.emit(` passes the variable, so it is read the same way.
+    Read from every non-test Go file, so a second file that emits is seen.
     """
-    text = estate.read_text("typryx", "internal/record/record.go")
-    consts = go_consts(text)
-    types, unresolved = go_call_first_args(text, "j.emit", consts)
-    _refuse_unresolved("typryx", "internal/record/record.go", unresolved)
-    if not types:
-        raise E.Missing("typryx internal/record/record.go: no `j.emit(` call resolved to a type")
-    return {"typryx": types}
+    return {"typryx": go_producer_types(estate, "typryx", calls=("j.emit",))}
+
+
 
 
 def _agent_conform(estate: E.Estate) -> dict[str, set[str]]:
@@ -266,105 +426,85 @@ def _agent_conform(estate: E.Estate) -> dict[str, set[str]]:
     than in a repository of its own, which is why the PRODUCERS entry is keyed
     `agent-stack-go` and owns the source `agent-conform`.
 
-    Its types are neither a `Type:` literal nor a first argument. The alert
-    builder writes `Type: f.typ`, a variable, so `go_types` would call it
-    unresolved and refuse; and `go_consts` reads only `[a-z0-9_]` values, which
-    the hyphen of the source name `agent-conform` is not. So this reads what
-    the file itself names in one place, the `const (...)` block (`watchSource`
-    and the three `typeChain*` constants), and then requires the alert builder
-    to still USE each of those names: `Source: watchSource` and one
-    `case <name>:` per type. A constant nobody switches on would be a type the
-    verifier no longer writes, and the registry would go on claiming it.
+    Its types are neither a `Type:` literal nor a first argument: the alert
+    builder writes `Type: f.typ`, a variable. So this reads the names the command
+    states in its `const (...)` blocks (`watchSource` and the `typeChain*`
+    constants), from every non-test file of the command's package, and then
+    requires the alert builder to still USE each of them: `Source: watchSource`
+    and one `case <name>:` per type. A constant nobody switches on would be a type
+    the verifier no longer writes, and the registry would go on claiming it.
 
-    The three names are listed here by hand, and that list is the kind that goes
-    stale: `typeChainRestarted` was added by AS1 and this extractor read two names
-    for months, so 6.2's `chain_restarted` looked unemitted when the verifier
-    wrote it. So a `typeChain*` constant the list does not name is a finding, not
-    a silent omission.
-
-    Comments are stripped first (invariant 14): the file's own header prose
-    names both types.
+    The `typeChain*` names are listed by hand, and that list is the kind that goes
+    stale: a `typeChain*` constant the list does not name is a finding, not a
+    silent omission. Comments are stripped first (invariant 14).
     """
-    path = "cmd/agent-conform/watchdir.go"
-    code = "\n".join(
-        line for line in estate.read_text("agent-stack-go", path).splitlines()
-        if not line.lstrip().startswith("//")
-    )
-    block = re.search(r"^const \(\n(.*?)^\)", code, re.S | re.M)
-    if not block:
-        raise E.Missing(f"{path}: no `const (...)` block at the top level")
-    consts = dict(re.findall(r"^\s*(\w+)\s*=\s*\"([a-z0-9_-]+)\"\s*$", block.group(1), re.M))
+    package = "cmd/agent-conform/"
+    files: list[tuple[str, str]] = []
+    for path in estate.list_files("agent-stack-go", ".go"):
+        if not path.startswith(package) or path.endswith("_test.go"):
+            continue
+        try:
+            text = estate.read_text("agent-stack-go", path)
+        except E.Missing as m:
+            raise _measured_nothing("agent-stack-go", f"{m}. That file's emits were not read") from None
+        code = "\n".join(line for line in text.splitlines() if not line.lstrip().startswith("//"))
+        files.append((path, code))
+    if not files:
+        raise _measured_nothing("agent-stack-go", f"no non-test Go file under {package} can be read")
+    consts: dict[str, str] = {}
+    for _path, code in files:
+        for block in re.finditer(r"^const \(\n(.*?)^\)", code, re.S | re.M):
+            consts.update(re.findall(r"^\s*(\w+)\s*=\s*\"([a-z0-9_-]+)\"\s*$", block.group(1), re.M))
+    if not consts:
+        raise E.Missing(f"{package}: no `const (...)` block at the top level of any file")
     chain_types = ("typeChainBroken", "typeChainUnchained", "typeChainRestarted")
     unlisted = sorted(n for n in consts if n.startswith("typeChain") and n not in chain_types)
     if unlisted:
         raise E.Missing(
-            f"{path}: the const block declares {', '.join('`' + n + '`' for n in unlisted)}, "
-            f"which this extractor does not read, so their types are not compared "
-            f"with 6.2"
+            f"{package}: the const blocks declare {', '.join('`' + n + '`' for n in unlisted)}, "
+            f"which this extractor does not read, so their types are not compared with 6.2"
         )
     for name in ("watchSource",) + chain_types:
         if name not in consts:
             raise E.Missing(
-                f"{path}: the const block has no string constant `{name}`, so "
-                f"this producer's source and types could not be read"
+                f"{package}: the const blocks have no string constant `{name}`, so this "
+                f"producer's source and types could not be read"
             )
-    if not re.search(r"\bSource:\s*watchSource\b", code):
-        raise E.Missing(f"{path}: no `Source: watchSource`, so the declared source is not the one written")
+    code_all = "\n".join(code for _path, code in files)
+    if not re.search(r"\bSource:\s*watchSource\b", code_all):
+        raise E.Missing(f"{package}: no `Source: watchSource`, so the declared source is not the one written")
     for name in chain_types:
-        if not re.search(rf"\bcase\s+{name}\s*:", code):
+        if not re.search(rf"\bcase\s+{name}\s*:", code_all):
             raise E.Missing(
-                f"{path}: no `case {name}:` in the alert builder, so the "
-                f"constant is declared and nothing writes it"
+                f"{package}: no `case {name}:` in the alert builder, so the constant is "
+                f"declared and nothing writes it"
             )
     return {consts["watchSource"]: {consts[name] for name in chain_types}}
 
 
-def _scopyx(estate: E.Estate) -> dict[str, set[str]]:
-    """The egress plane names its types as constants and passes the variable.
 
-    So `Type:` resolves to nothing here and `j.emit(` resolves to both, which is
-    the same shape wardryx already has. This entry exists because the repository
-    was in `estate.json` and in no producer table, so C4 had no opinion about it
-    at all: not a wrong opinion, an absent one, reported as clean.
-    """
-    text = estate.read_text("scopyx", "internal/record/record.go")
-    consts = go_consts(text)
-    types, unresolved = go_call_first_args(text, "j.emit", consts)
-    _refuse_unresolved("scopyx", "internal/record/record.go", unresolved)
-    if not types:
-        raise E.Missing("scopyx internal/record/record.go: no `j.emit(` call resolved to a type")
-    return {"scopyx": types}
+
+def _scopyx(estate: E.Estate) -> dict[str, set[str]]:
+    """The egress plane: constants passed to `j.emit(`, from every non-test Go file."""
+    return {"scopyx": go_producer_types(estate, "scopyx", calls=("j.emit",))}
+
+
 
 
 def _idryx(estate: E.Estate) -> dict[str, set[str]]:
-    """One type, named as a constant, with the variable never used at the call.
+    """idryx writes its findings as event.Event literals, from every non-test Go file."""
+    return {"idryx": go_producer_types(estate, "idryx", event_literals=True)}
 
-    idryx writes a single `identity_finding` and puts the detector name in
-    `data`, which is why 25 detectors produce one registry row. The constant is
-    written straight into the composite literal here, so `Type:` resolves
-    without the indirection scopyx needed.
-    """
-    text = estate.read_text("idryx", "internal/events/events.go")
-    consts = go_consts(text)
-    types, unresolved = go_types(text, consts)
-    _refuse_unresolved("idryx", "internal/events/events.go", unresolved)
-    if not types:
-        raise E.Missing("idryx internal/events/events.go: no `Type:` field resolved")
-    return {"idryx": types}
+
 
 
 def _qryx(estate: E.Estate) -> dict[str, set[str]]:
-    text = estate.read_text("qryx", "internal/exporter/exporter.go")
-    types, unresolved = go_types(text, go_consts(text))
-    _refuse_unresolved("qryx", "internal/exporter/exporter.go", unresolved)
-    if not types:
-        raise E.Missing("qryx internal/exporter/exporter.go: no `Type:` field resolved")
-    return {"qryx": types}
+    """qryx writes its findings as event.Event literals, from every non-test Go file."""
+    return {"qryx": go_producer_types(estate, "qryx", event_literals=True)}
 
 
-#: The trees whose non-test Go files can open an event writer or emit one.
-#: Shared by every producer that reads its emits from all of its files.
-GO_TREES = ("internal/", "cmd/")
+
+
 
 
 def _wardryx(estate: E.Estate) -> dict[str, set[str]]:
@@ -377,99 +517,46 @@ def _wardryx(estate: E.Estate) -> dict[str, set[str]]:
 
     Every non-test `.go` file under `internal/` and `cmd/` is read, not
     `internal/api/api.go` alone. wardryx's identity-mismatch emit sits in
-    `internal/api/agent_token.go`, with its constant declared beside it, so a reader
-    of one file reports a registered row as never emitted. Go scopes a constant to
-    its package, so each directory is resolved on its own, from the constants its
-    files declare together.
+    `internal/api/agent_token.go`, with its constant declared beside it. Go scopes a
+    constant to its package, so each directory is resolved on its own.
     """
-    by_dir: dict[str, list[tuple[str, str]]] = {}
-    for f in estate.list_files("wardryx", ".go"):
-        if not f.startswith(GO_TREES) or f.endswith("_test.go"):
-            continue
-        try:
-            text = estate.read_text("wardryx", f)
-        except E.Missing as m:
-            # A tracked file this run cannot read is a file whose emits were not
-            # read, so the run measured nothing about them. Say so in those words.
-            raise E.Missing(
-                f"{m}. That file's emits were not read, so this run measured nothing "
-                f"about wardryx's emits"
-            ) from None
-        by_dir.setdefault(posixpath.dirname(f), []).append((f, text))
-    types: set[str] = set()
-    for members in by_dir.values():
-        consts = go_consts(*(text for _path, text in members))
-        for path, text in members:
-            for call in ("s.emit", "s.recordDecision"):
-                found, unresolved = go_call_first_args(text, call, consts)
-                _refuse_unresolved("wardryx", path, unresolved)
-                types |= found
-    if not types:
-        raise E.Missing(
-            "wardryx: no non-test Go file under internal/ or cmd/ calls s.emit( or "
-            "s.recordDecision( with a type that resolves to a string, so this run "
-            "measured nothing about wardryx's emits"
-        )
-    return {"wardryx": types}
+    return {"wardryx": go_producer_types(estate, "wardryx", calls=("s.emit", "s.recordDecision"))}
+
+
 
 
 def _keyryx(estate: E.Estate) -> dict[str, set[str]]:
-    """The witness writes each finding through `t.find`, with the finding type as
-    a named constant, so the first argument of every call is that constant.
+    """The witness writes each finding through `t.find(`, from every non-test Go file.
 
-    Only the witness is read. The custody side writes no event at origin/main,
-    and 6.2 declares its `key_*` types ahead of it, so they are not in the row
-    and this extractor does not look for them.
+    Only the witness is a producer at origin/main: the custody side writes no
+    event, and 6.2 declares its `key_*` types ahead of it.
     """
-    path = "internal/witness/witness.go"
-    text = estate.read_text("keyryx", path)
-    consts = go_consts(text)
-    types, unresolved = go_call_first_args(text, "t.find", consts)
-    _refuse_unresolved("keyryx", path, unresolved)
-    if not types:
-        raise E.Missing(f"keyryx {path}: no `t.find(` call resolved to a finding type")
-    return {"keyryx": types}
+    return {"keyryx": go_producer_types(estate, "keyryx", calls=("t.find",))}
+
+
 
 
 def _mockryx(estate: E.Estate) -> dict[str, set[str]]:
-    text = estate.read_text("mockryx", "internal/events/events.go")
-    types, unresolved = go_types(text, go_consts(text))
-    _refuse_unresolved("mockryx", "internal/events/events.go", unresolved)
-    if not types:
-        raise E.Missing("mockryx internal/events/events.go: no `Type:` field resolved")
-    return {"mockryx": types}
+    """mockryx writes its events as event.Event literals, from every non-test Go file."""
+    return {"mockryx": go_producer_types(estate, "mockryx", event_literals=True)}
+
+
 
 
 def _vouchryx(estate: E.Estate) -> dict[str, set[str]]:
     """vouchryx names its types at the CALL SITES, not in a `Type:` field.
 
-    Every other Go producer here builds a composite literal with `Type: "x"`, so
-    `go_types` reads it. vouchryx has one `emit` helper and `Type: kind`, a
-    variable, so the same reader would find one unresolved value and refuse.
-
-    The types are the string literals handed to that helper, read from every
-    non-test Go file under internal/ and cmd/. Reading those is narrower than
-    reading a struct field and it is what this producer actually does; a check
-    that insisted on the other shape would be measuring the code style rather
-    than the contract.
+    The types are the literals handed to its `s.emit(` helper, read from every
+    non-test Go file under internal/ and cmd/: the delegation emits sit in
+    agents.go and xaa.go as well as api.go. Its source is the constant in api.go.
     """
     text = estate.read_text("vouchryx", "internal/api/api.go")
     m = re.search(r"const\s+Source\s*=\s*\"([a-z0-9-]+)\"", text)
     if not m:
         raise E.Missing('vouchryx internal/api/api.go: no `const Source = "..."`')
-    # The delegation emits are not all in api.go: agents.go and xaa.go call the
-    # same helper, so every non-test Go file under internal/ and cmd/ is read.
-    types: set[str] = set()
-    for path in estate.list_files("vouchryx", ".go"):
-        if not path.startswith(GO_TREES) or path.endswith("_test.go"):
-            continue
-        types |= set(re.findall(r"s\.emit\(\s*\"([a-z0-9_]+)\"", estate.read_text("vouchryx", path)))
-    if not types:
-        raise E.Missing(
-            "vouchryx: no non-test Go file under internal/ or cmd/ calls s.emit(\"...\") "
-            "with a literal type, so this run measured nothing about vouchryx's emits"
-        )
-    return {m.group(1): types}
+    return {m.group(1): go_producer_types(estate, "vouchryx", calls=("s.emit",))}
+
+
 
 
 def _costcrew(estate: E.Estate) -> dict[str, set[str]]:
@@ -534,31 +621,49 @@ def _costcrew(estate: E.Estate) -> dict[str, set[str]]:
 
 
 def _heraldyx(estate: E.Estate) -> dict[str, set[str]]:
+    """heraldyx names its source in one constant and writes event literals."""
     text = estate.read_text("heraldyx", "internal/record/record.go")
     m = re.search(r"const\s+Source\s*=\s*\"([a-z0-9-]+)\"", text)
     if not m:
         raise E.Missing("heraldyx internal/record/record.go: no `const Source = \"...\"`")
-    types, unresolved = go_types(text, go_consts(text))
-    _refuse_unresolved("heraldyx", "internal/record/record.go", unresolved)
-    if not types:
-        raise E.Missing("heraldyx internal/record/record.go: no `Type:` field resolved")
-    return {m.group(1): types}
+    return {m.group(1): go_producer_types(estate, "heraldyx", event_literals=True)}
+
+
 
 
 def _genaryx(estate: E.Estate) -> dict[str, set[str]]:
-    text = estate.read_text("genaryx", "crates/core/src/command.rs")
-    src = re.search(
-        r"insert\(\s*\"source\"\.to_string\(\),\s*Value::String\(\s*\"([a-z0-9_-]+)\"", text
-    )
-    typ = re.search(
-        r"insert\(\s*\"type\"\.to_string\(\),\s*Value::String\(\s*\"([a-z0-9_-]+)\"", text
-    )
-    if not src or not typ:
-        raise E.Missing(
-            "genaryx crates/core/src/command.rs: the source and type inserts that "
-            "build the console_command line did not match"
-        )
-    return {src.group(1): {typ.group(1)}}
+    """genaryx writes its console lines with literal `source` and `type` inserts.
+
+    Every non-test .rs under crates/ is read. A file that inserts a literal type
+    takes its source from the same file. A type inserted from a variable is not
+    read here: those are the demo and mock generators, which replay other
+    products' envelopes or build display rows rather than emit genaryx's own. They
+    are named in the report, not counted as agreement.
+    """
+    out: dict[str, set[str]] = {}
+    for path in estate.list_files("genaryx", ".rs"):
+        if not path.startswith("crates/") or _RUST_TEST.search(path):
+            continue
+        try:
+            text = estate.read_text("genaryx", path)
+        except E.Missing as m:
+            raise _measured_nothing("genaryx", f"{m}. That file's emits were not read") from None
+        types = _RUST_TYPE_INSERT.findall(text)
+        if not types:
+            continue
+        sources = set(_RUST_SOURCE_INSERT.findall(text))
+        if len(sources) != 1:
+            raise E.Missing(
+                f"genaryx {path}: inserts a literal type but {len(sources)} literal "
+                f"source(s) in the same file, so the source those types belong to "
+                f"is not read"
+            )
+        out.setdefault(sources.pop(), set()).update(types)
+    if not out:
+        raise _measured_nothing("genaryx", "no non-test Rust file under crates/ inserts a literal type")
+    return out
+
+
 
 
 def _taipan(estate: E.Estate) -> dict[str, set[str]]:
