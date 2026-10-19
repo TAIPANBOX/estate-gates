@@ -148,6 +148,14 @@
       "major": 1,
       "request_path": true
     },
+    "keyryx": {
+      "github": "TAIPANBOX/keyryx",
+      "local": "keyryx",
+      "role": "key custody and an independent witness for the agent-governance record. Holds the signing keys the stack signs with, and certifies its producers' short-lived keys. The witness role is not built in this version.",
+      "runs": [
+        "keyryx"
+      ]
+    },
     "mockryx": {
       "github": "TAIPANBOX/mockryx",
       "local": "mockryx",
