@@ -707,6 +707,15 @@ MUTATIONS: dict[str, list[tuple[str, callable]]] = {
         ],
     )],
     "c1.unparseable-pin": [(
+        "a consumer requires the /v2 path at a pseudo-version, which is not a release",
+        lambda r: edit(
+            r,
+            "qryx/go.mod",
+            "require github.com/TAIPANBOX/agent-stack-go v0.5.1",
+            "require github.com/TAIPANBOX/agent-stack-go/v2 v2.0.0-20261018142823-b1f430dea8fd",
+        ),
+    ),
+    (
         "a consumer pins a pseudo-version",
         lambda r: gomod_pin(r, "qryx", "v0.0.0-20260101000000-abcdef123456"),
     )],
@@ -3383,6 +3392,35 @@ def main() -> int:
             problems += price_pages.run()
     finally:
         shutil.rmtree(work, ignore_errors=True)
+
+    # -- 9. C1 reads a major-suffixed module path as the same module --------
+    #
+    # vouchryx moved to agent-stack-go/v2 on 2026-10-19. C1's pin anchor stopped
+    # matching that line, so C1 reported require-unparsed for a consumer it could
+    # read, and said nothing about its pin. This is vouchryx's go.mod at
+    # origin/main, verbatim: the anchor must read the pin as v2.0.0, and must not
+    # take the module's own replace directive for one.
+    import importlib.util as _ilu
+
+    _c1_spec = _ilu.spec_from_file_location("c1_pin_currency", HERE / "gates" / "c1-pin-currency.py")
+    _c1 = _ilu.module_from_spec(_c1_spec)  # type: ignore[arg-type]
+    _c1_spec.loader.exec_module(_c1)  # type: ignore[union-attr]
+    _vouchryx_gomod = (
+        "module github.com/TAIPANBOX/vouchryx\n\n"
+        "go 1.27\n\n"
+        "toolchain go1.27.2\n\n"
+        "require github.com/TAIPANBOX/agent-stack-go/v2 v2.0.0\n\n"
+        "require github.com/gowebpki/jcs v1.0.1 // indirect\n"
+    )
+    _hit = _c1._REQUIRE.search(_vouchryx_gomod)
+    if _hit is None or _hit.group(1) != "v2.0.0":
+        problems.append(
+            "C1 does not read vouchryx's go.mod shape (a /v2 require) as the pin "
+            "v2.0.0, so every consumer that moved to the major path reads as "
+            "require-unparsed."
+        )
+    if _c1._REPLACE.search(_vouchryx_gomod):
+        problems.append("C1 takes a /v2 require line for a replace directive.")
 
     if problems:
         print()
