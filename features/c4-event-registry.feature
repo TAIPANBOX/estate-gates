@@ -117,3 +117,28 @@ Feature: The event registry and what the producers emit, in both directions
     When the estate is read
     Then the claim is named as unverifiable, and the run does not abort
     Because a reserved claim about a repository nobody registered cannot be checked at all
+
+
+  @fires:c4.unregistered-type
+  Scenario: A type emitted from a second file of the producer is compared like the first
+    Given a producer whose emit sites are spread over several of its own files
+    And a constant declared beside one of the later emits, naming a type its row does not list
+    When the two are compared
+    Then it is refused, listing the extra type
+    Because a file the check never opened is a producer it never read, and a
+      registered row would read as never emitted when its emit lives elsewhere
+
+  @fires:c4.producer-unreadable
+  Scenario: A type written through a constant that no file of the producer declares
+    Given a producer file that emits through a name nothing in its package declares
+    When its types are read
+    Then it is refused, and nothing is compared with the registry
+    Because a type the check cannot resolve is a hole, not an agreement
+
+  @teeth:c4.wardryx-measured-nothing
+  Scenario: A producer tree with no emit left says it measured nothing
+    Given wardryx's emitting files are gone and its writer file remains
+    When C4 reads wardryx
+    Then the finding says it measured nothing about the producer's emits
+    Because a red line that only says the file could not be read does not tell
+      an unread producer from an empty one

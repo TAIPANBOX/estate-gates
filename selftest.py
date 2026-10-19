@@ -296,8 +296,66 @@ TEETH_CASES = (
     "c23.unmeasured-row-private",
     "c23.undeclared-not-judged-row-public",
     "c23.undeclared-not-judged-vertex",
+    "c4.wardryx-measured-nothing",
 )
 TEETH_RAN: list[str] = []
+
+
+def wardryx_without_emits_says_measured_nothing(
+    base: pathlib.Path, work: pathlib.Path, registry: pathlib.Path
+) -> list[str]:
+    """A wardryx tree with no emit left in it must say it measured nothing.
+
+    The mutation table only proves that c4.producer-unreadable FIRES. This
+    proves what it SAYS: the finding has to carry the words "measured nothing",
+    because a reader who sees a red line that only says "could not be read"
+    cannot tell an unread producer from an empty one. Two ways to have no emit
+    to read, and each must say it:
+
+      a. the emitting files are gone from disk, so the read itself fails;
+      b. the files are there, and every emit call in them has been renamed
+         away, so the read succeeds and the scan finds no type at all.
+
+    C4 is run directly so the finding text can be read without rendering the
+    whole run.
+    """
+    name = "c4.wardryx-measured-nothing"
+    TEETH_RAN.append(name)
+    import importlib.util as _ilu
+
+    spec = _ilu.spec_from_file_location("c4_teeth", HERE / "gates" / "c4-event-registry.py")
+    module = _ilu.module_from_spec(spec)  # type: ignore[arg-type]
+    spec.loader.exec_module(module)  # type: ignore[union-attr]
+    emitting = ("wardryx/internal/api/api.go", "wardryx/internal/api/agent_token.go")
+
+    def gate_messages(case: pathlib.Path) -> list[str]:
+        estate = E.Estate(
+            json.loads(registry.read_text(encoding="utf-8")), mode="worktree", root=case
+        )
+        check = module.run(estate)
+        return [
+            msg for kind, ident, msg, _detail in check.findings
+            if ident == "c4.producer-unreadable" and "wardryx" in msg
+        ]
+
+    problems: list[str] = []
+    gone = fresh_copy(base, work, 9001)
+    for rel in emitting:
+        drop(gone, rel)
+    renamed = fresh_copy(base, work, 9002)
+    for rel in emitting:
+        edit(renamed, rel, "s.emit(", "s.dispatch(", every=True)
+    edit(renamed, emitting[0], "s.recordDecision(", "s.record(", every=True)
+    for label, case in (("the emitting files gone", gone), ("every emit call renamed away", renamed)):
+        texts = gate_messages(case)
+        if not texts:
+            problems.append(f"{name}: with {label}, C4 raised no c4.producer-unreadable for wardryx.")
+        elif not any("measured nothing" in t for t in texts):
+            problems.append(
+                f"{name}: with {label}, C4 reports wardryx unreadable without saying "
+                f"it measured nothing: {texts[0][:200]!r}"
+            )
+    return problems
 
 
 def unmeasured_row_is_counted(
@@ -2044,6 +2102,33 @@ MUTATIONS: dict[str, list[tuple[str, callable]]] = {
                 edit(
                     r, "wardryx/internal/api/api.go", "s.recordDecision(", "s.record(", every=True
                 ),
+                # The second emitting file too: a reader that reads it still
+                # finds api.go's emits, so every file has to be renamed for the
+                # producer to stop parsing.
+                edit(
+                    r, "wardryx/internal/api/agent_token.go", "s.emit(", "s.dispatch(", every=True
+                ),
+            ],
+        ),
+        (
+            # A file under internal/ that names a constant nothing declares. The
+            # first wardryx version of this check read api.go alone, so this
+            # file was never opened and the hole it makes was never seen.
+            "a second wardryx file emits through a constant no file declares",
+            lambda r: plant(
+                r,
+                "wardryx/internal/api/undeclared.go",
+                'package api\n\nfunc (s *Server) orphan() {\n'
+                '\ts.emit(evNeverDeclared, "high", "", "", nil, nil)\n}\n',
+            ),
+        ),
+        (
+            # Every file that emits is gone, and the writer file stays. Nothing
+            # is compared, so the run must say it measured nothing.
+            "wardryx's emitting files are gone, leaving the writer file alone",
+            lambda r: [
+                drop(r, "wardryx/internal/api/api.go"),
+                drop(r, "wardryx/internal/api/agent_token.go"),
             ],
         ),
         # G4.4. Both of these were CLEAN before the fix: the identifier was
@@ -2221,6 +2306,42 @@ MUTATIONS: dict[str, list[tuple[str, callable]]] = {
         ),
     ],
     "c4.unregistered-type": [
+        (
+            # wardryx's identity-mismatch emit, shaped as it is on wardryx's
+            # feature branch: a constant declared in the emitting file and used
+            # there, in a file other than api.go. A registry without its row
+            # goes red; the row landing is the other half of the pair.
+            "wardryx emits identity_mismatch from a second file, and 6.2 has no row for it",
+            lambda r: plant(
+                r,
+                "wardryx/internal/api/identity.go",
+                'package api\n\nconst evIdentityMismatch = "identity_mismatch"\n\n'
+                'func (s *Server) identityMismatch() {\n'
+                '\ts.emit(evIdentityMismatch, "high", "", "", nil, nil)\n}\n',
+            ),
+        ),
+        (
+            "wardryx records a decision from a second file that 6.2 does not list",
+            lambda r: plant(
+                r,
+                "wardryx/internal/api/decision.go",
+                'package api\n\nconst evUnlistedDecision = "decision_unlisted"\n\n'
+                'func (s *Server) unlistedDecision() {\n'
+                '\ts.recordDecision(evUnlistedDecision, "info", "", "", nil, nil)\n}\n',
+            ),
+        ),
+        (
+            # vouchryx's delegation emits live in three files, and the reader
+            # read api.go alone. A type from a second file that 6.2 does not list
+            # is the hole: nothing reading api.go could see it.
+            "vouchryx emits a delegation type from a second file that 6.2 does not list",
+            lambda r: plant(
+                r,
+                "vouchryx/internal/api/revoke_all.go",
+                'package api\n\nfunc (s *Server) revokeAll() {\n'
+                '\ts.emit("delegation_unlisted", "", nil, nil)\n}\n',
+            ),
+        ),
         (
             "wardryx writes a decision type through recordDecision that 6.2 does not list",
             lambda r: [
@@ -3678,6 +3799,9 @@ def main() -> int:
             problems += undeclared_not_judged_is_counted(
                 base, work, registry, expectations, "c23.undeclared-not-judged-vertex",
                 plant_undeclared_vertex_model, "gemini-3.8-flash")
+        # -- 6d. a wardryx tree with no emit left says it measured nothing ---
+        if not problems:
+            problems += wardryx_without_emits_says_measured_nothing(base, work, registry)
         if not problems and sorted(TEETH_RAN) != sorted(TEETH_CASES):
             problems.append(
                 f"the teeth cases that ran were {TEETH_RAN}, not the {list(TEETH_CASES)} "

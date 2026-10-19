@@ -100,6 +100,14 @@ name to still be written. The search for an undeclared writer asks only
 whether a repository is declared, so a SECOND writer added inside a declared
 repository is not found by it.
 
+For wardryx and vouchryx the emit sites are read from every non-test `.go` file
+under `internal/` and `cmd/`. wardryx resolves its `ev*` constants per package:
+its identity-mismatch emit sits in `internal/api/agent_token.go`, not in
+`api.go`, so a reader of one file would report a registered row as never
+emitted. vouchryx's delegation emits are in `agents.go` and `xaa.go` as well
+as `api.go`. The other producers still read only the files they name. That is
+a limit of this reader, and invariant 30 of CLAUDE.md records it as `partly gated`.
+
 **C5, deployment parity** (`gates/c5-deployment-parity.py`). stack-up,
 stack-single and stack-k8s compared on four things: which governance routines
 each installs, the `HERALDYX_MIN_SEVERITY` default, the fixed local port map,
