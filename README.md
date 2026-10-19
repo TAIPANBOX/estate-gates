@@ -598,6 +598,16 @@ which is the product's own suite's question, nor the opt-in components' flags,
 the no-wardryx fallback in up.sh, or the opt-in OpenAI door of stack-single. The
 header of the gate states each of those limits.
 
+**C26, cosign image signatures carry the legacy bundle flags** (`gates/c26-cosign-legacy-bundle-flags.py`).
+Decided on 2026-10-19, paraphrased: image signatures use the bundle format
+policy-controller reads. The gate reads every workflow file of every repository
+`estate.json` names, finds each `cosign sign` line (the image subcommand; `sign-blob`
+and `attest` are not judged), reads its command with its continuation lines, and
+requires both `--new-bundle-format=false` and `--use-signing-config=false`. A line
+missing either is red, named by repository, file and line. Finding no sign line at
+all is measured nothing, not a pass. It does not read flags set some other way than
+on the command line.
+
 ## Running it
 
 Locally, against the sibling checkouts in the parent directory:
@@ -630,6 +640,20 @@ subject in a repository with a public remote went unmeasured with no recorded
 exception, `3` clean but every unread or unmeasured subject sits in a repository
 with no public remote. CI treats 3 as success with a notice and fails on
 everything else.
+
+## Shared tools for the service repositories
+
+Some checks have to run inside the repository they judge, on its own pull
+requests, so this repository ships them as tools and reusable workflows that a
+caller pins to a commit. They are not cross-repository checks and nothing here
+runs them against another repository.
+
+- `tools/secretscan` and `.github/workflows/secretscan.yml`: no secret in a
+  tree (invariant 23).
+- `tools/diffcover` and `.github/workflows/diff-coverage.yml`: the coverage
+  floor on the lines a pull request adds, and the whole-repository baseline
+  (invariant 28). See [`tools/diffcover/README.md`](tools/diffcover/README.md)
+  for the rules, the measured-nothing cases and what the number does not say.
 
 ## What is deliberately NOT covered
 

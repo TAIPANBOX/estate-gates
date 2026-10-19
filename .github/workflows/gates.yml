@@ -73,6 +73,15 @@ jobs:
       - name: No secret in this repository's tree
         run: cd tools/secretscan && go run . -C ../.. tree
 
+      # The coverage tool (invariant 28) proves its rules in its own tests, with
+      # the race detector on. Standard library only, so nothing to cache.
+      - name: The coverage tool's own tests, race detector on
+        run: |
+          cd tools/diffcover
+          test -z "$(gofmt -l .)" || { gofmt -l .; echo "gofmt: the files above are not formatted"; exit 1; }
+          go vet ./...
+          go test -race -count=1 ./...
+
       # --prove, not a bare run: the gate plants each of its own faults in a
       # copy and requires itself to find them, and plants a non-fault and
       # requires silence. A binding gate that cannot go red is a paragraph
