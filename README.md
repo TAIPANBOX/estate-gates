@@ -577,6 +577,16 @@ skipped, and the output says so. It does not catch an English quotation in
 ordinary quotation marks, an attribution that avoids his name, or a translation
 passed off as a paraphrase; those are prose a reader judges.
 
+**C26, cosign image signatures carry the legacy bundle flags** (`gates/c26-cosign-legacy-bundle-flags.py`).
+Decided on 2026-10-19, paraphrased: image signatures use the bundle format
+policy-controller reads. The gate reads every workflow file of every repository
+`estate.json` names, finds each `cosign sign` line (the image subcommand; `sign-blob`
+and `attest` are not judged), reads its command with its continuation lines, and
+requires both `--new-bundle-format=false` and `--use-signing-config=false`. A line
+missing either is red, named by repository, file and line. Finding no sign line at
+all is measured nothing, not a pass. It does not read flags set some other way than
+on the command line.
+
 ## Running it
 
 Locally, against the sibling checkouts in the parent directory:
