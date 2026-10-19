@@ -110,7 +110,10 @@ GITHUB_OWNER = "TAIPANBOX"
 # and skipped rather than as an image with no tag. The first version of this
 # pattern did the latter and reported four verify blocks as the July-latest class
 # on the night they landed.
-_IMAGE = re.compile(rf"ghcr\.io/{OWNER}/([a-z0-9][a-z0-9._-]*)(?::([<$][^\s\\`)\"']*|[A-Za-z0-9][A-Za-z0-9._-]*))?")
+# An optional @sha256 digest after the name or the tag: a digest pin is the strongest
+# pin there is, so a mention pinned by digest alone is not "no tag" (2026-10-19:
+# tokenfuse's README pins its image by digest and c20 called it unpinned).
+_IMAGE = re.compile(rf"ghcr\.io/{OWNER}/([a-z0-9][a-z0-9._-]*)(?::([<$][^\s\\`)\"'@]*|[A-Za-z0-9][A-Za-z0-9._-]*))?(@sha256:[0-9a-f]{{64}})?")
 _DOWNLOAD = re.compile(
     rf"github\.com/{GITHUB_OWNER}/([A-Za-z0-9._-]+)/releases/(?:download/([A-Za-z0-9._-]+)|(latest)/download)/"
 )
@@ -214,7 +217,7 @@ def run(estate: E.Estate) -> E.Check:
             where = f"{estate.where(repo, 'README.md')} line {lineno}"
 
             for m in _IMAGE.finditer(line):
-                image, tag = m.group(1), m.group(2)
+                image, tag, digest = m.group(1), m.group(2), m.group(3)
                 subjects += 1
                 owner = image_owner(image, repos, declared)
                 if owner is None:
@@ -223,6 +226,9 @@ def run(estate: E.Estate) -> E.Check:
                         f"{repo}'s README names ghcr.io/{OWNER}/{image}, an image no repository in estate.json owns.",
                         [f"  {where}", "A typo, or an image this estate does not publish."],
                     )
+                    continue
+                if tag is None and digest is not None:
+                    c.ok(f"c20.digest-pinned:{repo}:{image}", f"{repo}: {image} is pinned by digest.")
                     continue
                 if tag is None:
                     if estate.repos[owner].get("moving_tag"):

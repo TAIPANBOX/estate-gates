@@ -920,6 +920,10 @@ MUTATIONS: dict[str, list[tuple[str, callable]]] = {
         # The July build: an image with no tag pulls whatever latest is.
         "a README names an image with no tag",
         lambda r: edit(r, "idryx/README.md", "ghcr.io/taipanbox/idryx:v0.3.1", "ghcr.io/taipanbox/idryx"),
+    ), (
+        # A digest pin counts only when it is a whole sha256 digest; a cut one is no pin.
+        "a README names an image with a malformed digest and no tag",
+        lambda r: edit(r, "idryx/README.md", "ghcr.io/taipanbox/idryx:v0.3.1", "ghcr.io/taipanbox/idryx@sha256:abc"),
     )],
     "c20.image-unowned": [
         (
