@@ -810,7 +810,20 @@ Stop and tell the user, then wait:
     URL that carries the name, and a Cyrillic string literal in a Go test and in a
     Python test.)*
 
-27. **New and changed code is covered by tests, and the coverage floor never
+27. **Every `cosign sign` of a container image in an estate workflow carries
+    both legacy bundle flags.** `@decided 2026-10-19`, paraphrased: image
+    signatures use the bundle format that policy-controller reads, so each
+    image-signing command sets `--new-bundle-format=false` and
+    `--use-signing-config=false`. A signing step that drops either one writes a
+    signature no verifier in the cluster reads, and nothing fails at signing
+    time. `sign-blob` and attestations are not images and are not judged.
+    *(gate: `gates/c26-cosign-legacy-bundle-flags.py`, two findings and two
+    mutations in `selftest.py`: each flag dropped from a real sign line, and
+    every sign line removed, which must read as measured nothing. Its baseline
+    carries the non-faults: a `sign-blob` line with no flags, and a sign line
+    in a YAML comment.)*
+
+28. **New and changed code is covered by tests, and the coverage floor never
     drops.** `@decided 2026-10-18`, paraphrased: on every pull request, at least
     90% of the executable lines the change adds are covered by tests, and
     whole-repository line coverage never falls below its committed baseline and

@@ -1,4 +1,4 @@
-# The coverage floor on what a pull request adds (CLAUDE.md invariant 27) for any
+# The coverage floor on what a pull request adds (CLAUDE.md invariant 28) for any
 # repository in the estate.
 #
 # A repository calls it from its own pull_request workflow, with one job pinned

@@ -1,7 +1,7 @@
 # diffcover
 
 The coverage floor on what a change adds, for any repository in the estate
-(CLAUDE.md invariant 27). Go standard library only, one static binary, and no
+(CLAUDE.md invariant 28). Go standard library only, one static binary, and no
 `go.mod` require line, so a caller builds it from a pinned commit of this
 repository and nothing else.
 

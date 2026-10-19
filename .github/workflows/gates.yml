@@ -73,7 +73,7 @@ jobs:
       - name: No secret in this repository's tree
         run: cd tools/secretscan && go run . -C ../.. tree
 
-      # The coverage tool (invariant 27) proves its rules in its own tests, with
+      # The coverage tool (invariant 28) proves its rules in its own tests, with
       # the race detector on. Standard library only, so nothing to cache.
       - name: The coverage tool's own tests, race detector on
         run: |
