@@ -876,6 +876,29 @@ func (s *Server) recordDecision(evType, severity, agentID, runID string, onBehal
 }
 """
 
+# A second file of the same package that emits, as wardryx's agent-token check
+# does: its event constant is declared beside the emit, and the second emit
+# names policy_deny, which api.go declares. The baseline therefore needs C4 to
+# read this file AND to resolve a constant across files of the package.
+WARDRYX_AGENT_TOKEN_GO = """package api
+
+const evAgentRefused = "policy_deny"
+
+func (s *Server) refuseAgent() {
+\ts.emit(evAgentRefused, "high", "", "", nil, nil)
+\ts.emit(evPolicyDeny, "high", "", "", nil, nil)
+}
+"""
+
+# A test that emits a type the registry does not carry. C4 must not read a
+# _test.go file, so the baseline stays green with it present.
+WARDRYX_EMIT_TEST_GO = """package api
+
+func fixtureTestEmit(s *Server) {
+\ts.emit("test_only_type", "info", "", "", nil, nil)
+}
+"""
+
 MOCKRYX_EVENTS_GO = """package events
 
 import "github.com/TAIPANBOX/agent-stack-go/event"
@@ -1695,6 +1718,16 @@ func (s *Server) emit(kind, agentID string, chain []string, data map[string]any)
 }
 """
 
+# A second emitting file of vouchryx's api package, with two types its row already
+# lists. The baseline needs C4 to read it and to find nothing it does not expect.
+VOUCHRYX_AGENTS_GO = """package api
+
+func (s *Server) agentDelegation(sub string) {
+\ts.emit("delegation_issued", sub, nil, nil)
+\ts.emit("delegation_denied", sub, nil, nil)
+}
+"""
+
 VOUCHRYX_MAIN_GO = """package main
 
 func main() {
@@ -1944,12 +1977,15 @@ func TestWireTypesIsExactlyWhatTheCallSitesProduce(t *testing.T) {}
 }
 """,
         "internal/api/api.go": VOUCHRYX_API_GO,
+        "internal/api/agents.go": VOUCHRYX_AGENTS_GO,
         "cmd/vouchryx/main.go": VOUCHRYX_MAIN_GO,
     },
     "wardryx": {
         "go.mod": gomod("wardryx", "v0.5.1"),
         "cmd/wardryx/main.go": WARDRYX_MAIN_GO,
         "internal/api/api.go": WARDRYX_API_GO,
+        "internal/api/agent_token.go": WARDRYX_AGENT_TOKEN_GO,
+        "internal/api/emit_test.go": WARDRYX_EMIT_TEST_GO,
         "internal/pdp/signal.go": SIGNAL_GO,
     },
     "mockryx": {

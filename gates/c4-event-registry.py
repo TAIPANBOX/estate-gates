@@ -45,6 +45,7 @@ from __future__ import annotations
 import argparse
 import ast
 import pathlib
+import posixpath
 import re
 import sys
 
@@ -361,24 +362,54 @@ def _qryx(estate: E.Estate) -> dict[str, set[str]]:
     return {"qryx": types}
 
 
+#: The trees whose non-test Go files can open an event writer or emit one.
+#: Shared by every producer that reads its emits from all of its files.
+GO_TREES = ("internal/", "cmd/")
+
+
 def _wardryx(estate: E.Estate) -> dict[str, set[str]]:
-    """Every type the API writes, through either of its two helpers.
+    """Every type the wardryx tree writes, through either of its two helpers.
 
     `s.emit(` writes an event that carries no decision. `s.recordDecision(` writes
     one that does, and W2a moved `policy_allow` and `approval_requested` onto it, so
     a search that read only `s.emit(` reported both as never emitted. Both helpers
     take the event type as their first argument.
+
+    Every non-test `.go` file under `internal/` and `cmd/` is read, not
+    `internal/api/api.go` alone. wardryx's identity-mismatch emit sits in
+    `internal/api/agent_token.go`, with its constant declared beside it, so a reader
+    of one file reports a registered row as never emitted. Go scopes a constant to
+    its package, so each directory is resolved on its own, from the constants its
+    files declare together.
     """
-    path = "internal/api/api.go"
-    text = estate.read_text("wardryx", path)
-    consts = go_consts(text)
-    types, unresolved = go_call_first_args(text, "s.emit", consts)
-    decided, decided_unresolved = go_call_first_args(text, "s.recordDecision", consts)
-    types |= decided
-    unresolved |= decided_unresolved
-    _refuse_unresolved("wardryx", path, unresolved)
+    by_dir: dict[str, list[tuple[str, str]]] = {}
+    for f in estate.list_files("wardryx", ".go"):
+        if not f.startswith(GO_TREES) or f.endswith("_test.go"):
+            continue
+        try:
+            text = estate.read_text("wardryx", f)
+        except E.Missing as m:
+            # A tracked file this run cannot read is a file whose emits were not
+            # read, so the run measured nothing about them. Say so in those words.
+            raise E.Missing(
+                f"{m}. That file's emits were not read, so this run measured nothing "
+                f"about wardryx's emits"
+            ) from None
+        by_dir.setdefault(posixpath.dirname(f), []).append((f, text))
+    types: set[str] = set()
+    for members in by_dir.values():
+        consts = go_consts(*(text for _path, text in members))
+        for path, text in members:
+            for call in ("s.emit", "s.recordDecision"):
+                found, unresolved = go_call_first_args(text, call, consts)
+                _refuse_unresolved("wardryx", path, unresolved)
+                types |= found
     if not types:
-        raise E.Missing("wardryx internal/api/api.go: no `s.emit(` or `s.recordDecision(` call resolved to a type")
+        raise E.Missing(
+            "wardryx: no non-test Go file under internal/ or cmd/ calls s.emit( or "
+            "s.recordDecision( with a type that resolves to a string, so this run "
+            "measured nothing about wardryx's emits"
+        )
     return {"wardryx": types}
 
 
@@ -416,20 +447,27 @@ def _vouchryx(estate: E.Estate) -> dict[str, set[str]]:
     `go_types` reads it. vouchryx has one `emit` helper and `Type: kind`, a
     variable, so the same reader would find one unresolved value and refuse.
 
-    The types are the string literals handed to that helper. Reading those is
-    narrower than reading a struct field and it is what this producer actually
-    does; a check that insisted on the other shape would be measuring the code
-    style rather than the contract.
+    The types are the string literals handed to that helper, read from every
+    non-test Go file under internal/ and cmd/. Reading those is narrower than
+    reading a struct field and it is what this producer actually does; a check
+    that insisted on the other shape would be measuring the code style rather
+    than the contract.
     """
     text = estate.read_text("vouchryx", "internal/api/api.go")
     m = re.search(r"const\s+Source\s*=\s*\"([a-z0-9-]+)\"", text)
     if not m:
         raise E.Missing('vouchryx internal/api/api.go: no `const Source = "..."`')
-    types = set(re.findall(r"s\.emit\(\s*\"([a-z0-9_]+)\"", text))
+    # The delegation emits are not all in api.go: agents.go and xaa.go call the
+    # same helper, so every non-test Go file under internal/ and cmd/ is read.
+    types: set[str] = set()
+    for path in estate.list_files("vouchryx", ".go"):
+        if not path.startswith(GO_TREES) or path.endswith("_test.go"):
+            continue
+        types |= set(re.findall(r"s\.emit\(\s*\"([a-z0-9_]+)\"", estate.read_text("vouchryx", path)))
     if not types:
         raise E.Missing(
-            "vouchryx internal/api/api.go: no `s.emit(\"...\")` call site resolved, so "
-            "this producer's types could not be read and nothing was compared"
+            "vouchryx: no non-test Go file under internal/ or cmd/ calls s.emit(\"...\") "
+            "with a literal type, so this run measured nothing about vouchryx's emits"
         )
     return {m.group(1): types}
 
