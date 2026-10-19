@@ -707,6 +707,15 @@ MUTATIONS: dict[str, list[tuple[str, callable]]] = {
         ],
     )],
     "c1.unparseable-pin": [(
+        "a consumer requires the /v2 path at a pseudo-version, which is not a release",
+        lambda r: edit(
+            r,
+            "qryx/go.mod",
+            "require github.com/TAIPANBOX/agent-stack-go v0.5.1",
+            "require github.com/TAIPANBOX/agent-stack-go/v2 v2.0.0-20261018142823-b1f430dea8fd",
+        ),
+    ),
+    (
         "a consumer pins a pseudo-version",
         lambda r: gomod_pin(r, "qryx", "v0.0.0-20260101000000-abcdef123456"),
     )],
@@ -1770,11 +1779,29 @@ MUTATIONS: dict[str, list[tuple[str, callable]]] = {
         ),
     ],
     "c4.producer-unreadable": [
+        # The const block carries a chain-type constant this extractor does not
+        # name. That is the failure that hid chain_restarted: a hand-kept list
+        # goes stale silently, so an unlisted typeChain* constant is refused.
+        (
+            "the verifier declares a chain-type constant the extractor does not read",
+            lambda r: edit(
+                r,
+                "agent-stack-go/cmd/agent-conform/watchdir.go",
+                'typeChainRestarted = "chain_restarted"\n',
+                'typeChainRestarted = "chain_restarted"\n\ttypeChainQuiet    = "chain_quiet"\n',
+            ),
+        ),
         (
             "a producer's emit sites stop parsing",
-            lambda r: edit(
-                r, "wardryx/internal/api/api.go", "s.emit(", "s.dispatch(", every=True
-            ),
+            lambda r: [
+                edit(
+                    r, "wardryx/internal/api/api.go", "s.emit(", "s.dispatch(", every=True
+                ),
+                # Both helpers, or the second one keeps the producer readable.
+                edit(
+                    r, "wardryx/internal/api/api.go", "s.recordDecision(", "s.record(", every=True
+                ),
+            ],
         ),
         # G4.4. Both of these were CLEAN before the fix: the identifier was
         # dropped, the anchor still matched the file, and the run said "every
@@ -1881,11 +1908,43 @@ MUTATIONS: dict[str, list[tuple[str, callable]]] = {
             "| `idryx` | RESERVED, not emitted today: `identity_finding` |",
         ),
     )],
+    # A RESERVED row about a repository estate.json does not register. It used
+    # to abort the whole runner with an uncaught Missing (found 2026-10-18, when
+    # 6.2 carried `keyryx` before estate.json did); now it is a finding.
+    "c4.reserved-unregistered": [(
+        "a RESERVED row names a source estate.json does not register",
+        lambda r: edit(
+            r,
+            "agent-passport/SPEC.md",
+            "| `idryx` | `identity_finding` |",
+            "| `idryx` | `identity_finding` |\n| `keyring` | RESERVED, not emitted today: `keyring_event` |",
+        ),
+    )],
     "c4.registered-source-silent": [(
         "a registered producer's code is gone entirely",
         lambda r: drop(r, "mockryx/internal/events/events.go"),
     )],
     "c4.registered-type-not-emitted": [
+        # wardryx moved policy_allow onto recordDecision (W2a). A search that read
+        # only s.emit( could not see it, and reported it as never emitted.
+        (
+            "wardryx stops writing policy_allow through recordDecision, which 6.2 lists",
+            lambda r: edit(
+                r,
+                "wardryx/internal/api/api.go",
+                '\tif !s.recordDecision(evPolicyAllow, "info", "", "", nil, nil) {\n\t\treturn\n\t}\n',
+                "",
+            ),
+        ),
+        (
+            "keyryx's witness stops raising a finding its 6.2 row lists",
+            lambda r: edit(
+                r,
+                "keyryx/internal/witness/witness.go",
+                "\tt.find(RootMissing, false, nil)\n",
+                "",
+            ),
+        ),
         (
             "a registered type has no emit site",
             lambda r: edit(
@@ -1897,8 +1956,8 @@ MUTATIONS: dict[str, list[tuple[str, callable]]] = {
             "6.2 lists a type the on-box verifier never writes",
             lambda r: edit(
                 r, "agent-passport/SPEC.md",
-                "`chain_broken` . `chain_unchained` |",
-                "`chain_broken` . `chain_unchained` . `chain_phantom` |",
+                "`chain_restarted` |",
+                "`chain_restarted` . `chain_phantom` |",
             ),
         ),
     ],
@@ -1919,6 +1978,32 @@ MUTATIONS: dict[str, list[tuple[str, callable]]] = {
         ),
     ],
     "c4.unregistered-type": [
+        (
+            "wardryx writes a decision type through recordDecision that 6.2 does not list",
+            lambda r: [
+                edit(
+                    r,
+                    "wardryx/internal/api/api.go",
+                    '\tevPolicyDeny  = "policy_deny"\n',
+                    '\tevPolicyDeny  = "policy_deny"\n\tevUnlisted    = "decision_unlisted"\n',
+                ),
+                edit(
+                    r,
+                    "wardryx/internal/api/api.go",
+                    "func (s *Server) decide() {\n",
+                    'func (s *Server) decide() {\n\ts.recordDecision(evUnlisted, "info", "", "", nil, nil)\n',
+                ),
+            ],
+        ),
+        (
+            "the verifier's restart constant is renamed and 6.2 still says chain_restarted",
+            lambda r: edit(
+                r,
+                "agent-stack-go/cmd/agent-conform/watchdir.go",
+                'typeChainRestarted = "chain_restarted"',
+                'typeChainRestarted = "chain_resumed"',
+            ),
+        ),
         (
             "the on-box verifier's type constant is changed and 6.2 is not",
             lambda r: edit(
@@ -2000,6 +2085,19 @@ MUTATIONS: dict[str, list[tuple[str, callable]]] = {
         ),
     )],
     "c5.unrecorded-divergence": [
+        # keyryx's witness is a second `register` name for one component. With
+        # the mapping it is the kind keyryx, and stack-up's extra is unrecorded.
+        # Without the mapping the name is unmapped and only c5.service-unmapped
+        # fires, so this case is what proves the two names are mapped.
+        (
+            "stack-up registers the keyryx witness, and the name is mapped to keyryx",
+            lambda r: edit(
+                r,
+                "stack-up/up.sh",
+                'register vouchryx "$!" TERM\n',
+                'register vouchryx "$!" TERM\nregister keyryx-witness "$!" TERM\n',
+            ),
+        ),
         # One per fact family, because each family computes its divergence keys
         # with its own code. A single case would prove the reporting works and
         # leave three of the four computations unexercised.
@@ -3344,6 +3442,35 @@ def main() -> int:
             problems += price_pages.run()
     finally:
         shutil.rmtree(work, ignore_errors=True)
+
+    # -- 9. C1 reads a major-suffixed module path as the same module --------
+    #
+    # vouchryx moved to agent-stack-go/v2 on 2026-10-19. C1's pin anchor stopped
+    # matching that line, so C1 reported require-unparsed for a consumer it could
+    # read, and said nothing about its pin. This is vouchryx's go.mod at
+    # origin/main, verbatim: the anchor must read the pin as v2.0.0, and must not
+    # take the module's own replace directive for one.
+    import importlib.util as _ilu
+
+    _c1_spec = _ilu.spec_from_file_location("c1_pin_currency", HERE / "gates" / "c1-pin-currency.py")
+    _c1 = _ilu.module_from_spec(_c1_spec)  # type: ignore[arg-type]
+    _c1_spec.loader.exec_module(_c1)  # type: ignore[union-attr]
+    _vouchryx_gomod = (
+        "module github.com/TAIPANBOX/vouchryx\n\n"
+        "go 1.27\n\n"
+        "toolchain go1.27.2\n\n"
+        "require github.com/TAIPANBOX/agent-stack-go/v2 v2.0.0\n\n"
+        "require github.com/gowebpki/jcs v1.0.1 // indirect\n"
+    )
+    _hit = _c1._REQUIRE.search(_vouchryx_gomod)
+    if _hit is None or _hit.group(1) != "v2.0.0":
+        problems.append(
+            "C1 does not read vouchryx's go.mod shape (a /v2 require) as the pin "
+            "v2.0.0, so every consumer that moved to the major path reads as "
+            "require-unparsed."
+        )
+    if _c1._REPLACE.search(_vouchryx_gomod):
+        problems.append("C1 takes a /v2 require line for a replace directive.")
 
     if problems:
         print()

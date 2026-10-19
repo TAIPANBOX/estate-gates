@@ -259,7 +259,8 @@ depth is 32 entries.
 | `vouchryx` | `delegation_issued` (info) · `delegation_denied` (high) · `delegation_revoked` (high) |
 | `scopyx` | `web_fetch` . `web_blocked` |
 | `typryx` | `typed_answer` |
-| `agent-conform` | `chain_broken` . `chain_unchained` |
+| `agent-conform` | `chain_broken` . `chain_unchained` . `chain_restarted` |
+| `keyryx` | `witness_stream_rewritten` . `witness_stream_truncated` . `witness_chain_restarted` . `witness_checkpoint_invalid` . `witness_checkpoint_unsigned` . `witness_root_missing` . `witness_root_equivocated` |
 | `costcrew` | `anomaly_triaged` |
 
 A row here is a CLAIM that the source writes those types into this envelope
@@ -725,7 +726,7 @@ func Open(path string) (*Journal, error) {
 # header comment names both types on purpose: C4 reads code, not comments.
 AGENT_CONFORM_WATCHDIR_GO = """package main
 
-// agent-conform watch-dir (fixture). It raises chain_broken and chain_unchained.
+// agent-conform watch-dir (fixture). It raises chain_broken, chain_unchained and chain_restarted.
 
 const (
 	// The registry name of this producer.
@@ -734,6 +735,7 @@ const (
 
 	typeChainBroken    = "chain_broken"
 	typeChainUnchained = "chain_unchained"
+	typeChainRestarted = "chain_restarted"
 )
 
 var openAlertWriter = func(path string) (alertWriter, error) { return event.NewChainedWriter(path) }
@@ -748,6 +750,8 @@ func alertFor(f finding) event.Event {
 		e.Severity = event.SeverityHigh
 	case typeChainUnchained:
 		e.Severity = event.SeverityLow
+	case typeChainRestarted:
+		e.Severity = event.SeverityMedium
 	}
 	return e
 }
@@ -757,6 +761,35 @@ func alertFor(f finding) event.Event {
 # prefixes, so only the registry's `images` declaration owns it. The tag
 # placeholder is a template and the prose mention is the shape the real README
 # had; both must be read as the same image.
+KEYRYX_WITNESS_GO = """package witness
+
+// The witness writes one finding per call to t.find (fixture).
+
+const (
+	Source = "keyryx"
+
+	StreamRewritten   = "witness_stream_rewritten"
+	StreamTruncated   = "witness_stream_truncated"
+	ChainRestarted    = "witness_chain_restarted"
+	CheckpointInvalid = "witness_checkpoint_invalid"
+	CheckpointUnsign  = "witness_checkpoint_unsigned"
+	RootMissing       = "witness_root_missing"
+	RootEquivocated   = "witness_root_equivocated"
+)
+
+func (t *tick) observe() {
+	t.find(StreamRewritten, false, nil)
+	t.find(StreamTruncated, false, nil)
+	t.find(ChainRestarted, false, nil)
+	t.find(CheckpointInvalid, false, nil)
+	t.find(CheckpointUnsign, false, nil)
+	t.find(RootMissing, false, nil)
+	t.find(RootEquivocated, false, nil)
+	w, _ := event.NewChainedWriter("keyryx.ndjson")
+	_ = w
+}
+"""
+
 AGENT_STACK_GO_README = """# agent-stack-go (fixture)
 
 The image is ghcr.io/taipanbox/agent-conform:<tag>, static and non-root.
@@ -832,8 +865,14 @@ const (
 )
 
 func (s *Server) decide() {
-\ts.emit(evPolicyAllow, "info", "", "", nil, nil)
+\tif !s.recordDecision(evPolicyAllow, "info", "", "", nil, nil) {
+\t\treturn
+\t}
 \ts.emit(evPolicyDeny, "high", "", "", nil, nil)
+}
+
+func (s *Server) recordDecision(evType, severity, agentID, runID string, onBehalfOf []string, data map[string]any) bool {
+\treturn true
 }
 """
 
@@ -1414,7 +1453,7 @@ TRAILRYX_AGENTEVENT = """//! The estate's shared agent-event envelope, mapped in
 //!
 //! Refused today, each because the record vocabulary has no honest home for it
 //! rather than because nobody got to it: `crypto_finding`, `eval_run`,
-//! `sim_run`, `console_command`, `anomaly_triaged`, `typed_answer`, `chain_broken` and `chain_unchained`. Each is a finding or an observation about
+//! `sim_run`, `console_command`, `anomaly_triaged`, `typed_answer`, `chain_broken`, `chain_unchained`, `chain_restarted`, `witness_stream_rewritten`, `witness_stream_truncated`, `witness_chain_restarted`, `witness_checkpoint_invalid`, `witness_checkpoint_unsigned`, `witness_root_missing` and `witness_root_equivocated`. Each is a finding or an observation about
 //! infrastructure rather than a decision an agent took.
 //!
 //! # The two that got types of their own, and what that cost
@@ -1855,6 +1894,10 @@ func TestWireTypesIsExactlyWhatTheCallSitesProduce(t *testing.T) {}
         "scripts/audit.sh": TRAILRYX_AUDIT_SH,
     },
     "catalog": {"README.md": "# catalog\n"},
+    "keyryx": {
+        "README.md": "# keyryx (fixture)\n",
+        "internal/witness/witness.go": KEYRYX_WITNESS_GO,
+    },
     "bank-in-a-box": {"README.md": "# bank-in-a-box\n"},
 }
 

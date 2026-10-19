@@ -70,10 +70,16 @@ MODULE_REPO = "agent-stack-go"
 
 # `require github.com/... v0.4.0` on its own line, or the same inside a
 # require ( ... ) block, with or without a trailing // indirect comment.
+#
+# A major version past v1 lives at a path with a suffix: `.../agent-stack-go/v2`.
+# That is the same module, and the same repository's tags, so the suffix is read
+# and dropped rather than refusing the line. Without it every consumer of v2
+# reads as `require-unparsed` and the check reports nothing about its pin.
+_MODULE_PATH = re.escape(MODULE) + r"(?:/v[0-9]+)?"
 _REQUIRE = re.compile(
-    r"^\s*(?:require\s+)?" + re.escape(MODULE) + r"\s+(v\S+)", re.MULTILINE
+    r"^\s*(?:require\s+)?" + _MODULE_PATH + r"\s+(v\S+)", re.MULTILINE
 )
-_REPLACE = re.compile(r"^\s*replace\s+" + re.escape(MODULE) + r"\s", re.MULTILINE)
+_REPLACE = re.compile(r"^\s*replace\s+" + _MODULE_PATH + r"\s", re.MULTILINE)
 
 
 def newest_tag(estate: E.Estate) -> tuple[str, tuple[int, int, int]]:
