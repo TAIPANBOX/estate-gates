@@ -1,0 +1,19 @@
+{
+  "comment": [
+    "Every security posture a launcher holds or lacks, that somebody has decided to keep.",
+    "C25 reads the three launchers (stack-single, stack-k8s, stack-up) and fails on any",
+    "posture a launcher does not hold that is NOT recorded here, and on any entry here",
+    "that is no longer a divergence.",
+    "",
+    "A key is `<posture>:<launcher>`, the names C25 prints. A value needs a `why`, a",
+    "`provenance` and a `recorded` date. The provenance follows the estate convention:",
+    "@claude is a reading of the launcher and should be re-checked, @decided is a",
+    "decision (paraphrased, never quoted, in a public repository), @measured names the",
+    "run that established it.",
+    "",
+    "Recording a gap as a decision is a claim about what somebody decided. A gap goes",
+    "here only with its own honest reason, and a launcher that lacks a posture by",
+    "accident is fixed in the launcher, not excused here."
+  ],
+  "divergences": {}
+}

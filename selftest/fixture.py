@@ -1030,6 +1030,56 @@ start_heraldyx() {
   register heraldyx "$!" TERM
 }
 
+# The keys this run mints, each refused when empty.
+FIREWALL_MODE="enforce"
+GATEWAY_CLIENT_KEYS="$(rand_hex 24)"
+[ -n "$GATEWAY_CLIENT_KEYS" ] \\
+  || die "could not mint the gateway's client key."
+GATEWAY_DECLASSIFY_KEY="$(rand_hex 24)"
+[ -n "$GATEWAY_DECLASSIFY_KEY" ] \\
+  || die "could not mint the gateway's declassify key."
+GATEWAY_ADMIN_KEY="$(rand_hex 24)"
+[ -n "$GATEWAY_ADMIN_KEY" ] \\
+  || die "could not mint the gateway's admin key."
+GATEWAY_WARDRYX_KEY="$(rand_hex 24)"
+[ -n "$GATEWAY_WARDRYX_KEY" ] \\
+  || die "could not mint the gateway's wardryx key."
+
+if [ -n "$WARDRYX_URL" ]; then
+  TOKENFUSE_CLIENT_KEYS="$GATEWAY_CLIENT_KEYS" \\
+  TOKENFUSE_IDENTITY_STRICT="enforce" \\
+  TOKENFUSE_ADMIN_KEYS="$GATEWAY_ADMIN_KEY" \\
+  TOKENFUSE_DECLASSIFY_KEY="$GATEWAY_DECLASSIFY_KEY" \\
+  TOKENFUSE_FIREWALL="$FIREWALL_MODE" \\
+  TOKENFUSE_ADDR="127.0.0.1:$GATEWAY_PORT" \\
+  TOKENFUSE_WARDRYX_MODE="enforce" \\
+  TOKENFUSE_WARDRYX_FAILMODE="closed" \\
+  TOKENFUSE_WARDRYX_URL="$WARDRYX_URL" \\
+  TOKENFUSE_WARDRYX_KEY="$GATEWAY_WARDRYX_KEY" \\
+    "$GATEWAY_BIN" > "$LOGS_DIR/gateway.log" 2>&1 &
+else
+  TOKENFUSE_ADDR="127.0.0.1:$GATEWAY_PORT" \\
+    "$GATEWAY_BIN" > "$LOGS_DIR/gateway.log" 2>&1 &
+fi
+
+BROKER_WARDRYX_ENV=()
+if [ "$TYPED_RISK_SIGNAL" -eq 1 ]; then
+  BROKER_WARDRYX_ENV=(
+    "TOKENFUSE_WARDRYX_MODE=enforce"
+    "TOKENFUSE_WARDRYX_URL=http://127.0.0.1:4330"
+    "TOKENFUSE_WARDRYX_KEY=devkey"
+    "TOKENFUSE_WARDRYX_FAILMODE=closed"
+  )
+fi
+if [ "$WITH_TYPED" -eq 1 ]; then
+  log "starting tokenfuse-mcp-broker on :4200 (fronting typryx on :4320)"
+  TOKENFUSE_MCP_ADDR="127.0.0.1:4200" \\
+  TOKENFUSE_MCP_DLP="block" \\
+  env ${BROKER_WARDRYX_ENV[@]+"${BROKER_WARDRYX_ENV[@]}"} \\
+    "$GATEWAY_BIN" mcp-broker > "$LOGS_DIR/tokenfuse-mcp-broker.log" 2>&1 &
+  register tokenfuse-mcp-broker "$!" TERM
+fi
+
 # The health probes a launcher makes, which C15 compares against what each
 # component's own repository declares. The path is the fourth argument and
 # defaults to /healthz when absent.
@@ -1078,8 +1128,29 @@ services:
     image: stack/tokenfuse:dev
     environment:
       TOKENFUSE_ADDR: 0.0.0.0:4100
+      TOKENFUSE_ADMIN_KEYS: ${GATEWAY_ADMIN:?set by install.sh}
+      TOKENFUSE_DECLASSIFY_KEY: ${GATEWAY_DECLASSIFY_KEY:?set by install.sh}
+      TOKENFUSE_CLIENT_KEYS: ${GATEWAY_CLIENT_KEYS:?set by install.sh, which mints them when no keys file is given}
+      TOKENFUSE_IDENTITY_STRICT: enforce
+      TOKENFUSE_FIREWALL: ${TOKENFUSE_FIREWALL:-enforce}
+      TOKENFUSE_WARDRYX_MODE: enforce
+      TOKENFUSE_WARDRYX_URL: http://wardryx:8090
+      TOKENFUSE_WARDRYX_KEY: ${WARDRYX_GATEWAY:?set by install.sh}
+      TOKENFUSE_WARDRYX_FAILMODE: closed
     ports:
       - "${GATEWAY_BIND:-127.0.0.1}:4100:4100"
+
+  tokenfuse-mcp-broker:
+    image: stack/tokenfuse:dev
+    command: ["mcp-broker"]
+    environment:
+      TOKENFUSE_MCP_DLP: block
+      TOKENFUSE_MCP_SCAN: block
+      TOKENFUSE_WARDRYX_MODE: ${TYPED_RISK_WARDRYX_MODE:-enforce}
+      TOKENFUSE_WARDRYX_URL: http://wardryx:8090
+      TOKENFUSE_WARDRYX_KEY: ${WARDRYX_GATEWAY:?set by install.sh}
+      TOKENFUSE_WARDRYX_FAILMODE: closed
+    profiles: ["typed"]
 
   tokenfuse-gateway-openai:
     image: stack/tokenfuse:dev
@@ -1116,8 +1187,39 @@ add_env_default() {
 
 add_env_default ALERT_MIN_SEVERITY high
 
+# wardryx 2.0.0 refuses a viewer key on /v1/decide, so the gateway's key is a pep.
+WARDRYX_KEYS=$WARDRYX_ADMIN_SECRET:default:admin,$WARDRYX_GATEWAY_SECRET:default:pep
+
 # Ordering Docker after tailscaled is service setup, not a scheduled routine.
 mkdir -p /etc/systemd/system/docker.service.d
+"""
+
+K8S_BROKER = """---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tokenfuse-mcp-broker
+  namespace: agent-stack
+spec:
+  template:
+    spec:
+      containers:
+        - name: broker
+          env:
+            - { name: TOKENFUSE_MCP_DLP, value: "block" }
+            - { name: TOKENFUSE_MCP_SCAN, value: "block" }
+            - { name: TOKENFUSE_WARDRYX_MODE, value: "enforce" }
+            - name: TOKENFUSE_WARDRYX_KEY
+              valueFrom: { secretKeyRef: { name: stack-keys, key: wardryx_gateway } }
+            - { name: TOKENFUSE_WARDRYX_FAILMODE, value: "closed" }
+"""
+
+K8S_INSTALL = """#!/usr/bin/env bash
+# stack-k8s installer, reduced to the Secret it creates.
+
+k_ "-n agent-stack create secret generic stack-keys \\
+    --from-literal=wardryx_keys='$WARDRYX_ADMIN_SECRET:default:admin,$WARDRYX_GATEWAY_SECRET:default:pep' \\
+    --from-literal=wardryx_gateway='$WARDRYX_GATEWAY_SECRET'"
 """
 
 K8S_PLANES = """---
@@ -1131,6 +1233,19 @@ spec:
     spec:
       containers:
         - name: gateway
+          env:
+            - name: TOKENFUSE_ADMIN_KEYS
+              valueFrom: { secretKeyRef: { name: stack-keys, key: gateway_admin } }
+            - name: TOKENFUSE_DECLASSIFY_KEY
+              valueFrom: { secretKeyRef: { name: stack-keys, key: declassify_key } }
+            - name: TOKENFUSE_CLIENT_KEYS
+              valueFrom: { secretKeyRef: { name: gateway-client-keys, key: client_keys } }
+            - { name: TOKENFUSE_IDENTITY_STRICT, value: "enforce" }
+            - { name: TOKENFUSE_FIREWALL, value: "enforce" }
+            - { name: TOKENFUSE_WARDRYX_MODE, value: "enforce" }
+            - name: TOKENFUSE_WARDRYX_KEY
+              valueFrom: { secretKeyRef: { name: stack-keys, key: wardryx_gateway } }
+            - { name: TOKENFUSE_WARDRYX_FAILMODE, value: "closed" }
 ---
 apiVersion: v1
 kind: Service
@@ -1882,6 +1997,8 @@ func TestWireTypesIsExactlyWhatTheCallSitesProduce(t *testing.T) {}
     },
     "stack-k8s": {
         "manifests/10-planes.yaml": K8S_PLANES,
+        "manifests/52-tokenfuse-mcp-broker.yaml": K8S_BROKER,
+        "install.sh": K8S_INSTALL,
         "manifests/15-policy-store.yaml": K8S_STORE,
         "manifests/20-console.yaml": K8S_CONSOLE,
         "manifests/40-routines.yaml": K8S_ROUTINES,
@@ -2147,6 +2264,21 @@ EXPECTATIONS = {
                 "policy-db",
             ],
             "divergences": {
+                "services:stack-single:extra:tokenfuse-mcp-broker": {
+                    "recorded": "2026-10-18",
+                    "provenance": "@claude",
+                    "why": "Fixture: the MCP broker runs beside the agreed set in this launcher, as the real estate does for all three."
+                },
+                "services:stack-k8s:extra:tokenfuse-mcp-broker": {
+                    "recorded": "2026-10-18",
+                    "provenance": "@claude",
+                    "why": "Fixture: the MCP broker runs beside the agreed set in this launcher, as the real estate does for all three."
+                },
+                "services:stack-up:extra:tokenfuse-mcp-broker": {
+                    "recorded": "2026-10-18",
+                    "provenance": "@claude",
+                    "why": "Fixture: the MCP broker runs beside the agreed set in this launcher, as the real estate does for all three."
+                },
                 "services:stack-up:absent:console": {
                     "recorded": "2026-08-06",
                     "provenance": "@claude",
@@ -2211,7 +2343,7 @@ EXPECTATIONS = {
 # all here. A repo absent from this map gets [], and the mutation that removes
 # the field entirely is what proves the required-field path can fire.
 FIXTURE_RUNS: dict[str, list[str]] = {
-    "tokenfuse": ["tokenfuse-gateway", "tokenfuse-cloud", "focus-export"],
+    "tokenfuse": ["tokenfuse-gateway", "tokenfuse-cloud", "focus-export", "tokenfuse-mcp-broker"],
     "wardryx": ["wardryx"],
     "idryx": ["idryx", "idryx-detect"],
     "heraldyx": ["heraldyx"],
@@ -2465,3 +2597,18 @@ def write_price_sources(directory) -> None:
     (_pathlib.Path(directory).parent / PRICE_EXCEPTIONS_FILE).write_text(
         _json.dumps(PRICE_EXCEPTIONS, indent=2) + "\n", encoding="utf-8"
     )
+
+
+# C25: the fixture's own posture expectations. The one entry is a deliberate
+# divergence (the fixture's stack-up ships its broker scan as a warning), so the
+# baseline exercises the excused path and must stay green with it.
+POSTURE_EXPECTATIONS = {
+    "comment": ["The fixture's own posture expectations. See selftest/fixture.py."],
+    "divergences": {
+        "broker-scan:stack-up": {
+            "recorded": "2026-10-18",
+            "provenance": "@claude",
+            "why": "Fixture only: this launcher ships its broker's scan as a warning, so the excused path is exercised against a clean baseline.",
+        },
+    },
+}

@@ -119,6 +119,11 @@ import price_pages  # noqa: E402
 #: edit a page the way the others edit a repository.
 PRICE_DIR = "_price-sources"
 
+#: C25's expectations, written into each case root so a mutation can edit them
+#: the way it edits a repository, and so the runner's own subprocess finds them
+#: through the same root.
+POSTURE_FILE = "deployment-posture.json"
+
 def _gate_files() -> list[str]:
     """The gate list, read out of `run-gates.py` rather than kept beside it.
 
@@ -211,6 +216,7 @@ def run_checks(
     os.environ["ESTATE_GATES_EXPECTATIONS"] = str(expectations)
     os.environ["ESTATE_GATES_PRICE_SOURCES"] = str(root / PRICE_DIR)
     os.environ["ESTATE_GATES_PRICE_EXCEPTIONS"] = str(root / fixture.PRICE_EXCEPTIONS_FILE)
+    os.environ["ESTATE_GATES_POSTURE_EXPECTATIONS"] = str(root / POSTURE_FILE)
     # A case may carry its own registry. The shared one is a single file for
     # every case, so a mutation that edited it would leak into every case run
     # after it; a case-local copy is the only way to plant a fault in the
@@ -266,6 +272,7 @@ def run_runner_proc(
         sources = root / PRICE_DIR
     env["ESTATE_GATES_PRICE_SOURCES"] = str(sources)
     env["ESTATE_GATES_PRICE_EXCEPTIONS"] = str(sources.parent / fixture.PRICE_EXCEPTIONS_FILE)
+    env["ESTATE_GATES_POSTURE_EXPECTATIONS"] = str(sources.parent / POSTURE_FILE)
     return subprocess.run(args, capture_output=True, text=True, env=env)
 
 
@@ -487,6 +494,15 @@ def fired(seen: dict[str, str], ident: str) -> bool:
 # Where a mutation trips a second finding as well, that is fine and expected:
 # the requirement is that this mutation makes THIS finding fire, not that it
 # makes only this one fire.
+
+
+def posture_expectations(root: pathlib.Path, change) -> None:
+    """Edit C25's expectations file as data, so a mutation names the field it
+    changes and not the byte layout json.dumps happened to produce."""
+    p = root / POSTURE_FILE
+    data = json.loads(p.read_text(encoding="utf-8"))
+    change(data)
+    p.write_text(json.dumps(data, indent=2), encoding="utf-8")
 
 
 def edit(root: pathlib.Path, rel: str, old: str, new: str, every: bool = False) -> None:
@@ -974,6 +990,233 @@ MUTATIONS: dict[str, list[tuple[str, callable]]] = {
     "c24.nothing-scanned": [(
         "a public repository tracks no file at all",
         lambda r: git(r / "wardryx", "rm", "-r", "-q", "--", "."),
+    )],
+    # ---- C25
+    # Each posture is broken on one launcher at a time, in the shape it has in
+    # that launcher's own file (compose, a Kubernetes manifest, up.sh). The
+    # baseline holds every posture, except the one recorded as a deliberate
+    # divergence in the fixture's expectations, so each mutation below is the
+    # only thing that can make its finding fire.
+    "c25.client-keys": [
+        (
+            "compose stops refusing a gateway with no client keys (an empty default)",
+            lambda r: edit(
+                r, "stack-single/compose.yaml",
+                "TOKENFUSE_CLIENT_KEYS: ${GATEWAY_CLIENT_KEYS:?set by install.sh, which mints them when no keys file is given}",
+                "TOKENFUSE_CLIENT_KEYS: ${GATEWAY_CLIENT_KEYS:-}",
+            ),
+        ),
+        (
+            "the Kubernetes client-keys Secret becomes optional",
+            lambda r: edit(
+                r, "stack-k8s/manifests/10-planes.yaml",
+                "valueFrom: { secretKeyRef: { name: gateway-client-keys, key: client_keys } }",
+                "valueFrom: { secretKeyRef: { name: gateway-client-keys, key: client_keys, optional: true } }",
+            ),
+        ),
+        (
+            "up.sh mints the client key but no longer refuses to start when it is empty",
+            lambda r: edit(r, "stack-up/up.sh", '[ -n "$GATEWAY_CLIENT_KEYS" ] \\', '[ -n "" ] \\'),
+        ),
+    ],
+    "c25.identity-strict": [
+        (
+            "compose sets identity strict to off",
+            lambda r: edit(r, "stack-single/compose.yaml", "TOKENFUSE_IDENTITY_STRICT: enforce", "TOKENFUSE_IDENTITY_STRICT: off"),
+        ),
+        (
+            "the Kubernetes gateway sets identity strict to off",
+            lambda r: edit(
+                r, "stack-k8s/manifests/10-planes.yaml",
+                '{ name: TOKENFUSE_IDENTITY_STRICT, value: "enforce" }',
+                '{ name: TOKENFUSE_IDENTITY_STRICT, value: "off" }',
+            ),
+        ),
+    ],
+    "c25.firewall": [
+        (
+            "compose defaults the agent firewall to shadow",
+            lambda r: edit(r, "stack-single/compose.yaml", "TOKENFUSE_FIREWALL: ${TOKENFUSE_FIREWALL:-enforce}", "TOKENFUSE_FIREWALL: ${TOKENFUSE_FIREWALL:-shadow}"),
+        ),
+        (
+            "up.sh defaults the agent firewall to shadow",
+            lambda r: edit(r, "stack-up/up.sh", 'FIREWALL_MODE="enforce"', 'FIREWALL_MODE="shadow"'),
+        ),
+    ],
+    "c25.pep-mode": [
+        (
+            "compose sets the gateway's wardryx mode to shadow",
+            lambda r: edit(r, "stack-single/compose.yaml", "TOKENFUSE_WARDRYX_MODE: enforce", "TOKENFUSE_WARDRYX_MODE: shadow"),
+        ),
+        (
+            "the Kubernetes gateway sets its wardryx mode to shadow",
+            lambda r: edit(
+                r, "stack-k8s/manifests/10-planes.yaml",
+                '{ name: TOKENFUSE_WARDRYX_MODE, value: "enforce" }',
+                '{ name: TOKENFUSE_WARDRYX_MODE, value: "shadow" }',
+            ),
+        ),
+        (
+            "up.sh's wardryx-wired gateway start runs wardryx in shadow",
+            lambda r: edit(r, "stack-up/up.sh", 'TOKENFUSE_WARDRYX_MODE="enforce" \\', 'TOKENFUSE_WARDRYX_MODE="shadow" \\'),
+        ),
+    ],
+    "c25.pep-failmode": [
+        (
+            "compose's gateway fails open when wardryx is silent",
+            lambda r: edit(r, "stack-single/compose.yaml", "TOKENFUSE_WARDRYX_FAILMODE: closed\n    ports:", "TOKENFUSE_WARDRYX_FAILMODE: open\n    ports:"),
+        ),
+        (
+            "the Kubernetes gateway fails open when wardryx is silent",
+            lambda r: edit(
+                r, "stack-k8s/manifests/10-planes.yaml",
+                '{ name: TOKENFUSE_WARDRYX_FAILMODE, value: "closed" }',
+                '{ name: TOKENFUSE_WARDRYX_FAILMODE, value: "open" }',
+            ),
+        ),
+        (
+            "up.sh's wardryx-wired gateway start fails open",
+            lambda r: edit(r, "stack-up/up.sh", 'TOKENFUSE_WARDRYX_FAILMODE="closed" \\', 'TOKENFUSE_WARDRYX_FAILMODE="open" \\'),
+        ),
+    ],
+    "c25.pep-key-role": [
+        (
+            "compose's installer mints the gateway's policy-plane key as a viewer",
+            lambda r: edit(r, "stack-single/install.sh", "$WARDRYX_GATEWAY_SECRET:default:pep", "$WARDRYX_GATEWAY_SECRET:default:viewer"),
+        ),
+        (
+            "the Kubernetes installer mints the gateway's policy-plane key as a viewer",
+            lambda r: edit(r, "stack-k8s/install.sh", "$WARDRYX_GATEWAY_SECRET:default:pep", "$WARDRYX_GATEWAY_SECRET:default:viewer"),
+        ),
+        (
+            "up.sh hands wardryx the built-in devkey literal",
+            lambda r: edit(r, "stack-up/up.sh", 'TOKENFUSE_WARDRYX_KEY="$GATEWAY_WARDRYX_KEY" \\', 'TOKENFUSE_WARDRYX_KEY="devkey" \\'),
+        ),
+    ],
+    "c25.declassify-key": [
+        (
+            "compose lets the declassify key be empty",
+            lambda r: edit(r, "stack-single/compose.yaml", "TOKENFUSE_DECLASSIFY_KEY: ${GATEWAY_DECLASSIFY_KEY:?set by install.sh}", "TOKENFUSE_DECLASSIFY_KEY: ${GATEWAY_DECLASSIFY_KEY:-}"),
+        ),
+        (
+            "up.sh mints the declassify key but no longer refuses an empty one",
+            lambda r: edit(r, "stack-up/up.sh", '[ -n "$GATEWAY_DECLASSIFY_KEY" ] \\', '[ -n "" ] \\'),
+        ),
+    ],
+    "c25.broker-dlp": [
+        (
+            "compose's broker runs its DLP in shadow",
+            lambda r: edit(r, "stack-single/compose.yaml", "TOKENFUSE_MCP_DLP: block", "TOKENFUSE_MCP_DLP: shadow"),
+        ),
+        (
+            "up.sh's broker start sets no DLP block at all",
+            lambda r: edit(r, "stack-up/up.sh", '  TOKENFUSE_MCP_DLP="block" \\\n', ""),
+        ),
+    ],
+    "c25.broker-scan": [
+        (
+            "compose's broker scans in shadow, so it warns and does not block",
+            lambda r: edit(r, "stack-single/compose.yaml", "TOKENFUSE_MCP_SCAN: block", "TOKENFUSE_MCP_SCAN: shadow"),
+        ),
+        (
+            "the Kubernetes broker scans in shadow",
+            lambda r: edit(
+                r, "stack-k8s/manifests/52-tokenfuse-mcp-broker.yaml",
+                '{ name: TOKENFUSE_MCP_SCAN, value: "block" }',
+                '{ name: TOKENFUSE_MCP_SCAN, value: "shadow" }',
+            ),
+        ),
+    ],
+    "c25.broker-pep-mode": [
+        (
+            "compose's broker runs wardryx in shadow by default",
+            lambda r: edit(r, "stack-single/compose.yaml", "${TYPED_RISK_WARDRYX_MODE:-enforce}", "${TYPED_RISK_WARDRYX_MODE:-shadow}"),
+        ),
+        (
+            "up.sh's broker is handed wardryx in shadow",
+            lambda r: edit(r, "stack-up/up.sh", '"TOKENFUSE_WARDRYX_MODE=enforce"', '"TOKENFUSE_WARDRYX_MODE=shadow"'),
+        ),
+    ],
+    "c25.broker-pep-failmode": [
+        (
+            "compose's broker fails open when wardryx is silent",
+            lambda r: edit(r, "stack-single/compose.yaml", "TOKENFUSE_WARDRYX_FAILMODE: closed\n    profiles", "TOKENFUSE_WARDRYX_FAILMODE: open\n    profiles"),
+        ),
+        (
+            "up.sh's broker is handed a fail-open wardryx hook",
+            lambda r: edit(r, "stack-up/up.sh", '"TOKENFUSE_WARDRYX_FAILMODE=closed"', '"TOKENFUSE_WARDRYX_FAILMODE=open"'),
+        ),
+    ],
+    "c25.admin-keys": [
+        (
+            "compose lets the gateway's admin key be empty",
+            lambda r: edit(r, "stack-single/compose.yaml", "TOKENFUSE_ADMIN_KEYS: ${GATEWAY_ADMIN:?set by install.sh}", "TOKENFUSE_ADMIN_KEYS: ${GATEWAY_ADMIN:-}"),
+        ),
+        (
+            "the Kubernetes admin Secret becomes optional",
+            lambda r: edit(
+                r, "stack-k8s/manifests/10-planes.yaml",
+                "valueFrom: { secretKeyRef: { name: stack-keys, key: gateway_admin } }",
+                "valueFrom: { secretKeyRef: { name: stack-keys, key: gateway_admin, optional: true } }",
+            ),
+        ),
+        (
+            "up.sh mints the admin key but no longer refuses an empty one",
+            lambda r: edit(r, "stack-up/up.sh", '[ -n "$GATEWAY_ADMIN_KEY" ] \\', '[ -n "" ] \\'),
+        ),
+    ],
+    # The subject itself vanishes: a launcher file is gone, a service is renamed
+    # out from under the check, a wardryx-wired start loses its `else`, and the
+    # installer stops writing the role line. Each must read red, naming what
+    # disappeared, and never pass.
+    "c25.launcher-missing": [(
+        "up.sh is gone from stack-up, the launcher that is a fresh checkout's only gateway start",
+        lambda r: drop(r, "stack-up/up.sh"),
+    )],
+    "c25.anchor-missing": [
+        (
+            "compose renames the gateway service, so no posture can be read from it",
+            lambda r: edit(r, "stack-single/compose.yaml", "\n  tokenfuse-gateway:\n", "\n  tokenfuse-gateway-retired:\n"),
+        ),
+        (
+            "up.sh loses the `else` that closes its wardryx-wired gateway start",
+            lambda r: edit(r, "stack-up/up.sh", "\nelse\n  TOKENFUSE_ADDR=", "\n# else\n  TOKENFUSE_ADDR="),
+        ),
+        (
+            "compose's installer stops writing the gateway's wardryx role at all",
+            lambda r: edit(
+                r, "stack-single/install.sh",
+                "WARDRYX_KEYS=$WARDRYX_ADMIN_SECRET:default:admin,$WARDRYX_GATEWAY_SECRET:default:pep\n",
+                "",
+            ),
+        ),
+    ],
+    # The expectations file is a decision record, and it is read in both
+    # directions: an exception with no reason is a gap nobody wrote down, an
+    # exception for a posture the launcher now holds excuses nothing, and a file
+    # that is gone cannot excuse anything at all.
+    "c25.expectation-stale": [(
+        "a divergence is recorded for a posture the launcher holds",
+        lambda r: posture_expectations(
+            r,
+            lambda d: d["divergences"].update({
+                "client-keys:stack-single": {
+                    "recorded": "2026-10-18",
+                    "provenance": "@claude",
+                    "why": "Recorded for a posture that is in fact held, so it must be removed.",
+                },
+            }),
+        ),
+    )],
+    "c25.expectation-unreasoned": [(
+        "a recorded divergence has an empty reason",
+        lambda r: posture_expectations(
+            r, lambda d: d["divergences"]["broker-scan:stack-up"].update({"why": ""}),
+        ),
+    )],
+    "c25.expectations-missing": [(
+        "the expectations file is gone, so no divergence can be excused",
+        lambda r: drop(r, POSTURE_FILE),
     )],
     # ---- C7
     # ---- C9
@@ -3191,6 +3434,9 @@ def main() -> int:
         base.mkdir()
         build_estate(base)
         fixture.write_price_sources(base / PRICE_DIR)
+        (base / POSTURE_FILE).write_text(
+            json.dumps(fixture.POSTURE_EXPECTATIONS, indent=2), encoding="utf-8"
+        )
         os.environ["ESTATE_GATES_TODAY"] = fixture.PRICE_TODAY
 
         registry = work / "estate.json"
@@ -3252,6 +3498,7 @@ def main() -> int:
                         ESTATE_GATES_EXPECTATIONS=str(expectations),
                         ESTATE_GATES_PRICE_SOURCES=str(base / PRICE_DIR),
                         ESTATE_GATES_PRICE_EXCEPTIONS=str(base / fixture.PRICE_EXCEPTIONS_FILE),
+                        ESTATE_GATES_POSTURE_EXPECTATIONS=str(base / POSTURE_FILE),
                     ),
                 )
                 # Exactly clean, because the fixture IS clean and every gate
