@@ -2595,6 +2595,36 @@ MUTATIONS: dict[str, list[tuple[str, callable]]] = {
         "every tag-triggered workflow in the estate is removed",
         lambda r: drop(r, "tokenfuse/.github/workflows/release.yml"),
     )],
+    # ---- C26
+    "c26.legacy-flag-missing": [
+        (
+            # `@decided 2026-10-19`: the legacy bundle format is the one the
+            # verifier reads. Dropping the first flag leaves the image signed
+            # in the format nothing admits, and the sign step still succeeds.
+            "a sign line drops --new-bundle-format=false",
+            lambda r: edit(
+                r,
+                "tokenfuse/.github/workflows/sign.yml",
+                "cosign sign --yes --new-bundle-format=false \\\n",
+                "cosign sign --yes \\\n",
+            ),
+        ),
+        (
+            "a sign line drops --use-signing-config=false",
+            lambda r: edit(
+                r,
+                "tokenfuse/.github/workflows/sign.yml",
+                '--use-signing-config=false "$IMAGE"',
+                '"$IMAGE"',
+            ),
+        ),
+    ],
+    "c26.no-subjects": [(
+        # The only workflow that signs an image in the fixture is gone, so the
+        # gate has nothing to judge and must say it measured nothing.
+        "no workflow in the estate signs an image",
+        lambda r: drop(r, "tokenfuse/.github/workflows/sign.yml"),
+    )],
     # ---- C18
     "c18.expectations-unreadable": [(
         "the pending list cannot be read, so nothing may be called pending",

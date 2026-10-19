@@ -1582,6 +1582,27 @@ var prices = map[string]Price{
 }
 """
 
+# C26's fixture: an image signed with both legacy flags, a blob signed without
+# them (a file, not an image, so it is not a sign line and passes), and a
+# commented-out sign line (not read).
+SIGN_WORKFLOW_YML = """\
+name: sign
+on:
+  push:
+    branches: [main]
+jobs:
+  sign:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: sign the image
+        run: |
+          # cosign sign --yes "$IMAGE" is what this used to run
+          cosign sign --yes --new-bundle-format=false \\
+            --use-signing-config=false "$IMAGE"
+      - name: sign a release file, which is not an image
+        run: cosign sign-blob --yes --bundle release.bundle release.tar.gz
+"""
+
 
 ESTATE: dict[str, dict] = {
     "agent-passport": {
@@ -1635,6 +1656,7 @@ ESTATE: dict[str, dict] = {
         "crates/gateway/src/chainproof.rs": CHAINPROOF_RS,
         "crates/gateway/src/wardryx.rs": WARDRYX_RS,
         ".github/workflows/release.yml": RELEASE_WORKFLOW_YML,
+        ".github/workflows/sign.yml": SIGN_WORKFLOW_YML,
     },
     "verdryx": {
         "verdryx/costper.py": COSTPER_PY,
