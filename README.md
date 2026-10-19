@@ -100,13 +100,15 @@ name to still be written. The search for an undeclared writer asks only
 whether a repository is declared, so a SECOND writer added inside a declared
 repository is not found by it.
 
-For wardryx and vouchryx the emit sites are read from every non-test `.go` file
-under `internal/` and `cmd/`. wardryx resolves its `ev*` constants per package:
-its identity-mismatch emit sits in `internal/api/agent_token.go`, not in
-`api.go`, so a reader of one file would report a registered row as never
-emitted. vouchryx's delegation emits are in `agents.go` and `xaa.go` as well
-as `api.go`. The other producers still read only the files they name. That is
-a limit of this reader, and invariant 30 of CLAUDE.md records it as `partly gated`.
+Every producer reads the non-test source files of its code directories, not the one file that
+first held its emits. A Go producer resolves its `ev*` and type constants per package and reads
+either the event literals or the emit helper's first argument from every file (wardryx's
+identity-mismatch emit sits in `agent_token.go`, and vouchryx's delegation emits in `agents.go` and
+`xaa.go`). Python reads every module of the package, and genaryx every crate file that inserts a
+literal console type. A type that cannot be read is refused, and an empty read says it measured
+nothing. tokenfuse (one closed enum), costcrew (one declared list), taipan (a replayer of one
+table) and genaryx's demo and mock generators (computed types) are the named exceptions, recorded in
+invariant 30 of CLAUDE.md as `partly gated`.
 
 **C5, deployment parity** (`gates/c5-deployment-parity.py`). stack-up,
 stack-single and stack-k8s compared on four things: which governance routines

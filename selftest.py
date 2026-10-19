@@ -297,8 +297,56 @@ TEETH_CASES = (
     "c23.undeclared-not-judged-row-public",
     "c23.undeclared-not-judged-vertex",
     "c4.wardryx-measured-nothing",
+    "c4.go-measured-nothing",
+    "c4.python-measured-nothing",
+    "c4.rust-measured-nothing",
 )
 TEETH_RAN: list[str] = []
+
+
+def producer_without_emits_says_measured_nothing(
+    base: pathlib.Path,
+    work: pathlib.Path,
+    registry: pathlib.Path,
+    name: str,
+    repo: str,
+    variants,
+    case_no: int,
+) -> list[str]:
+    """A producer that reads nothing it can compare must say it measured nothing.
+
+    Two ways to reach that, and each is its own variant, because the code paths
+    differ: a tracked emitting file that cannot be read (the read itself fails),
+    and every emit renamed away from files that do read (the scan finds no
+    type). One per language family. `variants` is a list of (label, mutate),
+    each applied to a fresh copy.
+    """
+    TEETH_RAN.append(name)
+    import importlib.util as _ilu
+
+    spec = _ilu.spec_from_file_location("c4_teeth", HERE / "gates" / "c4-event-registry.py")
+    module = _ilu.module_from_spec(spec)  # type: ignore[arg-type]
+    spec.loader.exec_module(module)  # type: ignore[union-attr]
+    problems: list[str] = []
+    for offset, (label, mutate) in enumerate(variants):
+        case = fresh_copy(base, work, case_no + offset)
+        mutate(case)
+        estate = E.Estate(
+            json.loads(registry.read_text(encoding="utf-8")), mode="worktree", root=case
+        )
+        check = module.run(estate)
+        texts = [
+            msg for kind, ident, msg, _detail in check.findings
+            if ident == "c4.producer-unreadable" and f"{repo}:" in msg
+        ]
+        if not texts:
+            problems.append(f"{name} ({label}): C4 raised no c4.producer-unreadable for {repo}.")
+        elif not any("measured nothing" in t for t in texts):
+            problems.append(
+                f"{name} ({label}): C4 reports {repo} unreadable without saying it "
+                f"measured nothing: {texts[0][:200]!r}"
+            )
+    return problems
 
 
 def wardryx_without_emits_says_measured_nothing(
@@ -2080,6 +2128,26 @@ MUTATIONS: dict[str, list[tuple[str, callable]]] = {
         ),
     ],
     "c4.producer-unreadable": [
+        (
+            "idryx writes an event whose type is computed at runtime",
+            lambda r: plant(
+                r,
+                "idryx/internal/events/computed.go",
+                'package events\n\nimport "github.com/TAIPANBOX/agent-stack-go/event"\n\n'
+                'func (s *Sink) computed(kind, agentID string) error {\n'
+                '\te := event.Event{Source: Source, Type: kind, AgentID: agentID}\n'
+                '\treturn s.w.Write(e)\n}\n',
+            ),
+        ),
+        (
+            "engram emits a type computed at runtime, which nothing can read",
+            lambda r: plant(
+                r,
+                "engram/engram/computed.py",
+                'class Computed:\n    def go(self, kind, agent_id):\n'
+                '        self._events.emit(kind, agent_id, {})\n',
+            ),
+        ),
         # The const block carries a chain-type constant this extractor does not
         # name. That is the failure that hid chain_restarted: a hand-kept list
         # goes stale silently, so an unlisted typeChain* constant is refused.
@@ -2223,6 +2291,7 @@ MUTATIONS: dict[str, list[tuple[str, callable]]] = {
                 ),
                 git(r / "idryx", "rm", "-q", "internal/ingest/tokenfuse/tokenfuse.go"),
                 git(r / "idryx", "rm", "-q", "internal/events/events.go"),
+                git(r / "idryx", "rm", "-q", "internal/events/second.go"),
             ],
         ),
     ],
@@ -2306,6 +2375,46 @@ MUTATIONS: dict[str, list[tuple[str, callable]]] = {
         ),
     ],
     "c4.unregistered-type": [
+        (
+            "idryx writes a second finding type from a second file, which 6.2 does not list",
+            lambda r: plant(
+                r,
+                "idryx/internal/events/unlisted.go",
+                'package events\n\nimport "github.com/TAIPANBOX/agent-stack-go/event"\n\n'
+                'func (s *Sink) unlisted(agentID string) error {\n'
+                '\te := event.Event{Source: Source, Type: "identity_unlisted", AgentID: agentID}\n'
+                '\treturn s.w.Write(e)\n}\n',
+            ),
+        ),
+        (
+            "typryx answers with a type from a second file through its helper, which 6.2 does not list",
+            lambda r: plant(
+                r,
+                "typryx/internal/record/unlisted.go",
+                'package record\n\nfunc (j *Journal) Unlisted(agentID string) Outcome {\n'
+                '\treturn j.emit("typed_unlisted", agentID)\n}\n',
+            ),
+        ),
+        (
+            "engram emits a type from a second module, which 6.2 does not list",
+            lambda r: plant(
+                r,
+                "engram/engram/unlisted.py",
+                'class Unlisted:\n    def go(self, agent_id):\n'
+                '        self._events.emit("memory_unlisted", agent_id, {})\n',
+            ),
+        ),
+        (
+            "genaryx writes a console line of a type 6.2 does not list, from a second file",
+            lambda r: plant(
+                r,
+                "genaryx/crates/core/src/unlisted.rs",
+                'pub fn build_unlisted() -> Value {\n    let mut obj = Map::new();\n'
+                '    obj.insert("source".to_string(), Value::String("console".to_string()));\n'
+                '    obj.insert("type".to_string(), Value::String("console_unlisted".to_string()));\n'
+                '    Value::Object(obj)\n}\n',
+            ),
+        ),
         (
             # wardryx's identity-mismatch emit, shaped as it is on wardryx's
             # feature branch: a constant declared in the emitting file and used
@@ -3802,6 +3911,42 @@ def main() -> int:
         # -- 6d. a wardryx tree with no emit left says it measured nothing ---
         if not problems:
             problems += wardryx_without_emits_says_measured_nothing(base, work, registry)
+        if not problems:
+            problems += producer_without_emits_says_measured_nothing(
+                base, work, registry, "c4.go-measured-nothing", "idryx",
+                [
+                    ("renamed away", lambda r: [
+                        edit(r, "idryx/internal/events/events.go", "event.Event{", "event.Evt{", every=True),
+                        edit(r, "idryx/internal/events/second.go", "event.Event{", "event.Evt{", every=True),
+                    ]),
+                    ("file gone", lambda r: drop(r, "idryx/internal/events/second.go")),
+                ],
+                9101,
+            )
+        if not problems:
+            problems += producer_without_emits_says_measured_nothing(
+                base, work, registry, "c4.python-measured-nothing", "engram",
+                [
+                    ("renamed away", lambda r: [
+                        edit(r, "engram/engram/core.py", "self._events.emit(", "self._events.dispatch(", every=True),
+                        edit(r, "engram/engram/extra.py", "self._events.emit(", "self._events.dispatch(", every=True),
+                    ]),
+                    ("file gone", lambda r: drop(r, "engram/engram/core.py")),
+                ],
+                9103,
+            )
+        if not problems:
+            problems += producer_without_emits_says_measured_nothing(
+                base, work, registry, "c4.rust-measured-nothing", "genaryx",
+                [
+                    ("renamed away", lambda r: [
+                        edit(r, "genaryx/crates/core/src/command.rs", '"type".to_string(),', '"kind".to_string(),'),
+                        edit(r, "genaryx/crates/core/src/second.rs", '"type".to_string(),', '"kind".to_string(),'),
+                    ]),
+                    ("file gone", lambda r: drop(r, "genaryx/crates/core/src/second.rs")),
+                ],
+                9105,
+            )
         if not problems and sorted(TEETH_RAN) != sorted(TEETH_CASES):
             problems.append(
                 f"the teeth cases that ran were {TEETH_RAN}, not the {list(TEETH_CASES)} "

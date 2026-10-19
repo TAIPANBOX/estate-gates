@@ -142,3 +142,63 @@ Feature: The event registry and what the producers emit, in both directions
     Then the finding says it measured nothing about the producer's emits
     Because a red line that only says the file could not be read does not tell
       an unread producer from an empty one
+
+  @fires:c4.unregistered-type
+  Scenario: A Go producer's later file writes an event type its row does not list
+    Given a Go producer whose event literals are spread over several of its files
+    And one of the later files writes an event literal naming a type its row does not list
+    When the two are compared
+    Then it is refused, listing the extra type
+    Because a registered row reads as complete while a file the check never read writes one more
+
+  @fires:c4.unregistered-type
+  Scenario: A Go producer's helper called from a later file emits a type its row does not list
+    Given a Go producer that emits through one helper, called from several of its files
+    And a later file calling the helper with a type its row does not name
+    When the two are compared
+    Then it is refused, listing the extra type
+    Because the helper is the producer's emit, wherever it is called from
+
+  @fires:c4.unregistered-type
+  Scenario: A Python producer's later module emits a type its row does not list
+    Given a Python package whose emit calls are spread over several of its modules
+    And one module emitting a literal type its row does not name
+    When the two are compared
+    Then it is refused, listing the extra type
+    Because a module the check never opened is a producer it never read
+
+  @fires:c4.unregistered-type
+  Scenario: A Rust producer's later file writes a console line of an unlisted type
+    Given a Rust producer that writes its lines with literal source and type inserts
+    And a later file inserting a literal type its row does not name
+    When the two are compared
+    Then it is refused, listing the extra type
+    Because a console line of a type nobody registered is an event no consumer expects
+
+  @fires:c4.producer-unreadable
+  Scenario: A Python producer emits a type computed at runtime
+    Given a module whose emit call takes a type that is not a literal string
+    When its types are read
+    Then it is refused, and nothing is compared with the registry
+    Because a type nobody can read is a hole, never an agreement
+
+  @teeth:c4.go-measured-nothing
+  Scenario: A Go producer whose event literals are all gone says it measured nothing
+    Given a Go producer whose event literals are renamed away and whose writer file remains
+    When C4 reads the producer
+    Then the finding says it measured nothing about the producer's emits
+    Because a red line that only says nothing could be read does not tell an empty producer from an unread one
+
+  @teeth:c4.python-measured-nothing
+  Scenario: A Python producer with no emit left says it measured nothing
+    Given a Python package whose emitting modules are gone and whose writer module remains
+    When C4 reads the producer
+    Then the finding says it measured nothing about the producer's emits
+    Because an empty package and an unread one look identical in a summary
+
+  @teeth:c4.rust-measured-nothing
+  Scenario: A Rust producer with no literal type left says it measured nothing
+    Given a Rust producer whose type inserts are no longer literal and whose writer file remains
+    When C4 reads the producer
+    Then the finding says it measured nothing about the producer's emits
+    Because a producer whose type is never a literal has nothing this reader can compare
