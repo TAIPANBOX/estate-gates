@@ -22,8 +22,9 @@ where `sign` ends, so `cosign sign-blob` (a file, not an image) and
 `cosign attest` (an attestation) are not sign lines and are not judged. A line
 that is a YAML comment is not read. The command a sign line starts is read with
 its continuation lines (a line ending in a backslash joins the next one), and
-both flags must appear in that command, written either as `--flag=false` or as
-`--flag false`.
+both flags must appear in that command as `--flag=false`. The space form
+(`--flag false`) is refused: cosign's flags are booleans, so the space form sets
+the flag to true and passes "false" as an argument.
 
 WHAT COUNTS AS A FAILURE
 
@@ -55,9 +56,12 @@ import _estate as E  # noqa: E402
 # `sign-blob` and `attest` do not match, and a longer word cannot match either.
 _SIGN = re.compile(r"(?<![\w.-])cosign\s+sign(?![\w-])")
 
+# Only the `=false` form counts. cosign's flags are pflag booleans: the space
+# form `--flag false` sets the flag to TRUE and passes "false" as an argument,
+# which signs in the very format this gate exists to refuse.
 _FLAGS = (
-    ("--new-bundle-format=false", re.compile(r"--new-bundle-format(?:=|\s+)false(?![\w-])")),
-    ("--use-signing-config=false", re.compile(r"--use-signing-config(?:=|\s+)false(?![\w-])")),
+    ("--new-bundle-format=false", re.compile(r"--new-bundle-format=false(?![\w-])")),
+    ("--use-signing-config=false", re.compile(r"--use-signing-config=false(?![\w-])")),
 )
 
 

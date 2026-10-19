@@ -2618,6 +2618,26 @@ MUTATIONS: dict[str, list[tuple[str, callable]]] = {
                 '"$IMAGE"',
             ),
         ),
+        (
+            # pflag booleans: the space form sets the flag to TRUE and passes
+            # "false" as an argument, so it signs in the format C26 refuses.
+            "a sign line passes --new-bundle-format as a space-separated false",
+            lambda r: edit(
+                r,
+                "tokenfuse/.github/workflows/sign.yml",
+                "--new-bundle-format=false",
+                "--new-bundle-format false",
+            ),
+        ),
+        (
+            "a sign line sets --new-bundle-format=true",
+            lambda r: edit(
+                r,
+                "tokenfuse/.github/workflows/sign.yml",
+                "--new-bundle-format=false",
+                "--new-bundle-format=true",
+            ),
+        ),
     ],
     "c26.no-subjects": [(
         # The only workflow that signs an image in the fixture is gone, so the
