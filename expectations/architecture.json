@@ -11,5 +11,11 @@
     "been written, with the date and a reason; do not add one to excuse a file",
     "that exists."
   ],
-  "pending": {}
+  "pending": {
+    "keyryx": {
+      "recorded": "2026-10-18",
+      "provenance": "@claude",
+      "why": "A GAP, not a decision. keyryx was registered in estate.json on 2026-10-18 and its services/keyryx.md dossier is not written yet. The dossier lives in TAIPANBOX/architecture, which this change does not touch; writing it is that repository's next change. Remove this entry the day the file exists."
+    }
+  }
 }

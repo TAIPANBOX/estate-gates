@@ -147,7 +147,8 @@
         "scopyx",
         "tokenfuse-cloud",
         "tokenfuse-gateway",
-        "wardryx"
+        "wardryx",
+        "keyryx"
       ],
       "divergences": {
         "services:stack-up:absent:console": {
@@ -284,6 +285,11 @@
           "recorded": "2026-10-04",
           "provenance": "@claude 2026-10-04",
           "why": "typryx's own `wardryx-proxy` subcommand (typryx v0.4.0): a separate process, on its own port (4330, in the agreed port map), that sits between tokenfuse's MCP broker and wardryx and adds a typed risk signal to a pending tool call, which a `hold_if_signal` rule can turn into a hold and nothing else. OPT-IN in all three launchers and off by default, behind the same opt-in that brings up typryx plus a flag of its own: stack-up `--typed-risk-signal`, stack-single `TYPED_RISK_SIGNAL=1 ./install.sh` (compose profile `typed-risk-signal`), stack-k8s `deploy.sh --typed-risk-signal` with `manifests/56-typryx-wardryx-proxy.yaml` outside the kustomization. Recorded as `extra` in all three rather than added to `agreed`, for the reason the typryx entry gives: `agreed` is what every deployment brings up, and an opt-in profile is not that. It is its own kind and not part of `typryx`, for the reason the broker is its own kind: a separate process with its own port and its own failure mode. The launchers' own files record the wiring as a decision of 2026-10-04; this entry is a reading of them by @claude 2026-10-04."
+        },
+        "services:stack-k8s:absent:keyryx": {
+          "recorded": "2026-10-19",
+          "provenance": "@claude",
+          "why": "OPT-IN, as keyryx/up.sh states at the top of the file: `kubectl apply -k manifests/` never applies keyryx/manifests/59-keyryx.yaml and keyryx/wardryx-patch.yaml, and keyryx/up.sh is the only path that turns Keyryx on, the same shape as closure/up.sh and delegation/up.sh. stack-single and stack-up run keyryx by default (compose services `keyryx` and `keyryx-witness` with no profile; up.sh registers both behind the policy plane), so keyryx is in the agreed set and this is the one deployment that brings it up only on request. Recorded as an absence, not an extra, because the agreed set is what every deployment is measured against. @claude 2026-10-19 reading of keyryx/up.sh and stack-k8s's manifests/kustomization.yaml; not a decision somebody stated to me."
         }
       }
     },

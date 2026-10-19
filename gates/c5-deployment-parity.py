@@ -237,6 +237,16 @@ SERVICE_KIND = {
     # stack-k8s `deploy.sh --with-typed`). Like vouchryx it is recorded as an
     # `extra` in each rather than added to `agreed`, because nobody gets it by
     # default; its port, 4320, IS in the agreed port map.
+    # keyryx, stack-up (`register keyryx`, stack-up#54, L3). Two names from ONE
+    # binary and ONE repository: `keyryx` is custody (`keyryx custody`) and
+    # `keyryx-witness` is the witness (`keyryx witness`). The witness is folded
+    # into the component it belongs to, the way `costcrew-init` and
+    # `scopyx-browser` are, so the two names do not become two components. Both
+    # launchers that carry keyryx later (stack-single, stack-k8s) get the same
+    # two names, and `extra` until all three carry it, recorded in
+    # expectations/deployment-parity.json.
+    "keyryx": "keyryx",
+    "keyryx-witness": "keyryx",
     "typryx": "typryx",
     # tokenfuse's own `mcp-broker` subcommand, fronting typryx, in all three
     # deployments since 2026-09-26 behind the same opt-in as typryx itself.
