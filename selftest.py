@@ -54,8 +54,15 @@ And one more that belongs to rule 2 rather than rule 1:
      teeth cases c23.undeclared-not-judged-row-public and
      c23.undeclared-not-judged-vertex prove it.
   7. THE PAGE READERS SURVIVE THE PAGES. The readers are run against the
-     vendor pages as saved on 2026-10-13 and against a seeded sweep of hostile
+     vendor pages as saved on 2026-10-13 and on 2026-10-28 (the day Anthropic
+     wrote its regional premium as "10 percent" and OpenAI split its standard
+     text-token prices over two tables) and against a seeded sweep of hostile
      bytes (selftest/price_pages.py).
+  8. THE LAUNCHER READER READS EVERY SHAPE OF THE CALL. C15's reader of the
+     health path stack-up polls is run against every `wait_health` call in
+     stack-up's up.sh as it stood on 2026-10-28 and against the shapes that
+     follow the third argument: `; then`, `||`, `&&`, a backslash, a comment,
+     an explicit path (selftest/probe_shapes.py).
 
 EXPECTED COUNTS
 
@@ -114,6 +121,7 @@ sys.path.insert(0, str(HERE / "selftest"))
 import _estate as E  # noqa: E402
 import fixture  # noqa: E402
 import price_pages  # noqa: E402
+import probe_shapes  # noqa: E402
 
 #: Where each case keeps C23's vendor pages: inside the case, so a mutation can
 #: edit a page the way the others edit a repository.
@@ -2771,7 +2779,7 @@ MUTATIONS: dict[str, list[tuple[str, callable]]] = {
         # An anchor that matches nothing is a finding and not a clean run: the
         # deployment's probes were simply not read.
         "the launcher stops calling the function this check reads",
-        lambda r: edit(r, "stack-up/up.sh", "wait_health vouchryx", "await_ready vouchryx", every=True),
+        lambda r: edit(r, "stack-up/up.sh", "wait_health ", "await_ready ", every=True),
     )],
     # The check the whole per-repo declaration was for. It could not be asked
     # until every repository carried one: a central registry cannot see a
@@ -2834,6 +2842,19 @@ MUTATIONS: dict[str, list[tuple[str, callable]]] = {
             r, "vouchryx",
             lambda m: m["components"][0].__setitem__("declared", {}),
         ),
+    ), (
+        # The call passes no path, so the launcher polls the default, /healthz.
+        # A component serving another path is a disagreement, and a reader that
+        # took the `then` after the call for a path, or the missing path for no
+        # probe, would not be comparing the right thing.
+        "a launcher passes no path, polls the default, and the component serves another",
+        lambda r: manifest_edit(
+            r, "costcrew",
+            lambda m: m["components"][0]["checked"].__setitem__("health_path", "/ready"),
+        ),
+    ), (
+        "a launcher polls a path the component does not serve",
+        lambda r: edit(r, "stack-up/up.sh", 'if wait_health costcrew 4300 "$!"; then', 'if wait_health costcrew 4300 "$!" "/ready"; then'),
     )],
     # ---- C6
     "c6.copy-unreadable": [(
@@ -3462,7 +3483,11 @@ MUTATIONS: dict[str, list[tuple[str, callable]]] = {
         ("Anthropic's page stops separating its current models from the rest",
          lambda r: edit(r, f"{PRICE_DIR}/anthropic.html", 'aria-label="Additional models">Additional models', 'aria-label="Older models">Older models')),
         ("the sentence stating the regional premium is gone",
-         lambda r: edit(r, f"{PRICE_DIR}/anthropic.html", "Regional and multi-region endpoints include a 10% premium over global endpoints.", "Regional endpoints are priced separately.")),
+         lambda r: edit(r, f"{PRICE_DIR}/anthropic.html", "Regional and multi-region endpoints include a 10 percent premium over global endpoints.", "Regional endpoints are priced separately.")),
+        # Looser than the two spellings the reader knows is a different
+        # sentence, and a guess at a premium is a price nobody stated.
+        ("the premium is spelled in words the reader does not know",
+         lambda r: edit(r, f"{PRICE_DIR}/anthropic.html", "include a 10 percent premium", "include a ten percent premium")),
         ("OpenAI's standard table is no longer marked standard",
          lambda r: edit(r, f"{PRICE_DIR}/openai.html", "&quot;standard&quot;", "&quot;default&quot;")),
         # The columns are read by position after the headings are checked, so
@@ -3471,6 +3496,22 @@ MUTATIONS: dict[str, list[tuple[str, callable]]] = {
          lambda r: edit(r, f"{PRICE_DIR}/openai.html", "<th>Cached input</th><th>Cache writes</th>", "<th>Cache writes</th><th>Cached input</th>")),
         ("OpenAI's page stops saying which rows are the latest models",
          lambda r: edit(r, f"{PRICE_DIR}/openai.html", "&quot;collapsedLatestRowCount&quot;", "&quot;collapsedRowCount&quot;")),
+        # Two tables of one tier are read together. Where they price one model
+        # differently the model is read from neither, and the page is reported.
+        ("OpenAI's two standard tables price gpt-6-sol differently",
+         lambda r: edit(r, f"{PRICE_DIR}/openai.html",
+                        "[0, &quot;gpt-6-sol&quot;], [0, 2], [0, 0.2], [0, 2.5], [0, 10]]], [1, [[0, &quot;gpt-6-sol-cyber&quot;]",
+                        "[0, &quot;gpt-6-sol&quot;], [0, 2], [0, 0.2], [0, 2.5], [0, 12]]], [1, [[0, &quot;gpt-6-sol-cyber&quot;]")),
+        # The headings of the second table are the only thing that says which
+        # rendered column is which, and its data rows carry no headings: a
+        # swapped pair has to stop the read, not shift the prices.
+        ("OpenAI's second standard table is rendered in an order its data does not follow",
+         lambda r: edit(r, f"{PRICE_DIR}/openai.html", "<span><span>Output</span></span></th><th>Cached input</th>",
+                        "<span><span>Cached input</span></span></th><th>Output</th>")),
+        # Two tables with no group between them: which one marks the latest
+        # models cannot be told, and neither is picked.
+        ("OpenAI's two standard tables are both ungrouped",
+         lambda r: edit(r, f"{PRICE_DIR}/openai.html", "&quot;modelGroup&quot;: [0, &quot;cyber&quot;], ", "")),
         ("Vertex AI's Standard tab is renamed, so every table reads as another tier",
          lambda r: edit(r, f"{PRICE_DIR}/vertex.html", 'track-metadata-eventdetail="Standard Model">Standard Model', 'track-metadata-eventdetail="On demand">On demand')),
         ("OpenRouter's provider list is not JSON",
@@ -3960,6 +4001,10 @@ def main() -> int:
         # -- 7. the page readers survive real pages and hostile bytes ------
         if not problems:
             problems += price_pages.run()
+
+        # -- 8. the launcher reader reads every shape of the call ----------
+        if not problems:
+            problems += probe_shapes.run()
     finally:
         shutil.rmtree(work, ignore_errors=True)
 

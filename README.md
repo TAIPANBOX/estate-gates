@@ -525,9 +525,12 @@ and nothing compared the copy with the list. This gate does, in the existing
 daily run. Subjects come from `estate.json`: each repository declaring a
 `price_table` (path, format, and whether it must price every current model).
 It reads, live and with no key, Anthropic's pricing page (the model table by
-its column headers, and the sentence stating the regional premium), OpenAI's
-(the text-token table marked tier `standard`, read in the order its own
-headings state), and Vertex AI's (the Standard tabs under "Google models",
+its column headers, and the sentence stating the regional premium, as "10%" or
+"10 percent" and in no other words), OpenAI's (every text-token table marked
+tier `standard`, read together: each price from the column its heading names,
+proved against the rows the table renders; a model two tables price
+identically is one row, and one they price differently is read from neither
+and reported), and Vertex AI's (the Standard tabs under "Google models",
 Global and Non-global rows, dated rows). A row billed through OpenRouter
 (costcrew's `openrouter/...` engine) must equal, exactly, the price of one of
 the providers OpenRouter's `/models/{id}/endpoints` lists for that model, every

@@ -130,6 +130,24 @@ Feature: A repository says what it contributes, and the estate reads it
     Because a launcher is the one kind of component defined by what it puts
       somewhere else, so one that installs nothing has not been described
 
+  @fires:c15.probe-disagrees
+  Scenario: A launcher passes no health path, so it polls the default
+    Given a launcher call that names a component, its port and its pid and no path
+    And the call is followed by a semicolon and "then", by "||", by "&&", by a backslash or by a comment
+    And a component declaring a health path other than the default /healthz
+    When the estate is read
+    Then it is refused, naming /healthz as the path polled
+    Because the path is the optional fourth argument and starts with a slash, so nothing
+      that follows the pid is a path, and a call with none is a probe of the default
+      rather than no probe at all
+
+  @fires:c15.probe-disagrees
+  Scenario: A launcher polls a path the component does not serve
+    Given a launcher call that passes an explicit health path
+    And a component declaring a different one, with no recorded reason
+    When the estate is read
+    Then it is refused, naming the path the launcher polls
+
   @fires:c15.probe-unreadable
   Scenario: The launcher whose probes are read is gone
     Given the file the health paths are read out of no longer exists

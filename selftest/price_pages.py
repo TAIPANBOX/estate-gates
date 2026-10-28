@@ -41,14 +41,19 @@ import _estate as E  # noqa: E402
 import _prices as P  # noqa: E402
 
 PAGES = HERE / "pages" / "2026-10-13"
+#: The pages as they were on 2026-10-28, when both readers broke at once: Anthropic
+#: wrote its regional premium as "10 percent" where it had written "10%", and
+#: OpenAI split its text-token prices into a flagship table and a cyber group,
+#: both marked tier "standard", with the rendered columns in a new order.
+PAGES_NEW = HERE / "pages" / "2026-10-28"
 SEEDS = 60
 #: one parse of a trimmed page takes milliseconds; a hostile one taking this
 #: long is a reader that has stopped being linear.
 SLOW = 5.0
 
 
-def _read(name: str) -> str:
-    return (PAGES / name).read_text(encoding="utf-8")
+def _read(name: str, pages: pathlib.Path = PAGES) -> str:
+    return (pages / name).read_text(encoding="utf-8")
 
 
 def _offer(v: P.Vendor, model: str, endpoint: str = "global", tier: str | None = None, day=None, above="base"):
@@ -149,6 +154,161 @@ def golden() -> list[str]:
     return problems
 
 
+
+def _swap(text: str, old: str, new: str) -> str:
+    """A page with one passage replaced, refusing to test nothing: a case whose
+    needle is not on the page would pass for the wrong reason."""
+    if text.count(old) != 1:
+        raise AssertionError(f"the passage {old[:60]!r} appears {text.count(old)} times on the saved page, expected exactly once")
+    return text.replace(old, new)
+
+
+def _raises_missing(fn, text) -> str | None:
+    """The sentence a reader gave when it refused, or None when it answered."""
+    try:
+        fn(text)
+    except E.Missing as m:
+        return str(m)
+    return None
+
+
+#: The sentence as Anthropic wrote it on 2026-10-13 and on 2026-10-28.
+_PREMIUM_OLD = "Regional and multi-region endpoints include a 10% premium over global endpoints."
+_PREMIUM_NEW = "Regional and multi-region endpoints include a 10 percent premium over global endpoints."
+
+
+def golden_anthropic_new() -> list[str]:
+    """Anthropic's page as saved on 2026-10-28, and the sentences it is one edit from."""
+    problems: list[str] = []
+
+    def expect(what, got, want):
+        if got != want:
+            problems.append(f"{what}: read {got!r}, the page said {want!r}")
+
+    anthropic = _read("anthropic.html", PAGES_NEW)
+    a = P.parse_anthropic(anthropic)
+    expect("Anthropic problems on the 2026-10-28 page (its premium sentence says '10 percent')", a.problems, [])
+    expect("Anthropic current models, 2026-10-28", a.current,
+           ["claude-fable-5-1", "claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5"])
+    expect("Anthropic Opus 5.5", _offer(a, "claude-opus-5-5"),
+           {"input": 4.0, "output": 20.0, "cache_write": 5.0, "cache_write_1h": 8.0, "cache_read": 0.2})
+    expect("Anthropic Opus 5.5 on a regional endpoint, the premium read from '10 percent'", _offer(a, "claude-opus-5-5", "regional"),
+           {"input": 4.4, "output": 22.0, "cache_write": 5.5, "cache_write_1h": 8.8, "cache_read": 0.22})
+    expect("Anthropic Fable 5.1 on a regional endpoint (a bare Bedrock id is priced here)", _offer(a, "claude-fable-5-1", "regional"),
+           {"input": 11.0, "output": 55.0, "cache_write": 13.75, "cache_write_1h": 22.0, "cache_read": 0.275})
+    expect("Anthropic model count, 2026-10-28", len(a.models), 20)
+
+    # The premium sentence: both spellings read, nothing looser does.
+    for label, sentence in [
+        ("'10 percent'", _PREMIUM_NEW),
+        ("'10%'", _PREMIUM_OLD),
+        ("'10 %'", _PREMIUM_NEW.replace("10 percent", "10 %")),
+        ("'an 8 percent'", _PREMIUM_NEW.replace("a 10 percent", "an 8 percent")),
+        ("'12.5 percent'", _PREMIUM_NEW.replace("10 percent", "12.5 percent")),
+    ]:
+        v = P.parse_anthropic(_swap(anthropic, _PREMIUM_NEW, sentence))
+        expect(f"Anthropic premium sentence with {label}: no problem", v.problems, [])
+        expect(f"Anthropic premium sentence with {label}: regional offers built", _offer(v, "claude-sonnet-5-5", "regional") is not None, True)
+    v = P.parse_anthropic(_swap(anthropic, _PREMIUM_NEW, _PREMIUM_NEW.replace("10 percent", "12.5 percent")))
+    expect("Anthropic premium '12.5 percent' applied as 12.5", _offer(v, "claude-sonnet-5-5", "regional"),
+           {"input": 2.25, "output": 11.25, "cache_write": 2.8125, "cache_write_1h": 4.5, "cache_read": 0.1125})
+    for label, sentence in [
+        ("'10 per cent'", _PREMIUM_NEW.replace("10 percent", "10 per cent")),
+        ("'ten percent'", _PREMIUM_NEW.replace("10 percent", "ten percent")),
+        ("'10 pct'", _PREMIUM_NEW.replace("10 percent", "10 pct")),
+        ("'10percent'", _PREMIUM_NEW.replace("10 percent", "10percent")),
+        ("'10 percentage points'", _PREMIUM_NEW.replace("10 percent premium", "10 percentage points premium")),
+        ("'10 percent' with no premium after it", _PREMIUM_NEW.replace("10 percent premium", "10 percent")),
+        ("no number at all", _PREMIUM_NEW.replace("10 percent", "a")),
+    ]:
+        v = P.parse_anthropic(_swap(anthropic, _PREMIUM_NEW, sentence))
+        expect(f"Anthropic premium sentence with {label}: reported as gone, never guessed",
+               [p for p in v.problems if "premium is gone" in p] != [] and _offer(v, "claude-sonnet-5-5", "regional") is None, True)
+
+    return problems
+
+
+def golden_openai_new() -> list[str]:
+    """OpenAI's page as saved on 2026-10-28, and the shapes it is one edit from."""
+    problems: list[str] = []
+
+    def expect(what, got, want):
+        if got != want:
+            problems.append(f"{what}: read {got!r}, the page said {want!r}")
+
+    # A flagship table and a cyber group, both marked tier "standard".
+    openai = _read("openai.html", PAGES_NEW)
+    o = P.parse_openai(openai)
+    expect("OpenAI problems on the 2026-10-28 page", o.problems, [])
+    expect("OpenAI current models, read from the flagship table's latest rows only", o.current,
+           ["gpt-6-astra", "gpt-6.1-sol", "gpt-6.1-terra", "gpt-6-luna"])
+    expect("OpenAI gpt-6-astra, standard not batch (the rendered columns are in a new order)", _offer(o, "gpt-6-astra"),
+           {"input": 10.0, "cache_read": 1.0, "cache_write": 12.5, "output": 50.0})
+    expect("OpenAI gpt-6.1-sol", _offer(o, "gpt-6.1-sol"), {"input": 2.0, "cache_read": 0.1, "cache_write": 2.5, "output": 10.0})
+    expect("OpenAI gpt-5.5, its name's context suffix taken off", _offer(o, "gpt-5.5"),
+           {"input": 5.0, "cache_read": 0.5, "output": 30.0})
+    expect("OpenAI gpt-5.6-cyber, a model only the cyber table prices", _offer(o, "gpt-5.6-cyber"),
+           {"input": 12.5, "cache_read": 1.25, "cache_write": 15.625, "output": 75.0})
+    expect("OpenAI gpt-5.5-cyber, no cache-write price", _offer(o, "gpt-5.5-cyber"),
+           {"input": 12.5, "cache_read": 1.25, "output": 75.0})
+    expect("OpenAI gpt-5.6-sol is in both tables at one price and is one row",
+           [x.prices for x in o.models["gpt-5.6-sol"] if x.above is None], [{"input": 4.0, "cache_read": 0.4, "cache_write": 5.0, "output": 20.0}])
+    expect("OpenAI gpt-5.6-sol above 272K, from the cyber table's longContextRows", _offer(o, "gpt-5.6-sol", above=272000),
+           {"input": 8.0, "cache_read": 0.8, "cache_write": 10.0, "output": 30.0})
+    expect("OpenAI gpt-5.6-cyber states no long price ('-')", _offer(o, "gpt-5.6-cyber", above=272000), None)
+    expect("OpenAI gpt-6-astra's long price, which the page now computes in script", _offer(o, "gpt-6-astra", above=272000), None)
+    expect("OpenAI model count: 37 flagship rows and two cyber-only rows", len(o.models), 39)
+    expect("OpenAI tiers marked incomplete", o.tiers_complete, False)
+
+    def two_tables(label, page, want_problem, absent=(), present=()):
+        v = P.parse_openai(page)
+        said = [p for p in v.problems if want_problem in p]
+        expect(f"OpenAI {label}: the page is reported", bool(said), True)
+        for model in absent:
+            expect(f"OpenAI {label}: {model} is read from neither table", model in v.models, False)
+        for model in present:
+            expect(f"OpenAI {label}: {model} is still read", model in v.models, True)
+        return v
+
+    # Two tables that price one model differently: neither is picked.
+    clash = _swap(
+        _swap(openai,
+              "[0,&quot;gpt-5.6-sol&quot;],[0,4],[0,0.4],[0,5],[0,20]]],[1,[[0,&quot;gpt-5.6-cyber&quot;]",
+              "[0,&quot;gpt-5.6-sol&quot;],[0,4],[0,0.4],[0,5],[0,25]]],[1,[[0,&quot;gpt-5.6-cyber&quot;]"),
+        "<span>gpt-5.6-sol</span></td><td><span>$4.00</span></td><td><span>$20.00</span></td>",
+        "<span>gpt-5.6-sol</span></td><td><span>$4.00</span></td><td><span>$25.00</span></td>")
+    v = two_tables("two standard tables disagreeing about gpt-5.6-sol's output", clash, "gpt-5.6-sol",
+                   absent=("gpt-5.6-sol",), present=("gpt-5.6-cyber", "gpt-6-astra"))
+    said = " ".join(v.problems)
+    expect("OpenAI disagreement names both prices", all(x in said for x in ("output 20", "output 25")), True)
+    # Two ungrouped standard tables: which one marks the latest models is unknown.
+    ungrouped = _swap(openai, "&quot;modelGroup&quot;:[0,&quot;cyber&quot;],", "")
+    v = P.parse_openai(ungrouped)
+    expect("OpenAI two ungrouped standard tables: the latest models are not read from either", v.current, None)
+    expect("OpenAI two ungrouped standard tables: said so", any("latest" in p for p in v.problems), True)
+    expect("OpenAI two ungrouped standard tables: both are still read", ("gpt-6-astra" in v.models, "gpt-5.6-cyber" in v.models), (True, True))
+    # The other tiers on the page are not standard prices.
+    expect("OpenAI batch, fast and ultrafast prices are not read as standard", [x.prices["input"] for x in o.models["gpt-6.1-sol"]], [2.0])
+
+    # The rendered columns must agree with the data behind them.
+    skew = _swap(openai,
+                 "<td><span>$10.00</span></td><td><span>$50.00</span></td><td><span>$1.00</span></td>",
+                 "<td><span>$10.00</span></td><td><span>$1.00</span></td><td><span>$50.00</span></td>")
+    expect("OpenAI rendered Output and Cached input swapped under their headings: refused",
+           "gpt-6-astra" in (_raises_missing(P.parse_openai, skew) or ""), True)
+    renamed = openai.replace("<span>30m write</span>", "<span>Writes</span>")
+    expect("OpenAI the page renamed its cache-write heading on every table (test sanity)", renamed != openai, True)
+    expect("OpenAI a cache-write heading nobody knows: refused",
+           _raises_missing(P.parse_openai, renamed) is not None, True)
+    only_cyber = openai.replace("&quot;tier&quot;:[0,&quot;standard&quot;],&quot;collapsedLatestRowCount&quot;", "&quot;tier&quot;:[0,&quot;default&quot;],&quot;collapsedLatestRowCount&quot;")
+    expect("OpenAI the flagship table no longer standard, the cyber group still is: read as the only table, current unreadable",
+           (P.parse_openai(only_cyber).current, sorted(P.parse_openai(only_cyber).models)),
+           (None, ["gpt-5.5-cyber", "gpt-5.6-cyber", "gpt-5.6-sol"]))
+    none_standard = openai.replace("&quot;tier&quot;:[0,&quot;standard&quot;]", "&quot;tier&quot;:[0,&quot;default&quot;]")
+    expect("OpenAI no standard table at all: refused", _raises_missing(P.parse_openai, none_standard) is not None, True)
+    return problems
+
+
 def _hostile_variants(text: str, rng: random.Random) -> list[str]:
     n = len(text)
     out = []
@@ -183,11 +343,13 @@ FIXED_HOSTILE = [
 ]
 
 READERS = [
-    ("parse_anthropic", P.parse_anthropic, "anthropic.html"),
-    ("parse_openai", P.parse_openai, "openai.html"),
-    ("parse_vertex", P.parse_vertex, "vertex.html"),
-    ("parse_openrouter_providers", P.parse_openrouter_providers, "openrouter-endpoints-deepseek_deepseek-chat.json"),
-    ("parse_openrouter_endpoints", P.parse_openrouter_endpoints, "openrouter-endpoints-openai_gpt-5.6-sol.json"),
+    ("parse_anthropic", P.parse_anthropic, "anthropic.html", PAGES),
+    ("parse_openai", P.parse_openai, "openai.html", PAGES),
+    ("parse_vertex", P.parse_vertex, "vertex.html", PAGES),
+    ("parse_openrouter_providers", P.parse_openrouter_providers, "openrouter-endpoints-deepseek_deepseek-chat.json", PAGES),
+    ("parse_openrouter_endpoints", P.parse_openrouter_endpoints, "openrouter-endpoints-openai_gpt-5.6-sol.json", PAGES),
+    ("parse_anthropic", P.parse_anthropic, "anthropic.html", PAGES_NEW),
+    ("parse_openai", P.parse_openai, "openai.html", PAGES_NEW),
 ]
 
 TABLE_HOSTILE = {
@@ -232,15 +394,15 @@ def hostile() -> list[str]:
         if time.monotonic() - t0 > SLOW:
             problems.append(f"{label}: took {time.monotonic() - t0:.1f}s")
 
-    for name, fn, page in READERS:
-        text = _read(page)
+    for name, fn, page, where in READERS:
+        text = _read(page, where)
         for k, bad in enumerate(FIXED_HOSTILE):
             call(f"{name} on fixed hostile input #{k}", fn, bad)
         for seed in range(SEEDS):
             rng = random.Random(seed)
             for k, bad in enumerate(_hostile_variants(text, rng)):
                 before = len(problems)
-                call(f"{name} on {page}, seed {seed}, variant {k}", fn, bad)
+                call(f"{name} on {where.name}/{page}, seed {seed}, variant {k}", fn, bad)
                 if len(problems) > before:
                     break
     for fmt, cases in TABLE_HOSTILE.items():
@@ -264,6 +426,13 @@ def run() -> list[str]:
         problems = [f"golden: {p}" for p in golden()]
     except E.Missing as m:
         problems = [f"golden: a saved page did not parse at all: {m}"]
+    for label, check in (("Anthropic", golden_anthropic_new), ("OpenAI", golden_openai_new)):
+        try:
+            problems += [f"golden 2026-10-28 {label}: {p}" for p in check()]
+        except E.Missing as m:
+            problems += [f"golden 2026-10-28 {label}: a saved page did not parse at all: {m}"]
+        except AssertionError as a:
+            problems += [f"golden 2026-10-28 {label}: the test itself is broken: {a}"]
     problems += [f"hostile: {p}" for p in hostile()]
     return problems
 

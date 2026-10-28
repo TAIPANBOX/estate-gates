@@ -28,9 +28,11 @@ directory the self-test fills):
   Anthropic   platform.claude.com/docs/en/about-claude/pricing, the model
               pricing table (columns by their headers) and the sentence stating
               the regional premium
-  OpenAI      developers.openai.com/api/docs/pricing, the TextTokenPricingTables
-              island marked tier "standard", read in the column order its own
-              headings state
+  OpenAI      developers.openai.com/api/docs/pricing, every
+              TextTokenPricingTables island marked tier "standard" (the
+              flagship table and a model group's, since 2026-10-28), read
+              together; each price from the column its heading names, proved
+              against the rows the table renders
   Google      cloud.google.com/vertex-ai/generative-ai/pricing, the Standard
               tabs under "Google models", Global and Non-global rows, dated rows
   OpenRouter  openrouter.ai/api/v1/models/{id}/endpoints, every provider

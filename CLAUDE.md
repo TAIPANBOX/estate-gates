@@ -560,7 +560,13 @@ Stop and tell the user, then wait:
     unknown schema, a manifest declaring nothing, the registry naming what the
     repository denies, a declared entry with no why, the launcher gone, its
     probe anchor matching nothing, and a probe that disagrees with nothing
-    recording why)*
+    recording why. From 2026-10-28 two more probe cases: a launcher call that
+    passes no path polls the default, and one that polls a path the component
+    does not serve. `selftest/probe_shapes.py` (property 8) reads every
+    `wait_health` call of stack-up's `up.sh` as it stood that day and the
+    shapes that follow the pid, because `if wait_health keyryx "$P" "$!"; then`
+    was read as a probe of the path `then` and a call with no path was not read
+    at all)*
 
 20. **A workflow that runs only on a tag is first exercised by the release
     itself, unless a pull request exercises it first.** Measured 2026-09-02:
@@ -781,7 +787,20 @@ Stop and tell the user, then wait:
     DeepInfra's 0.32 / 0.89 for deepseek-chat while StreamLake served the same
     model at 0.2574 / 1.0287, costcrew's row, so a rule against the list would
     flap with whichever provider it shows.
-    *(gate: `gates/c23-model-prices-match-the-vendors.py`, fifty-one cases
+    **A reader of a page is rewritten the day the page changes shape, and the
+    new shape is saved beside the old.** Measured 2026-10-28, both readers broke
+    on the same day and the scheduled run went red: Anthropic wrote
+    its regional premium as "10 percent" where the reader knew "10%", and OpenAI
+    split its standard text-token prices over a flagship table and a group of
+    models of its own, both marked tier `standard`, with the rendered columns in
+    a new order. The reader reads both spellings and nothing looser, reads every
+    standard table together, takes each price from the column its heading names
+    and proves that against the rows the table renders, reads a model both
+    tables price identically as one row, and reads a model they price
+    differently from neither and reports the page. Which models are current is
+    the flagship table's to say. `@claude` 2026-10-28, a reading and not a
+    decision: a group's own latest rows are not counted current.
+    *(gate: `gates/c23-model-prices-match-the-vendors.py`, fifty-nine cases
     across nine findings in `selftest.py`, among them a price one percent
     off, a regional profile at the list price, an unnamed-endpoint row and a
     tiered row each mixing two prices, a dated change taking effect, a tier at
@@ -793,7 +812,8 @@ Stop and tell the user, then wait:
     dated change, the red and the stale exception the day after, and NOT
     MEASURED plus exit 2 for a page nobody could fetch; property 7 runs
     `selftest/price_pages.py`, the readers against the pages as saved on
-    2026-10-13 and against a seeded sweep of hostile bytes)*
+    2026-10-13 and 2026-10-28, the premium sentence in twelve spellings (five
+    read, seven refused), the two-table shapes, and a seeded sweep of hostile bytes)*
 26. **No public repository quotes the owner, or names him as the one who
     decided.** `@decided 2026-10-13`, paraphrased: every public repository the
     registry names is free of quotations of the owner and of the old provenance

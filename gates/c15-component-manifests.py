@@ -82,11 +82,37 @@ KNOWN_SCHEMA = "taipanbox.dev/components/v1"
 # that shape, for the same reason C5's are: the same fact is a shell function
 # call in one repo and a manifest field in another, and there is no parser that
 # reads both by accident.
+#
+# stack-up: `wait_health <name> <port> <pid> [path] [timeout]`. The path is the
+# fourth argument, STARTS WITH `/`, and is /healthz when it is not there. So a
+# call with no path polls the default, and what follows the pid when there is no
+# path (`;` then `then`, `||`, `&&`, a backslash that continues the line, a
+# comment) is never one. The name is the component's local name.
+#
+# Arguments are separated by blanks or by a backslash-newline, and not by a bare
+# newline: a path on the next line of a script is a different command.
+_SEP = r"(?:[ \t]|\\\r?\n)+"
 PROBES = {
-    # stack-up: `wait_health <name> <port> <pid> [path]`, path defaulting to
-    # /healthz. The name is the component's local name.
-    "stack-up": ("up.sh", re.compile(r"wait_health\s+(\S+)\s+\S+\s+\S+\s+\"?([/\w.\-]+)\"?")),
+    "stack-up": (
+        "up.sh",
+        re.compile(
+            r"\bwait_health" + _SEP + r"(\S+)" + _SEP + r"\S+" + _SEP + r"\S+"
+            r"(?:" + _SEP + r"[\"']?(/[^\s\"';|&\\)]*)[\"']?)?"
+        ),
+        "/healthz",
+    ),
 }
+
+
+def read_probes(text: str, pattern: re.Pattern, default: str) -> dict[str, str]:
+    """name -> the path the launcher polls it at, for every call in `text`.
+
+    A call that passes no path polls `default`. Comment lines are not read: the
+    function's own signature is written out in one, and a call quoted in a
+    comment is not a probe.
+    """
+    code = "\n".join(line for line in text.splitlines() if not line.lstrip().startswith("#"))
+    return {name: path or default for name, path in pattern.findall(code)}
 
 
 def load_manifest(estate: E.Estate, repo: str) -> dict | None:
@@ -238,7 +264,7 @@ def run(estate: E.Estate) -> E.Check:
     # Both are facts, they live in different repositories, and until this check
     # existed nothing put them side by side.
     probes: dict[str, dict[str, str]] = {}
-    for dep, (rel, pattern) in PROBES.items():
+    for dep, (rel, pattern, default) in PROBES.items():
         try:
             text = estate.read_text(dep, rel)
         except (E.Unavailable, E.Missing) as exc:
@@ -248,8 +274,8 @@ def run(estate: E.Estate) -> E.Check:
                 f"polls were compared against nothing.",
             )
             continue
-        hits = pattern.findall(text)
-        if not hits:
+        table = read_probes(text, pattern, default)
+        if not table:
             c.missing(
                 "c15.probe-anchor-matched-nothing",
                 f"{dep}:{rel}: the anchor for what it polls matched no line, so "
@@ -257,7 +283,7 @@ def run(estate: E.Estate) -> E.Check:
                 f"nothing is a finding, not a clean comparison.",
             )
             continue
-        probes[dep] = {name: path for name, path in hits}
+        probes[dep] = table
 
     for repo, m in sorted(found.items()):
         for comp in m.get("components", []):

@@ -108,6 +108,23 @@ Feature: Every built-in model price table matches the vendors' current prices
     Then the gate says it measured nothing for that vendor, never OK
     And a page that could not be fetched at all is NOT MEASURED and ends the run incomplete
 
+  @fires:c23.source-unparseable
+  Scenario: The regional premium is stated in the words the page used on either day
+    Given Anthropic's page states the premium for regional endpoints as "10%" or as "10 percent"
+    When the premium is read
+    Then a row naming a regional endpoint is priced at the list plus that premium
+    But a sentence in other words ("ten percent", "10 per cent", "10 pct") is a page whose shape changed
+    And the gate says it measured nothing for those rows rather than guess a premium nobody stated
+
+  @fires:c23.source-unparseable
+  Scenario: A vendor's page carries more than one table of one tier
+    Given OpenAI's page carries a flagship text-token table and a model group's table, both marked standard
+    When the page is read
+    Then both are read, each price from the column its heading names, proved against the rows the table renders
+    And a model that both tables price identically is one row
+    But a model they price differently is read from neither, and the page is reported, never one table picked
+    And the latest models are the flagship table's, and two tables with no model group between them leave them unread
+
   @fires:c23.table-unreadable
   Scenario: A declared price table cannot be read
     Given estate.json declares a price table
