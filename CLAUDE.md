@@ -776,11 +776,15 @@ Stop and tell the user, then wait:
     `expectations/model-prices.json` holds each one with its reason and its
     provenance, the bargain invariant 7 makes for the deployments: printed as
     an EXCEPTION on every run, red as stale once it excuses nothing. The first
-    two are tokenfuse's own (its invariant 99, decisions 2 and 6, themselves
+    two were tokenfuse's own (its invariant 99, decisions 2 and 6, themselves
     `@claude` under delegated authority): Gemini 3.6 to 3.8 Flash at the
     standard rate that takes effect on 2027-01-01, and the fallback kept below
     gpt-6-astra's long price. Recording them here is a reading of tokenfuse's
-    record, not a decision of this repository's.
+    record, not a decision of this repository's. The second went stale on
+    2026-10-28, when OpenAI's page stopped stating gpt-6-astra's long price (it
+    computes the price in script), and was removed; the long-prompt tiers of
+    gpt-6-astra, gpt-6-luna and gpt-6.1-sol, which the page no longer states
+    either, are recorded as `tier-not-on-page`, so the run says not judged.
     A row billed through OpenRouter is held to the providers its
     `/models/{id}/endpoints` lists, exactly, one provider for every component,
     and never to OpenRouter's model list: measured 2026-10-13, that list showed

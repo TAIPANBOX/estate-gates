@@ -3584,8 +3584,8 @@ MUTATIONS: dict[str, list[tuple[str, callable]]] = {
             lambda r: price_exceptions(r, lambda e: e["not-judged-cause:family-name-not-on-page"]["rows"].append("claude-opus-9")),
         ),
         (
-            # OpenAI's page states gpt-6-astra's long-prompt price, so a
-            # declaration that the page shows no tier for it excuses nothing.
+            # The fixture has no tier row for this id, so a declaration that the
+            # page shows no tier for it excuses nothing.
             "a tier declared off the page for a tier the page does show",
             lambda r: price_exceptions(r, lambda e: e.update({"tier-not-on-page:tokenfuse:gpt-6-astra:above-272000": {
                 "why": "x", "recorded": "2026-10-13", "provenance": "x"}})),
