@@ -550,6 +550,24 @@ typed Secrets on deploy; stack-single #128 healthchecks and `install.sh status`;
 invariant 48, `--secrets-encryption` on every server an installer starts (Secrets were plaintext in
 etcd on the GCP cluster: security-tests section 7).
 
+## The 2026-10-14 fixes re-measured live on forge, 2026-10-28, proven
+
+The fixes that followed the failure day were tested with stub upstreams only. This run measured
+them on the live doors of forge. Times are London time (GMT). Artifacts are on forge in
+`/var/tmp/live-20261028/` (0700). Spend, as TokenFuse's control plane counts it: USD 0.000426.
+
+| What | When | On what | Artifact | Scope |
+|---|---|---|---|---|
+| A benign call through both doors, real models | 2026-10-28, 21:44:06 | forge, stack-single 1.4.3 (tokenfuse v1.20.1, wardryx v2.4.1); :4100 Anthropic wire `claude-haiku-5-5`, :4110 OpenAI wire via OpenRouter `openai/gpt-4.1-mini` | `11-benign-live.log` | 200 on both doors, wardryx allow, priced (0.000004 and 0.000009 USD) |
+| A streamed (SSE) answer whose `tool_use` the firewall forbids (tokenfuse #430) | 2026-10-28, 21:44:13 to 21:44:19 | the same doors, firewall enforce, a web-tainted context asking for an exec tool | `31-f-live.log`, `f/*.sse`, `f/*.json` | untainted control: the tool call is delivered and the stream ends normally; tainted: HTTP 200 (status sent before the verdict), then one `taint_blocked` error event, no `tool_use` / `tool_calls`, no `message_stop` / `[DONE]`; the same request buffered: 403 `taint_blocked`; bus: `taint_raised` and `taint_block` per run. One forced tool call per stream; several tool calls in one stream not run |
+| A gateway restarted while its control plane is down (tokenfuse #429) | 2026-10-28, 21:17:32 to 21:18:47 | forge, both doors; `tokenfuse-cloud` stopped about 71 s, both gateways restarted | `70-g-seed-gate.log` | before: over-budget run 402; with the control plane down: every budget-governed call 503 `seed_pending` (retryable, nothing sent upstream), six `dependency_failed` bus events; control plane started: 402 again within 2.0 s. A unit over its monthly cap was not exercised (no monthly figure to exceed) |
+| A refused client key on the bus (tokenfuse #432) | 2026-10-28, about 21:15 | forge, both doors | `40-h-refused-key.log` | :4110: 401 and an `identity_mismatch` (high) event, `reason=unknown_key` / `missing_key`, `key_fingerprint=sha256:<16 hex>`, no raw key on the bus or in the log. **:4100 with `TOKENFUSE_AGENT_TOKENS=require`: 401 `agent_token_required` and NO bus event: a defect, fix in progress** |
+| Agent-token audience and a replayed proof | 2026-10-28, about 21:16 | forge, the 2026-10-26 scripts | `50-i-measure.log`, `51-i-replay.log` | 10 of 10 expectations; the replayed proof refused 401 at the door (`why=Replayed`), wardryx not asked |
+| A JSON-RPC batch to the MCP broker (tokenfuse 1.20.1) | 2026-10-28, about 21:16 | forge, :4200 | `60-j-batch.log` | HTTP 400, `-32600`, nothing forwarded upstream, no typryx or wardryx record |
+
+Not measured here: the console's own copilot request from its UI (the gateway path with the
+console's client key answered 200); streams with several tool calls; load.
+
 ## Rust build disk writes, 2026-10-06, proven
 
 Why this section exists: the Mac's SSD took 3.93 TB of writes in under a week,
