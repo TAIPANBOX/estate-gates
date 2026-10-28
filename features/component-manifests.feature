@@ -87,10 +87,13 @@ Feature: A repository says what it contributes, and the estate reads it
   @fires:c15.probe-disagrees
   Scenario: A launcher polls a different health path than the component declares
     Given a component declaring the path its health is served on
-    And a deployment polling a different path for it
+    And a deployment polling a different path for it, or polling none, which is the default /healthz
     And nothing recording why they differ
     When the estate is read
     Then it is refused, naming both paths
+    But a launcher call that passes no path is a probe of the default, and
+      nothing that follows its pid (a semicolon and "then", "||", "&&", a
+      backslash, a comment) is ever read as a path
     Because these are two facts in two repositories and nothing compared them
       until now: the install waits on a path the service never serves, and the
       only symptom is a timeout that reads as the service being slow
@@ -129,24 +132,6 @@ Feature: A repository says what it contributes, and the estate reads it
     Then it says it measured nothing
     Because a launcher is the one kind of component defined by what it puts
       somewhere else, so one that installs nothing has not been described
-
-  @fires:c15.probe-disagrees
-  Scenario: A launcher passes no health path, so it polls the default
-    Given a launcher call that names a component, its port and its pid and no path
-    And the call is followed by a semicolon and "then", by "||", by "&&", by a backslash or by a comment
-    And a component declaring a health path other than the default /healthz
-    When the estate is read
-    Then it is refused, naming /healthz as the path polled
-    Because the path is the optional fourth argument and starts with a slash, so nothing
-      that follows the pid is a path, and a call with none is a probe of the default
-      rather than no probe at all
-
-  @fires:c15.probe-disagrees
-  Scenario: A launcher polls a path the component does not serve
-    Given a launcher call that passes an explicit health path
-    And a component declaring a different one, with no recorded reason
-    When the estate is read
-    Then it is refused, naming the path the launcher polls
 
   @fires:c15.probe-unreadable
   Scenario: The launcher whose probes are read is gone
