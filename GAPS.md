@@ -68,6 +68,13 @@ cd ~/Development/estate-gates && ./run-gates.py --mode ref --ref origin/main
 Six cross-repo checks. Section 1 is entirely its output. It takes about two
 seconds and it is the cheapest thing in this document.
 
+**Those numbers are from 2026-08-09 and they have moved.** `@measured`
+`./run-gates.py --mode ref --ref origin/main --root <dir of fresh clones>` and
+`./run-gates.py --mode clone`, 2026-10-28, one machine, one run each: there are
+now twenty-six gates (C1 to C26), and the run took 140 s in ref mode and 72 s in
+clone mode. It is still the cheapest way to learn what disagrees, and it is no
+longer a two-second command.
+
 ---
 
 ## 1. Live cross-repo drift
@@ -78,6 +85,25 @@ writing down and the raw finding is not: the suite says two schema copies differ
 by a few bytes, and the paragraph below says which bytes and why they matter.
 If this section and a fresh run disagree, the run is right and this section is
 overdue a refresh.
+
+@measured `./run-gates.py --mode clone` and `./run-gates.py --mode ref --ref
+origin/main --root <fresh clones>`, 2026-10-28, both over main of every public
+repository: **no gate found a disagreement, in either mode.** Twenty-six gates;
+eleven report clean (C3, C5, C7, C8, C10, C12, C16, C22, C23, C24, C25) and
+fifteen report PARTIAL because the two repositories a public clone cannot read,
+`architecture` and `bank-in-a-box`, went unread. PARTIAL is not clean, and this
+reading says nothing about those two. What the run printed that the sections
+below lean on:
+
+- C1: eleven consumers of agent-stack-go, every one pinning `v2.0.1`, the
+  newest tag.
+- C4: 22 comparisons agree and 2 could not be made, and `scopyx` is read as an
+  ordinary producer ("every one of the 2 types 6.2 lists under `scopyx` appears
+  at an emit site in scopyx"). See G4.4.
+- C5: governance routines read per deployment are stack-k8s 7, stack-single 0
+  and stack-up 7, against the 4, 0 and 5 of the reading below. See G1.3.
+- C8: 89 emitted types, each mapped by trailryx or named in its refused list.
+  See G4.8.
 
 @measured `./run-gates.py --mode ref --ref origin/main`, 2026-08-10, after the
 v0.3 work and after all seven consumers moved: **all 7 gates clean, and every
@@ -175,7 +201,52 @@ own escalate list.
 **Re-check:** the C5 section of the gate run, which prints every recorded
 divergence with its reason.
 
-### G1.5 The pin table in agent-stack-go's CLAUDE.md is a fourth copy, and all six rows are wrong
+**Update 2026-10-28: the Kubernetes half is closed, the single-box half has
+moved and is not closed, and every sentence above stays as it was written.**
+
+*The Kubernetes half.* `stack-k8s` runs `focus-export` as a sidecar in the
+`tokenfuse-gateway` pod, hourly, since stack-k8s#38 (2026-08-28). It could not
+be a CronJob: the trace directory is a per-pod `emptyDir`, mountable only inside
+its own pod, and the other way out, a PersistentVolumeClaim, is a billed disk.
+Closed with its evidence in section 8.
+
+*The single-box half.* `@measured` `git -C stack-single grep -n 'profiles:'
+origin/main -- compose.yaml` plus a read of the service blocks, 2026-10-28,
+stack-single `be07f88`. compose.yaml now defines `focus-export` and
+`verdryx-drift` as looping services (compose has no cron) under a `routines`
+profile, `idryx-detect` as a one-shot under a `manual` profile (the idryx image
+is distroless, so a loop cannot run in it, stack-single#30), and `record-seal`
+under `record`, which `install.sh` does start (`RECORD_ON=1` by default).
+`qryx-trend` and `mockryx-drill` are absent, each for a stated reason. So "no
+periodic compose service" is no longer true of stack-single. The install still
+starts none of the four routines this item names, and that is the next
+paragraph.
+
+**What is still true is what the heading is about.** No install starts a
+governance routine: `install.sh` lists `routines` among the operator-started
+profiles (`PROFILES_OPERATOR`), the README says "No install starts one of them",
+and the banner `install.sh` prints at the end says nothing on the box runs the
+governance routines on a schedule. C5 reads stack-single as 0 routines for the
+same reason: it counts scheduling forms, and a compose loop is a service. A
+green C5 is still not agreement.
+
+Two stale sentences found on the way, neither edited here. The header comment of
+`install.sh` still says "this compose file runs none of them", which compose.yaml
+contradicts. And `expectations/deployment-parity.json` says in its
+`routines:stack-single:absent:focus-export` and `...:idryx-detect` entries that
+the box "now runs four routines behind `--profile routines`", where compose.yaml
+has two there and puts `idryx-detect` behind `manual` since 2026-09-01. `@claude`.
+
+**What closes the single-box half now:** the `routines` profile is started by
+the install, or somebody decides it stays operator-started and the remaining
+entries say `decision` instead of `gap`. The second is a claim about what the
+product is and needs the user, as above.
+**Re-check:** `grep -n 'routines\|manual' stack-single/install.sh` for what the
+install starts, and the C5 `c5.routines-read` lines for the count.
+
+### ~~G1.5 The pin table in agent-stack-go's CLAUDE.md is a fourth copy, and all six rows are wrong~~
+**Closed 2026-08-09 by deleting the table; the heading was struck 2026-10-28.**
+See section 8 for the evidence. The body below is the finding as written.
 
 @measured 2026-08-09, after the six consumers moved to `v0.6.0`:
 `agent-stack-go/CLAUDE.md` carries a "Repo | Pins" table under **Blast radius**
@@ -254,6 +325,28 @@ as confining agents. It does not.
 **Closes when:** either agent workloads are brought into a namespace with a
 policy written for them, or the README says plainly which side of the line the
 policy sits on.
+
+**Re-checked 2026-10-28: still open, and one thing moved that this entry did
+not know about.** `@measured` `git -C stack-k8s grep -n -i 'outside the
+cluster\|confine\|agents run' origin/main -- README.md
+manifests/30-network-policy.yaml`, stack-k8s `ebb78d5`: two hits, the diagram's
+alt text and one README sentence, and both are about heraldyx, the one workload
+allowed outside. Nothing says where agents run. The manifest's header still
+reads "the governance story told at the network layer: the same 'an agent may do
+only what it was granted' rule the PDP enforces per call, enforced per packet".
+
+What moved is `manifests/58-agent-tokens-network.yaml` (added by stack-k8s#182,
+2026-10-18, and in the default kustomization now): a NetworkPolicy for a pod labelled
+`taipanbox.dev/agent-token=true`, which may reach vouchryx and the gateway and
+nothing else. That is a policy written for agent pods, so the first closing
+condition is half there. It is half because no agent workload ships: the only
+pod carrying that label is `agent-tokens/example-agent.yaml`, which is an
+example and is not in `manifests/kustomization.yaml`, so the default install
+still runs nothing for the policy to confine. An agent the operator runs
+elsewhere is unconfined by it, exactly as the original finding said.
+**Re-check:** the grep above for the README half, and
+`git grep -n 'taipanbox.dev/agent-token' origin/main -- manifests agent-tokens`
+for which pods carry the label.
 
 ### G2.4 A general egress sensor exists and nothing asks it the right question
 
@@ -382,6 +475,10 @@ carried from the 2026-08-05 audit unchecked; all seven have now been opened.
 constraint that is not a defect, and one correction to a finding that was
 wrong.
 
+That describes the 2026-08-09 pass. Two items opened on 2026-10-28, G3.9 and
+G3.10 at the end of this section, are open defects found by reading code after
+it.
+
 ### G3.4 trailryx: the SQL read surface never filters a row
 
 **Not a defect, and listed so it is not mistaken for one.** trailryx invariant
@@ -430,6 +527,92 @@ day filtering arrives. See section 8.
 than about trailryx. It described a leak, and the severity came from reading
 one function without asking who calls it. A finding that names a consequence
 should name the caller that produces it.
+
+### G3.9 stack-k8s builds the console's TLS image from a floating base, and nothing pins the Go that compiles it
+
+Opened 2026-10-28, found by reading what stack-k8s#210 did not touch.
+
+`@measured` `git -C stack-k8s grep -n '^FROM\|xcaddy' origin/main --
+images/caddy.Dockerfile`, 2026-10-28, stack-k8s `ebb78d5`: `FROM
+caddy:2-builder-alpine AS build`, `RUN xcaddy build --with
+github.com/caddy-dns/cloudflare`, and `FROM caddy:2-alpine`. Both bases are
+moving tags with no digest, the DNS plugin is taken at whatever its latest is,
+and there is no `GO_VERSION`: the Go toolchain is whichever one the builder
+image carried on the day somebody built the image. `@claude`: xcaddy compiles
+with the builder image's own Go, which is why a pin on the base is the only
+pin available.
+
+**Why it is a gap and not a style point.** The other four Dockerfiles this
+repository builds pin Go by name (`ARG GO_VERSION=1.27.3` in `console`,
+`go-service` and `scopyx-browser`, and `golang:1.27.3-alpine` in `wg`), and
+stack-k8s#210, merged the same day, moved exactly those four from 1.27.2 for
+GO-2026-6809, a `crypto/x509` flaw. `caddy.Dockerfile` was outside that change
+because it has no pin to move. The image it builds, `stack-caddy`, is published
+by `tunnel-images.yml` and run by stack-single's compose by digest.
+
+**What is held and what is not.** The OUTPUT is pinned: stack-single names
+`stack-caddy:<tag>@sha256:...` and stack-k8s invariant 58 pins what its
+manifests name. The INPUT to the build is not, so a rebuild of the same tag can
+produce a different binary, and the Dockerfile cannot say which Go it was built
+with. `scripts/pinned-images.sh` reads `manifests/*.yaml` and `security-tests.sh`
+and no Dockerfile, and no estate-gates check reads a Dockerfile `FROM` line
+either (`grep -n Dockerfile gates/*.py` finds only C17's note that a tag-only
+workflow scopes its `paths` to a Dockerfile, which is about triggers). Not
+measured: which Go the currently published `stack-caddy` carries. This entry
+does not say it is vulnerable.
+
+**Closes when:** both bases are pinned by digest with the Go version stated
+beside them and moved with the other four, and a check reads the `FROM` lines of
+`images/*.Dockerfile` so the next unpinned one is red rather than found after an
+advisory.
+**Re-check:**
+
+```bash
+git -C stack-k8s grep -n '^FROM\|GO_VERSION\|golang:' origin/main -- 'images/*.Dockerfile'
+git -C stack-k8s grep -n 'Dockerfile' origin/main -- scripts/pinned-images.sh   # no output: no gate reads them
+```
+
+### G3.10 wardryx remembers an accepted DPoP proof per process, so a restart or a second instance accepts it again
+
+Opened 2026-10-28.
+
+`@measured` `git -C wardryx grep -n 'proof record is per process' origin/main --
+docs/releases/v2.4.0.md`, 2026-10-28, wardryx `c8d9ee0` (line 79 today; cite the
+sentence, the number moves): wardryx's own release notes list it under "Not
+proven". Behind several wardryx instances, a proof presented once to each is
+accepted by each, and a restart clears the record, so a proof seen before a
+restart can be presented again within its window, at most 300 seconds. The code
+agrees: `Verifier.proofs` in `internal/agenttoken/verifier.go` is a map and a
+heap inside the process, and `recordProof` is the only writer.
+
+The contrast that makes it a gap rather than a limitation: single-use approval
+tokens have a shared store when `WARDRYX_DB` is set (`TryRedeem` is a Postgres
+`INSERT .. ON CONFLICT DO NOTHING`, atomic across every instance on that
+database, per wardryx's README), and the proof record has no such store.
+
+**Latent for one half, live for the other.** Every launcher runs one wardryx:
+`stack-k8s/manifests/10-planes.yaml` sets `replicas: 1` on it and
+`manifests/kustomization.yaml` says every Deployment there is a single replica.
+So "several instances each accept a proof" cannot happen in a stock install, and
+"a restart forgets" can. The first half becomes live the day anybody scales the
+policy plane, and no stack-k8s script gates the count (`git -C stack-k8s grep -n
+-i replicas origin/main -- scripts` finds cluster DNS, storage and test
+fixtures, not wardryx). It is the same latent-versus-live distinction G4.9
+draws.
+
+`@claude`: what a replay buys is bounded by what a DPoP proof is bound to (the
+request and the token), and this entry did not measure that.
+
+**Closes when:** the proof record is shared the way redemption is, or the
+constraint is written where an operator scaling the plane will read it and the
+launchers gate `replicas: 1` for wardryx.
+**Re-check:**
+
+```bash
+git -C wardryx grep -n 'proof record is per process' origin/main -- docs/releases
+git -C wardryx grep -n 'v\.proofs\|proofs   *map' origin/main -- internal/agenttoken/verifier.go
+git -C stack-k8s grep -n -B3 'replicas:' origin/main -- manifests/10-planes.yaml   # the wardryx Deployment
+```
 
 ## 4. The seams between services
 
@@ -497,7 +680,11 @@ section 8 for the evidence. Every emitter now checks, counts and warns; the
 README example that produced a rejectable value has been rewritten to the
 canonical form.
 
-### G4.4 scopyx emits two types the registry does not carry, and C4 says clean
+### ~~G4.4 scopyx emits two types the registry does not carry, and C4 says clean~~
+**Closed 2026-08-26, when the second half was verified; the heading was struck
+2026-10-28.** See section 8 for the evidence. The body below is the finding and
+its two closures in the order they happened, and its first paragraph is the
+state on 2026-08-09, kept as written.
 
 **The gate half is CLOSED as of 2026-08-09; the registry half is open and is
 the owner's to decide.** C4 now carries a scopyx producer entry and, more importantly, its Go
@@ -657,7 +844,10 @@ below.
 `idryx detect` with `IDRYX_EVENTS` set, and read the schema stamp on the
 resulting events rather than only the counts.
 
-### G4.6 trailryx records no identity finding at all, claimed or established
+### ~~G4.6 trailryx records no identity finding at all, claimed or established~~
+**Closed 2026-08-10 by trailryx#37 (`a9dd112`), the day it was opened; the
+heading was struck 2026-10-28.** See section 8 for the evidence. The body below
+is the finding as written.
 
 Opened 2026-08-10, found while closing G4.5 and worth its own entry because
 closing that one is easy to misread as having delivered this.
@@ -765,7 +955,11 @@ registered type. See below.
 
 ---
 
-### G4.8 The record plane silently drops the event that says the rules changed
+### ~~G4.8 The record plane silently drops the event that says the rules changed~~
+**Closed 2026-08-26 by trailryx `5535fc0`, by the second of the two answers
+below (refused by name, with the reason); the heading was struck 2026-10-28.**
+See section 8 for the evidence, and for what that closure does not change. The
+body below is the finding as written.
 
 Opened and gated on 2026-08-26, found by building C8 rather than by an audit,
 which is the order this repository prefers.
@@ -859,10 +1053,21 @@ regression is possible.
 | mockryx | 2 | widening a shared type upstream rather than locally |
 | terraform-provider-taipan | 2 | never delete from the Registry, ship a patch |
 | catalog | 2 | every template states what it does not cover |
-| bank-in-a-box | 2 | stays local, no remote |
+| bank-in-a-box | 2 | ~~stays local, no remote~~ stays private: a private remote, no CI, nothing published (note below the table) |
 | tokenfuse | 2 | invariants 4 and 21 |
 | trailryx | 5 | invariants 9, 10, 15, 17, 27 |
 | agent-passport | 2 | invariants 1 and 6 |
+
+**Corrected 2026-10-28: the bank-in-a-box row said "stays local, no remote",
+and that stopped being true on 2026-08-28.** `@measured` `gh repo view
+TAIPANBOX/bank-in-a-box --json visibility` returns PRIVATE, `estate.json`
+records `private_remote: TAIPANBOX/bank-in-a-box` ("since 2026-08-28"), and the
+repository's own invariant 5 now records that it has a private remote, with no
+CI and nothing published. That invariant is still marked not enforced. The
+`CLAUDE.md` header paragraph of that repository still says there is no GitHub
+remote (line 13, against invariant 5 at line 59, read 2026-10-28), so the
+repository contradicts itself; it is private, so this is a note and not an edit.
+The count of 2 is the 2026-08-09 measurement and was not redone.
 
 **The pattern worth naming:** three of the top four are deployment repositories,
 and every one of their ungated invariants is about a failure whose symptom is
@@ -888,11 +1093,18 @@ recurred in several services independently.
    accurate accounting.** **Largely closed**, see section 8.
 4. **The factory is described as one contract and held together by copies.**
    **Now gated** by estate-gates C1, C2, C3, C6. Currently red on C1 and C2, see
-   section 1.
+   section 1. *(2026-10-28: neither is red now. The 2026-10-28 reading in
+   section 1 found no disagreement from either, C1 with eleven consumers on
+   `v2.0.1` and C2 with 18 comparisons agreeing, and both report PARTIAL in a
+   public clone because two private repositories go unread. The sentence is kept
+   as written.)*
 5. **The registry is honest in prose and not yet in artifacts.** **Closed**,
    gated by C4, which is clean.
-6. **The emergency path is unavailable exactly when it is needed.** genaryx
-   passkeys, G3.7. **Open.**
+6. ~~**The emergency path is unavailable exactly when it is needed.** genaryx
+   passkeys, G3.7. **Open.**~~ **Closed.** G3.7 was closed, and had been since
+   2026-08-05, in section 8: the line above went on saying Open for as long as
+   nothing re-read it. Re-checked 2026-10-28 against genaryx `5473c7e`, see the
+   G3.7 entry in section 8.
 
 ---
 
@@ -909,7 +1121,11 @@ the session that would have implemented it.
   **Built**, idryx#43, 2026-08-10, and not as the design in G2.4 described it:
   the join that item specifies cannot be built, and the detector that works is
   the inversion of it. See G2.4.
-- **A C7 cross-repo check**: the event registry against producers' code, G4.3.
+- ~~**A C7 cross-repo check**: the event registry against producers' code,
+  G4.3.~~ **Built, as C4 and not as a C7**: G4.3 closed on 2026-08-26 when C4
+  was rewritten to read each producer's emit sites, and C7 became the
+  `agent_id` rule instead. The 2026-10-28 run prints one `c4.row-backed` line per
+  registered source (15 of them).
 - **The silent-zero rule** as an estate-wide convention, class 2 above.
 - ~~**A subject kind for the envelope**, so a claimed identity can travel.~~
   **Built 2026-08-10**, and not as a subject KIND: the distinction lives inside
@@ -963,6 +1179,104 @@ the session that would have implemented it.
 ## 8. Closed, with the evidence that closed them
 
 Kept rather than deleted, so the next audit knows what was checked.
+
+### Closed 2026-10-28
+
+Each of these was closed by re-reading the item against the current `main` of
+the repositories it names, not by a gate, so each carries the command that
+decided it. Where an item was closed earlier and this register went on
+saying otherwise, the date it actually closed is given first and the date it was
+struck is this one. Heads read: agent-stack-go `2933064`, agent-passport
+`59425d1`, trailryx `b4b2f72`, genaryx `5473c7e`, scopyx `95e5084`, stack-k8s
+`ebb78d5`, stack-single `be07f88`, wardryx `c8d9ee0`.
+
+- ~~**G1.3, the Kubernetes half: `stack-k8s` lacks `focus-export`, so a Kubernetes
+  install produces no FOCUS export.**~~ **Closed 2026-08-28**, stack-k8s#38.
+  `@measured` `git -C stack-k8s grep -n 'name: focus-export' origin/main --
+  manifests/10-planes.yaml` returns line 477, a container of the
+  `tokenfuse-gateway` Deployment, running `tokenfuse-gateway focus-export
+  --traces ... --out ...` on a one-hour loop with a read-only mount of the trace
+  volume. It is a sidecar and not a CronJob because that volume is a per-pod
+  `emptyDir`; the alternative was a billed PersistentVolumeClaim. The other half
+  of G1.3, stack-single, stays open above, and so does the heading.
+
+- ~~**G1.5: the pin table in agent-stack-go's CLAUDE.md is a fourth copy, and all
+  six rows are wrong.**~~ **Closed 2026-08-09** by deleting the table, agent-stack-go
+  `cae8685`. `@measured` `git -C agent-stack-go grep -n -E '^\| *Repo *\| *Pins'
+  origin/main -- .` returns nothing (exit 1), and the "Blast radius" section now
+  says that which tag each consumer is on "is not written here" and points at C1.
+  The commit also moved the failure message in `scripts/deps-layering.sh` off the
+  table it deleted. This item's own first alternative ("the table is deleted and
+  its sentence points at C1") is what happened. **One residue, not part of this
+  item:** the same section still says "a change ... is a change to all six" and
+  names eight importers, while C1 reads eleven consumers today (the three it does
+  not name are costcrew, keyryx and typryx). That is the hand-kept list the
+  section itself warns about, going stale the way the table did.
+
+- ~~**G4.4: scopyx emits two types the registry does not carry.**~~ **Closed
+  2026-08-26**, both halves. Registry half: `@measured` `git -C agent-passport
+  grep -c web_fetch origin/main -- SPEC.md` returns 3, and SPEC.md line 802 reads
+  `| scopyx | web_fetch (low) . web_blocked (high) |` (agent-passport#32,
+  `9d75212`, 2026-08-10). Gate half: C4 resolves a type named as a constant and
+  refuses one it cannot resolve (`go_consts`, `go_call_first_args`,
+  `_refuse_unresolved` in `gates/c4-event-registry.py`), and the 2026-10-28 run
+  prints `every one of the 2 types 6.2 lists under scopyx appears at an emit site
+  in scopyx` with `TypeFetch` and `TypeBlocked` in `internal/record/record.go`.
+  This is the item the body above had already called closed; only its heading
+  was left standing.
+
+- ~~**G4.6: trailryx records no identity finding at all.**~~ **Closed 2026-08-10**,
+  trailryx#37 (`a9dd112`), both of the item's conditions. The mapper has the row:
+  `@measured` `git -C trailryx grep -n 'identity_finding' origin/main --
+  crates/trailryx-agentevent/src/lib.rs` shows `"identity_finding" =>
+  m(EventType::IdentityFinding, None, None, Severity::Warning)` at line 903. The
+  tenant question has an answer: a claimed subject is refused by name as
+  `Rejection::ClaimedSubject`, its own counted rejection, and the tenant
+  comparison deliberately never runs on one (so it is not folded into
+  `ForeignTrustDomain`), pinned by
+  `a_claimed_subject_is_refused_by_name_rather_than_by_encoding` in
+  `crates/trailryx-agentevent/tests/envelope.rs`. **Not run here:** Rust does not
+  compile on the machine this register was refreshed on, so the evidence is the
+  code and the commit, and whether that test is green is what trailryx's own CI
+  says.
+
+- ~~**G4.8: the record plane silently drops the event that says the rules
+  changed.**~~ **Closed 2026-08-26**, trailryx `5535fc0`, by the item's second
+  answer: `policy_updated` is named in the mapper's refused-on-purpose passage
+  with the reason, so the refusal is a decision and no longer an omission.
+  `@measured` `git -C trailryx grep -c policy_updated origin/main --
+  crates/trailryx-agentevent/src/lib.rs` returns 6, and
+  `./gates/c8-registry-reaches-the-record.py --mode clone` on 2026-10-28 prints
+  `every one of the 89 emitted types 6.2 registers is either mapped by trailryx
+  or named in its refused list`. **What the closure does not change, and the
+  source says so itself:** the sealed record still holds no entry saying the
+  rules were rewritten. The event is on the shared bus with its own hash chain
+  and heraldyx mails on it, and the store declines to file it under an agent
+  because the subject is a synthetic API identity. A reader who wants "who
+  changed the policy" from the record plane alone will not find it.
+
+- ~~**Section 6, class 6: "the emergency path is unavailable exactly when it is
+  needed. genaryx passkeys, G3.7. Open."**~~ **Closed, and G3.7 had been closed
+  since 2026-08-05**; the class line was never updated. Re-checked against
+  genaryx: `git -C genaryx grep -n 'pub fn remove' origin/main --
+  crates/web/src/webauthn.rs` returns line 256, `REMOVE_PASSKEY_CEREMONY` is
+  defined at `crates/web/src/main.rs:638`, and
+  `a_passkey_is_removed_by_a_caller_who_confirms_with_an_enrolled_one` is at
+  `main.rs:1749`. The G3.7 entry below says the same with its own evidence. The
+  test was not run here (Rust).
+
+- ~~**Section 10, D1: scopyx is not in `estate.json`.**~~ **Closed 2026-08-09**,
+  the day it was measured, by estate-gates#10 (`6c6344b`). `@measured`
+  `grep -c scopyx estate.json` returns 4 today (it returned 0 before that
+  commit), and the entry records `"github": "TAIPANBOX/scopyx"` with `runs:
+  [scopyx]`. A cross-repo check does read it now: the 2026-10-28 run names
+  scopyx in C4, C5, C21 and C26. The census table in D1 is unchanged and is still
+  a count of 19 taken before the join.
+
+- **Corrected, not closed: section 5 said bank-in-a-box "stays local, no remote".**
+  See the note under the table in section 5 for the evidence. A sentence that
+  was true on 2026-08-09 and false from 2026-08-28; the row now says what is
+  true and the repository's own contradiction is recorded there.
 
 ### Closed 2026-08-10
 
@@ -1153,6 +1467,15 @@ Kept rather than deleted, so the next audit knows what was checked.
   running on the session cookie. Still opt-in, so the guarantee is
   configuration-dependent until a box sets it, which genaryx's own invariant
   marker says.
+
+  **Later, 2026-10-28:** it is no longer opt-in. genaryx#132 (`03c6c88`,
+  2026-10-19) made the passkey required by default for every command that needs
+  the ceremony, with `GENARYX_WEB_ALLOW_SOFTWARE_CEREMONY` as a named fallback
+  that is announced at startup and logged on every use, and
+  `GENARYX_WEB_REQUIRE_PASSKEY` is now read only to say that it is no longer
+  read. `@measured` `git -C genaryx grep -n 'LEGACY_REQUIRE_PASSKEY_ENV' origin/main
+  -- crates/web/src/config.rs`, genaryx `5473c7e`. The sentence it replaces is
+  kept above as written.
 
 - ~~**G3.5 trailryx federation returned everything to any valid
   certificate.**~~ **Closed as a correction rather than as a fix**, trailryx
@@ -1389,10 +1712,13 @@ practice explicit rather than changing direction.
 recalled as Rust here, and recall is what this file's provenance rules exist to
 stop from becoming a permanent claim.
 
-**scopyx is not in `estate.json`** (`@measured` 2026-08-09,
+~~**scopyx is not in `estate.json`** (`@measured` 2026-08-09,
 `grep -c scopyx estate.json` returns `0`), so the census covers 19 repositories
 and there is a twentieth that no cross-repo check reads. Open, and separate
-from this decision.
+from this decision.~~ **Closed the same day, struck 2026-10-28.** scopyx joined
+`estate.json` in estate-gates#10 (`6c6344b`, 2026-08-09) and the file now records
+26 repositories, so the census above is a snapshot of 19 and not of the
+registry. See section 8 for the evidence.
 
 #### How this is held
 
