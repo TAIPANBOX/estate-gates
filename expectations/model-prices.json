@@ -282,6 +282,16 @@
       "recorded": "2026-10-28",
       "provenance": "@claude 2026-10-28: a reading of OpenAI's pricing page as it stands today, recorded so the run says not judged for this tier rather than NOT MEASURED; not a decision the repository's owner made. The openai/ twin of gpt-6.1-sol, which tokenfuse inserts with the same rows and tier as the bare id (tokenfuse invariant 107, #434) and verdryx mirrors; the same reading as the entry for gpt-6.1-sol."
     },
+    "tier-not-on-page:tokenfuse:gpt-6.1-terra:above-272000": {
+      "why": "OpenAI's pricing page, read 2026-10-28, states no long-prompt price for gpt-6.1-terra: the flagship text-token table renders the short price only, and the page computes the price for prompts above 272,000 tokens in script, which this check does not run. The row is the book's own (tokenfuse#488, the same 2x input and cache, 1.5x output multipliers as every other gpt-6 row above 272,000).",
+      "recorded": "2026-10-28",
+      "provenance": "@claude 2026-10-28: a reading of OpenAI's pricing page as it stands today, recorded so the run says not judged for this tier rather than NOT MEASURED; not a decision the repository's owner made."
+    },
+    "tier-not-on-page:tokenfuse:openai/gpt-6.1-terra:above-272000": {
+      "why": "OpenAI's pricing page, read 2026-10-28, states no long-prompt price for openai/gpt-6.1-terra: the flagship text-token table renders the short price only, and the page computes the price for prompts above 272,000 tokens in script, which this check does not run. The row is the book's own.",
+      "recorded": "2026-10-28",
+      "provenance": "@claude 2026-10-28: a reading of OpenAI's pricing page as it stands today, recorded so the run says not judged for this tier rather than NOT MEASURED; not a decision the repository's owner made. The openai/ twin of gpt-6.1-terra, which tokenfuse inserts with the same rows and tier as the bare id (tokenfuse invariant 107, #434); the same reading as the entry for gpt-6.1-terra."
+    },
     "tier-not-on-page:verdryx:gpt-6-astra:above-272000": {
       "why": "OpenAI's pricing page, read 2026-10-28, states no long-prompt price for gpt-6-astra: the flagship text-token table renders the short price only, and the page computes the price for prompts above 272,000 tokens in script, which this check does not run. The row is the book's own.",
       "recorded": "2026-10-28",
