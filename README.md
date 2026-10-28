@@ -550,8 +550,8 @@ prices): a table that can carry a tier must carry the vendor's threshold and
 long price and no tier the vendor does not have; a flat table may carry
 either tier. A dated change within 30 days is a WARN line on every run, and
 red the day it takes effect. A disagreement a repository chose on purpose
-(tokenfuse's dearer dated rate for Gemini 3.x Flash, its fallback below
-gpt-6-astra's long price) is recorded in `expectations/model-prices.json`
+(tokenfuse's dearer dated rate for Gemini 3.x Flash; a long-prompt tier the
+vendor's page does not state, which is `tier-not-on-page`) is recorded in `expectations/model-prices.json`
 with its reason and printed as an EXCEPTION every run; an exception that
 excuses nothing is red, so a dated one has to be removed the day its price
 takes effect. Red for: a price that differs (with the row as it should read

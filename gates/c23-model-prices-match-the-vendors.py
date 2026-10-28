@@ -83,8 +83,11 @@ run; on the day it takes effect a row still at the old price is red.
 
 RECORDED CHOICES. A repository may choose a disagreement on purpose: tokenfuse
 carries Gemini 3.6 to 3.8 Flash at the standard rate that takes effect on
-2027-01-01 (the dearer of two dated rates), and keeps its fallback below
-gpt-6-astra's long-prompt price (its invariant 99, decisions 2 and 6).
+2027-01-01 (the dearer of two dated rates; its invariant 99, decision 2).
+It also kept its fallback below gpt-6-astra's long-prompt price (decision 6)
+until 2026-10-28, when OpenAI's page stopped stating that price and the
+record of it went stale. A long-prompt tier the page does not state is
+recorded as `tier-not-on-page`.
 `expectations/model-prices.json` records each such choice with its reason
 and provenance (`Exceptions` below). An applied one is printed as an
 EXCEPTION on every run, never a silent pass; one that excuses nothing in a
