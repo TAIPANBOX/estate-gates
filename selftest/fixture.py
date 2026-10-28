@@ -1154,6 +1154,10 @@ VOUCHRYX_ADDR="127.0.0.1:4310" \\
 register vouchryx "$!" TERM
 wait_health vouchryx 4310 "$!" "/.well-known/jwks.json"
 wait_health wardryx 8090 "$!"
+# An `if` with no path: the `;` and the `then` after the pid are not a path.
+if wait_health costcrew 4300 "$!"; then
+  log "costcrew answered its health path"
+fi
 """
 
 STACK_SINGLE_COMPOSE = """name: agent-stack
@@ -2525,6 +2529,36 @@ def _openai_island(tier: str, latest: int | None, rows: list, long_rows: list = 
     )
 
 
+def _openai_cyber(rows: list, long_rows: dict) -> str:
+    """The shape OpenAI's page took on 2026-10-28: a second text-token island,
+    also marked tier standard, for a model group. Its rendered columns are in a
+    new order (Input, Output, Cached input, 30m write, 12h write), the data
+    behind them is not, and the long prices come as `longContextRows`."""
+    import html as _html
+    import json as _json
+
+    props = {
+        "tier": _ser("standard"),
+        "modelGroup": _ser("cyber"),
+        "contextQueryParam": _ser("cyber-context-length"),
+        "collapsedLatestRowCount": _ser(1),
+        "rows": _ser(rows),
+        "longContextRows": _ser(long_rows),
+    }
+    body = "".join(
+        f"<tr><td><span>{r[0]}</span></td><td><span>${r[1]}</span></td><td><span>${r[4]}</span></td>"
+        f"<td><span>${r[2]}</span></td><td><span>${r[3]}</span></td><td><span>${r[3] * 2}</span></td></tr>"
+        for r in rows[:1]
+    )
+    return (
+        f'<astro-island component-export="TextTokenPricingTables" props="{_html.escape(_json.dumps(props))}">'
+        "<table><thead><tr><th colSpan=\"3\"></th><th colSpan=\"3\">Prompt caching</th></tr>"
+        "<tr><th>Model</th><th>Input</th><th><span><span>Output</span></span></th><th>Cached input</th>"
+        "<th><span><span>30m write</span></span></th><th><span><span>12h write</span></span></th></tr></thead>"
+        "<tbody>" + body + "</tbody></table></astro-island>\n"
+    )
+
+
 def _openai_grouped() -> str:
     """The grouped short/long table, which is where the page states the
     threshold, in a tooltip."""
@@ -2580,13 +2614,22 @@ PRICE_SOURCES = {
 <tr><td><a>Claude Haiku 3.5</a></td><td>$0.80 / MTok</td><td>$4 / MTok</td><td>$1 / MTok</td><td>$1.60 / MTok</td><td>$0.08 / MTok</td></tr>
 </tbody></table>
 <h2>Cloud platform pricing</h2>
-<p>Regional and multi-region endpoints include a 10% premium over global endpoints.</p>
+<p>Regional and multi-region endpoints include a 10 percent premium over global endpoints.</p>
 </body></html>
 """,
     "openai.html": "<html><body>\n"
     + _openai_island("standard", 1, [["gpt-6-sol", 2, 0.2, 2.5, 10], ["gpt-4o", 2.5, 1.25, 10]],
                      [["gpt-6-sol", "2.00", "0.20", "2.50", "10.00", "20.00", "2.00", "25.00", "15.00"]])
     + _openai_island("batch", 1, [["gpt-6-sol", 1, 0.1, 1.25, 5], ["gpt-4o", 1.25, 0.625, 5]])
+    # The cyber group: gpt-6-sol again at the same price (one model, one row),
+    # a model only this table prices, and the long prices in the new prop.
+    + _openai_cyber(
+        [["gpt-6-sol", 2, 0.2, 2.5, 10], ["gpt-6-sol-cyber", 6, 0.6, 7.5, 30]],
+        {
+            "gpt-6-sol": {"input": 20, "cachedInput": 2, "cacheWrite": 25, "output": 15},
+            "gpt-6-sol-cyber": {"input": "-", "cachedInput": "-", "cacheWrite": "-", "output": "-"},
+        },
+    )
     + _openai_grouped()
     + "</body></html>\n",
     "vertex.html": "<html><body><h1>Google models</h1><h2>Gemini 3</h2>\n"

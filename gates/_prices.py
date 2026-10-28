@@ -641,8 +641,13 @@ _ANTHROPIC_COLUMNS = {
     "hits and refreshes": "cache_read",
 }
 _CLAUDE_NAME = re.compile(r"^(Claude(?: [A-Z][A-Za-z]*)+ \d+(?:\.\d+)?)\b")
+#: The sentence stating the regional premium, in the two spellings the page has
+#: used: "10% premium" (2026-10-13) and "10 percent premium" (2026-10-28). Those
+#: two and nothing looser: a number in words, "per cent", "pct" or a sentence
+#: about something else is a page whose shape changed, and a premium guessed
+#: from it would be a price nobody stated.
 _PREMIUM = re.compile(
-    r"Regional and multi-region endpoints include an? (\d+(?:\.\d+)?)\s*% premium over global endpoints"
+    r"Regional and multi-region endpoints include an? (\d+(?:\.\d+)?)(?:\s*%|\s+percent\b) premium over global endpoints"
 )
 
 
@@ -774,10 +779,146 @@ def _number(x) -> float | None:
     return float(x)
 
 
+#: What a rendered heading of OpenAI's text-token table calls each price. The
+#: page renders the columns in the order its component chooses (Input, Cached
+#: input, Cache writes, Output until 2026-10-13; Input, Output, Cached input,
+#: 30m write, 12h write on 2026-10-28) and keeps the data rows behind them in one
+#: fixed order, (input, cached input, cache write, output) for a row of four
+#: prices and (input, cached input, output) for a row of three. The data rows
+#: carry no headings of their own, so the headings alone cannot say what a data
+#: row's third number is. The reader ties the two together by VALUE: every row
+#: the table renders must show, under each heading, the number the data row
+#: holds at the position this reader gives that heading. "12h write" is a price
+#: the data rows do not carry and is not read.
+_OPENAI_HEADING_COMPONENT = {
+    "input": "input",
+    "output": "output",
+    "cached input": "cache_read",
+    "cache writes": "cache_write",
+    "30m write": "cache_write",
+}
+_OPENAI_LAYOUTS = {
+    4: ("input", "cache_read", "cache_write", "output"),
+    3: ("input", "cache_read", "output"),
+}
+
+
+class _OpenAIRow:
+    __slots__ = ("raw", "name", "tier", "prices", "layout")
+
+    def __init__(self, raw: str, name: str, tier: str, prices: dict, layout: tuple):
+        self.raw, self.name, self.tier, self.prices, self.layout = raw, name, tier, prices, layout
+
+
+class _OpenAITable:
+    """One text-token price table marked tier `standard`, read on its own."""
+
+    def __init__(self, idx: int, props: dict, doc: TableReader):
+        self.idx, self.props = idx, props
+        group = props.get("modelGroup")
+        #: None for the flagship table; the group's name for a table of one
+        #: group of models (the page's "Cyber models" is modelGroup "cyber").
+        self.group = group if isinstance(group, str) and group else None
+        self.heads: list = []
+        self.ssr = None
+        for t in doc.tables:
+            if t.context.get("island") != idx:
+                continue
+            for row in t.rows():
+                labels = [c.text.lower() for c in row]
+                if labels and labels[0] == "model":
+                    self.heads, self.ssr = labels, t
+                    break
+            if self.heads:
+                break
+        heading = self.ssr.context.get("h2") if self.ssr is not None else ""
+        self.label = (
+            f"{heading!r} table" if heading
+            else (f"{self.group!r} group's table" if self.group else "table with no model group")
+        )
+        self.rows: list[_OpenAIRow] = []
+        self.skipped: list[str] = []
+
+    def columns(self) -> dict:
+        """component -> rendered column, from the headings, or Missing."""
+        cols: dict = {}
+        for i, h in enumerate(self.heads):
+            comp = _OPENAI_HEADING_COMPONENT.get(h)
+            if comp and comp not in cols:
+                cols[comp] = i
+        if self.heads[:1] != ["model"] or any(c not in cols for c in ("input", "output", "cache_read", "cache_write")):
+            raise E.Missing(
+                f"OpenAI's {self.label} no longer heads its columns Input, Output, Cached input and "
+                f"a cache-write price (it reads {' | '.join(self.heads) or 'nothing'}), and this check "
+                f"takes each price from the column its heading names"
+            )
+        return cols
+
+    def read_rows(self) -> None:
+        rows = self.props.get("rows")
+        if not isinstance(rows, list) or not rows:
+            raise E.Missing(f"OpenAI's {self.label} carries no rows")
+        for row in rows:
+            if not isinstance(row, list) or not row or not isinstance(row[0], str):
+                self.skipped.append(repr(row)[:60])
+                continue
+            raw = row[0]
+            name = re.sub(r"\s*\(.*\)\s*$", "", raw).strip()
+            tm = re.search(r"\((.*)\)", raw)
+            tier = tm.group(1).strip() if tm else ""
+            vals = row[1:]
+            layout = _OPENAI_LAYOUTS.get(len(vals))
+            if layout is None:
+                self.skipped.append(raw)
+                continue
+            prices = {c: _number(x) for c, x in zip(layout, vals)}
+            prices = {c: p for c, p in prices.items() if p is not None}
+            if "input" not in prices or "output" not in prices:
+                self.skipped.append(raw)
+                continue
+            self.rows.append(_OpenAIRow(raw, name, tier, prices, layout))
+
+    def prove_columns(self, cols: dict) -> int:
+        """Every rendered row against its data row, by value. Returns how many
+        rows were tied; raises Missing on the first that disagrees."""
+        tied = 0
+        by_name = {r.name: r for r in self.rows}
+        for cells in (r for r in self.ssr.rows()):
+            texts = [c.text for c in cells]
+            if not texts or texts[0].lower() == "model" or len(texts) <= max(cols.values()):
+                continue
+            data = by_name.get(re.sub(r"\s*\(.*\)\s*$", "", texts[0]).strip())
+            if data is None:
+                continue
+            for comp, i in cols.items():
+                shown = dollars(texts[i])
+                stated = data.prices.get(comp) if comp in data.layout else None
+                if (shown is None) != (stated is None) or (shown is not None and not close(shown, stated)):
+                    raise E.Missing(
+                        f"OpenAI's {self.label} renders {data.name}'s {comp.replace('_', ' ')} as "
+                        f"{shown if shown is not None else 'no price'} under {self.heads[i]!r}, and the data "
+                        f"behind the table holds {stated if stated is not None else 'no price'} at the position "
+                        f"this check gives that column, so the columns are not in the order the check reads them"
+                    )
+            tied += 1
+        return tied
+
+
 def parse_openai(page: str, url: str = OPENAI_URL) -> Vendor:
+    """Every text-token table the page marks tier `standard`, read together.
+
+    On 2026-10-28 the page carried two: the flagship table and a group of
+    models of its own ("Cyber models"), with gpt-5.6-sol in both. A reader that
+    took one would have priced half the page, and one that took either by
+    position would have been right by accident. So all are read, a model both
+    price identically is one row, and a model they price differently is read
+    from NEITHER and reported: a page that contradicts itself has no price.
+    Which rows are the latest models is the flagship table's to say (the one
+    with no model group); a group's own latest rows are not counted.
+    """
     v = Vendor("openai", "OpenAI", url)
     doc = read_tables(page)
-    standard = []
+    tables: list[_OpenAITable] = []
     for idx, island in enumerate(doc.islands):
         if island.get("component-export") != "TextTokenPricingTables":
             continue
@@ -786,72 +927,83 @@ def parse_openai(page: str, url: str = OPENAI_URL) -> Vendor:
         except ValueError:
             continue
         if isinstance(props, dict) and props.get("tier") == "standard":
-            standard.append((idx, props))
-    if len(standard) != 1:
+            tables.append(_OpenAITable(idx, props, doc))
+    if not tables:
         raise E.Missing(
-            f"OpenAI's pricing page carries {len(standard)} text-token price tables marked "
-            f"tier 'standard' (component TextTokenPricingTables), and this check reads "
-            f"exactly one. The page changed shape"
+            "OpenAI's pricing page carries no text-token price table marked tier 'standard' "
+            "(component TextTokenPricingTables), which is the table this check reads. The page changed shape"
         )
-    idx, props = standard[0]
-    heads, ssr = [], None
-    for t in doc.tables:
-        if t.context.get("island") != idx:
-            continue
-        for row in t.rows():
-            labels = [c.text.lower() for c in row]
-            if labels and labels[0] == "model":
-                heads, ssr = labels, t
-                break
-        if heads:
-            break
-    if heads[: len(_OPENAI_HEADINGS)] != _OPENAI_HEADINGS:
-        raise E.Missing(
-            "OpenAI's standard text-token table no longer heads its columns "
-            + " | ".join(_OPENAI_HEADINGS)
-            + f" (it reads {' | '.join(heads) or 'nothing'}), and this check reads the rows by that order"
+    for tb in tables:
+        cols = tb.columns()
+        tb.read_rows()
+        if tb.ssr is None or tb.prove_columns(cols) == 0:
+            raise E.Missing(
+                f"OpenAI's {tb.label} renders no row that can be tied to its data, so the order of the "
+                f"data columns is unproven and this check will not read prices by it"
+            )
+
+    merged: dict = {}  # name -> (label, [(tier, prices)])
+    clashes: dict = {}  # name -> [(label, [(tier, prices)])]
+    for tb in tables:
+        per: dict = {}
+        for r in tb.rows:
+            per.setdefault(r.name, []).append((r.tier, r.prices))
+        for name, offers in per.items():
+            if name in clashes:
+                clashes[name].append((tb.label, offers))
+            elif name not in merged:
+                merged[name] = (tb.label, offers)
+            elif merged[name][1] != offers:
+                clashes[name] = [merged.pop(name), (tb.label, offers)]
+    for name, readings in sorted(clashes.items()):
+        said = "; ".join(
+            f"the {label} says " + " / ".join(
+                (f"{tier}: " if tier else "") + ", ".join(f"{c} {fmt(p[c])}" for c in COMPONENTS if c in p)
+                for tier, p in offers
+            )
+            for label, offers in readings
         )
-    rows = props.get("rows")
-    if not isinstance(rows, list) or not rows:
-        raise E.Missing("OpenAI's standard text-token table carries no rows")
-    skipped = []
-    order = []
-    for row in rows:
-        if not isinstance(row, list) or not row or not isinstance(row[0], str):
-            skipped.append(repr(row)[:60])
-            continue
-        raw = row[0]
-        name = re.sub(r"\s*\(.*\)\s*$", "", raw).strip()
-        tm = re.search(r"\((.*)\)", raw)
-        tier = tm.group(1).strip() if tm else ""
-        vals = row[1:]
-        if len(vals) == 4:
-            comps = ("input", "cache_read", "cache_write", "output")
-        elif len(vals) == 3:
-            comps = ("input", "cache_read", "output")
-        else:
-            skipped.append(raw)
-            continue
-        prices = {c: _number(x) for c, x in zip(comps, vals)}
-        prices = {c: p for c, p in prices.items() if p is not None}
-        if "input" not in prices or "output" not in prices:
-            skipped.append(raw)
-            continue
-        v.add(name, name, Offer(prices, "global", tier))
-        order.append(name)
-    if not v.models:
-        raise E.Missing("no row of OpenAI's standard text-token table parsed")
+        v.problems.append(
+            f"OpenAI's standard text-token tables price {name} differently ({said}), so this check reads "
+            f"it from neither and a row priced from it is not judged"
+        )
+    order: dict = {}
+    for tb in tables:
+        for r in tb.rows:
+            if r.name in merged and merged[r.name][0] == tb.label and r.name not in order:
+                order[r.name] = None
+    for name in order:
+        for tier, prices in merged[name][1]:
+            v.add(name, name, Offer(prices, "global", tier))
+    if not v.models and not clashes:
+        raise E.Missing("no row of OpenAI's standard text-token tables parsed")
+    skipped = [x for tb in tables for x in tb.skipped]
     if skipped:
         v.notes.append(f"{len(skipped)} OpenAI row(s) in a shape this check does not read: {', '.join(skipped[:6])}")
-    n = props.get("collapsedLatestRowCount")
-    if isinstance(n, int) and not isinstance(n, bool) and 0 < n <= len(order):
-        v.current = order[:n]
+    if len(tables) > 1:
+        v.notes.append(
+            f"OpenAI carries {len(tables)} standard text-token tables ({', '.join(tb.label for tb in tables)}); "
+            f"all are read, and a model in more than one at one price is one row"
+        )
+
+    flagship = [tb for tb in tables if tb.group is None]
+    if len(flagship) == 1:
+        n = flagship[0].props.get("collapsedLatestRowCount")
+        names = [r.name for r in flagship[0].rows if r.name in merged]
+        names = list(dict.fromkeys(names))
+        if isinstance(n, int) and not isinstance(n, bool) and 0 < n <= len(names):
+            v.current = names[:n]
+        else:
+            v.problems.append(
+                "the standard text-token table no longer says how many of its rows are the "
+                "latest models (collapsedLatestRowCount), so which models are current could not be read"
+            )
     else:
         v.problems.append(
-            "the standard text-token table no longer says how many of its rows are the "
-            "latest models (collapsedLatestRowCount), so which models are current could not be read"
+            f"the page carries {len(flagship)} standard text-token tables with no model group, so which "
+            f"table's latest rows are the current models could not be read"
         )
-    _openai_long(v, doc, ssr, heads)
+    _openai_long(v, doc, tables)
     return v
 
 
@@ -865,16 +1017,18 @@ def _walk(value):
             yield from _walk(x)
 
 
-def _openai_long(v: Vendor, doc: TableReader, ssr, heads: list) -> None:
+def _openai_long(v: Vendor, doc: TableReader, tables: list) -> None:
     """OpenAI's long-context prices, where the page states them.
 
-    The page shows a "Long context" price beside the short one for its latest
-    rows (rendered into the standard table) and for the models in its grouped
-    short/long table; for the rest it computes the long price in script, which
-    this reader does not run. So OpenAI's tiers are marked incomplete: a tier
-    the page does not show is unknown, not absent. The threshold is the one
-    the page states (">272K input tokens"), read from its own tooltip or from
-    a row name's "(<272K context length)", and there must be exactly one.
+    The page states a long price in three shapes, depending on the day. Until
+    2026-10-13 a rendered "Long context" column group beside the short price for
+    its latest rows, and a grouped short/long table. From 2026-10-28 a
+    `longContextRows` prop on a table, one entry per model, "-" where the page
+    states none. For the rest it computes the long price in script, which this
+    reader does not run. So OpenAI's tiers are marked incomplete: a tier the
+    page does not show is unknown, not absent. The threshold is the one the page
+    states (">272K input tokens"), read from a tooltip or from a row name's
+    "(<272K context length)", and there must be exactly one.
     """
     v.tiers_complete = False
     thresholds = set()
@@ -902,19 +1056,57 @@ def _openai_long(v: Vendor, doc: TableReader, ssr, heads: list) -> None:
         )
         return
     above = thresholds.pop()
-    long_heads = ["input", "cached input", "cache writes", "output"]
     found = 0
-    if ssr is not None and heads[5:9] == long_heads and len(heads) == 9:
-        for row in ssr.rows():
-            texts = [c.text for c in row]
-            if len(texts) != 9 or texts[0].lower() == "model":
-                continue
-            name = re.sub(r"\s*\(.*\)\s*$", "", texts[0]).strip()
-            prices = {c: dollars(x) for c, x in zip(("input", "cache_read", "cache_write", "output"), texts[5:9])}
-            prices = {c: x for c, x in prices.items() if x is not None}
-            if name in v.models and "input" in prices and "output" in prices:
-                v.models[name].append(Offer(prices, "global", f"over {above // 1000}K context", above=above))
-                found += 1
+    clashed: set = set()
+
+    def put_long(name: str, prices: dict) -> bool:
+        """One long price for one model. The same price from two places is one
+        price; two prices for one model are read as neither, and reported."""
+        nonlocal found
+        if name in clashed:
+            return False
+        have = [o for o in v.models.get(name, []) if o.above == above]
+        if have and have[0].prices == prices:
+            return True
+        if have:
+            clashed.add(name)
+            v.models[name] = [o for o in v.models[name] if o.above != above]
+            v.problems.append(
+                f"OpenAI's page states two different long-context prices for {name} "
+                f"({', '.join(f'{c} {fmt(have[0].prices[c])}' for c in COMPONENTS if c in have[0].prices)} and "
+                f"{', '.join(f'{c} {fmt(prices[c])}' for c in COMPONENTS if c in prices)}), so this check reads "
+                f"neither"
+            )
+            found -= 1
+            return False
+        v.models.setdefault(name, []).append(Offer(prices, "global", f"over {above // 1000}K context", above=above))
+        v.names.setdefault(name, name)
+        found += 1
+        return True
+
+    long_heads = ["input", "cached input", "cache writes", "output"]
+    for tb in tables:
+        heads, ssr = tb.heads, tb.ssr
+        if ssr is not None and heads[5:9] == long_heads and len(heads) == 9:
+            for row in ssr.rows():
+                texts = [c.text for c in row]
+                if len(texts) != 9 or texts[0].lower() == "model":
+                    continue
+                name = re.sub(r"\s*\(.*\)\s*$", "", texts[0]).strip()
+                prices = {c: dollars(x) for c, x in zip(("input", "cache_read", "cache_write", "output"), texts[5:9])}
+                prices = {c: x for c, x in prices.items() if x is not None}
+                if name in v.models and "input" in prices and "output" in prices:
+                    put_long(name, prices)
+        rows = tb.props.get("longContextRows")
+        if isinstance(rows, dict):
+            fields = {"input": "input", "cachedInput": "cache_read", "cacheWrite": "cache_write", "output": "output"}
+            for name, entry in rows.items():
+                if not isinstance(name, str) or not isinstance(entry, dict) or name not in v.models:
+                    continue
+                prices = {c: _number(entry.get(f)) for f, c in fields.items()}
+                prices = {c: x for c, x in prices.items() if x is not None}
+                if "input" in prices and "output" in prices:
+                    put_long(name, prices)
     for idx, island in enumerate(doc.islands):
         props = props_all[idx]
         if island.get("component-export") != "GroupedPricingTable" or not isinstance(props, dict):
@@ -935,12 +1127,10 @@ def _openai_long(v: Vendor, doc: TableReader, ssr, heads: list) -> None:
                 short = {c: x for c, x in short.items() if x is not None}
                 long = {c: x for c, x in long.items() if x is not None}
                 name = group["model"]
-                if name not in v.models and "input" in short and "output" in short:
+                if name not in v.models and name not in clashed and "input" in short and "output" in short:
                     v.add(name, name, Offer(short, "global"))
                 if "input" in long and "output" in long:
-                    v.models.setdefault(name, []).append(Offer(long, "global", f"over {above // 1000}K context", above=above))
-                    v.names.setdefault(name, name)
-                    found += 1
+                    put_long(name, long)
     v.notes.append(f"long-context prices (prompts above {above:,} tokens) stated for {found} model(s); for the rest the page computes them in script and they are not judged")
 
 

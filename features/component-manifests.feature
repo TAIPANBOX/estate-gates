@@ -87,10 +87,13 @@ Feature: A repository says what it contributes, and the estate reads it
   @fires:c15.probe-disagrees
   Scenario: A launcher polls a different health path than the component declares
     Given a component declaring the path its health is served on
-    And a deployment polling a different path for it
+    And a deployment polling a different path for it, or polling none, which is the default /healthz
     And nothing recording why they differ
     When the estate is read
     Then it is refused, naming both paths
+    But a launcher call that passes no path is a probe of the default, and
+      nothing that follows its pid (a semicolon and "then", "||", "&&", a
+      backslash, a comment) is ever read as a path
     Because these are two facts in two repositories and nothing compared them
       until now: the install waits on a path the service never serves, and the
       only symptom is a timeout that reads as the service being slow
