@@ -568,6 +568,14 @@ them on the live doors of forge. Times are London time (GMT). Artifacts are on f
 Not measured here: the console's own copilot request from its UI (the gateway path with the
 console's client key answered 200); streams with several tool calls; load.
 
+The same evening forge moved to the releases these findings produced:
+
+| What | When | On what | Artifact | Scope |
+|---|---|---|---|---|
+| stack-single 1.4.4 installed over 1.4.3, twice | 2026-10-28, 23:08 to 23:19 London (GMT) | forge, tag v1.4.4 at `daee42e`, the installer under systemd-run with the operator's own key and identity files | `/var/log/stack-single-upgrade-1.4.4-run{1,2}.log`; backup `/var/backups/stack-single-1.4.4-upgrade-20261028/` | both runs exit 0, 59 ok; the second run recreated 0 containers; `install.sh status` 49 ok; images tokenfuse v1.20.3, console v1.7.3, agent-conform v2.0.2, trailryx-node v1.5.0, stack-caddy and stack-wg v1.7.3; 19 containers up, 0 restarts |
+| Client keys and the gateway's policy key rotated during the upgrade | 2026-10-28, 23:00 to 23:25 | forge | `/var/tmp/upgrade-20261028/PLAN.md` | the old keys answer 401 on :4100; the new keys answer 200 with a wardryx allow; no old value in a running container's environment |
+| A refused client key on the bus in agent-token require mode (tokenfuse #491, v1.20.3) | 2026-10-28, 23:25 | forge, :4100 with `TOKENFUSE_AGENT_TOKENS=require` | `/var/tmp/live-20261028/` (`live.py h`) | an unknown key: 401 and a high `identity_mismatch` event, `reason=unknown_key`, `key_fingerprint=sha256:<16 hex>`; no key: `reason=missing_key`; no raw key on the bus or in the gateway log. The same request on v1.20.1 at 21:14 produced no event |
+
 ## Rust build disk writes, 2026-10-06, proven
 
 Why this section exists: the Mac's SSD took 3.93 TB of writes in under a week,
