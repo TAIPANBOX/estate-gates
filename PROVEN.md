@@ -576,65 +576,20 @@ The same evening forge moved to the releases these findings produced:
 | Client keys and the gateway's policy key rotated during the upgrade | 2026-10-28, 23:00 to 23:25 | forge | `/var/tmp/upgrade-20261028/PLAN.md` | the old keys answer 401 on :4100; the new keys answer 200 with a wardryx allow; no old value in a running container's environment |
 | A refused client key on the bus in agent-token require mode (tokenfuse #491, v1.20.3) | 2026-10-28, 23:25 | forge, :4100 with `TOKENFUSE_AGENT_TOKENS=require` | `/var/tmp/live-20261028/` (`live.py h`) | an unknown key: 401 and a high `identity_mismatch` event, `reason=unknown_key`, `key_fingerprint=sha256:<16 hex>`; no key: `reason=missing_key`; no raw key on the bus or in the gateway log. The same request on v1.20.1 at 21:14 produced no event |
 
-## Rust build disk writes, 2026-10-06, proven
+## The improvement wave, 2026-11-04, proven
 
-Why this section exists: the Mac's SSD took 3.93 TB of writes in under a week,
-almost all of it Rust builds by agent sessions. Each fix below was measured
-where it ran; the pull-request figures are the PRs' own runs, on a cloud VM,
-not on the Mac.
+Commits on `main`, none of them in a release yet: every launcher pins the older tags.
 
 | What | When | On what | Artifact | Scope |
 |---|---|---|---|---|
-| SSD writes since boot | 2026-10-06, read at about 17:00 UTC | this Mac (M1 Pro), boot 2026-09-29 21:38 | `ioreg -c IOBlockStorageDriver -r -k Statistics` ("Bytes (Write)" = 3,935,535,951,872) | 6 days 20 h of uptime; attributes no bytes to any process; the cause (Rust test binaries, per-worktree `target/`) is read from the build directories, not traced |
-| genaryx: one test binary per crate, before and after | 2026-10-06 | a Claude Code cloud VM, 4 vCPU, Linux | genaryx#92 body (merged `bc269fa`); CI on the PR green | 948 tests passed on both sides; full `--no-run` wrote 8.24 GB before, 2.57 GB after; a rebuild after touching core 5.47 GB before, 1.14 GB after; one run each; both changes (binaries and debug profile) measured together |
-| tokenfuse: one test binary per crate, before and after | 2026-10-06 | a Claude Code cloud VM, 4 vCPU, Linux | tokenfuse#365 body (merged `50eba9a`); all ten CI checks green, `clippy --all-features` included | 1660 passed and the same 2 root-only failures on both sides; 56 test executables (17.8 GB) to 12 (0.64 GB); full `--no-run` 26.9 GB to 4.3 GB; rebuild after touching `crates/gateway/src/lib.rs` 18.8 GB to 1.3 GB, 43 s to 6.5 s; one run each |
-| trailryx: one test binary per crate, before and after | 2026-10-06 | a Claude Code cloud VM, 4 cores, Linux | trailryx#88 body (merged `aea2fda`); both CI gates green after `a334a3c` | 1220 tests passed on both sides, 1223 test names identical; test executables 95 to 66; full `--no-run` 23.97 GB to 5.09 GB; rebuild after touching `crates/trailryx-record/src/lib.rs` 8.60 GB to 1.44 GB, 22.2 s to 6.0 s; one run each; the PR's first CI never started because a workflow line did not load as YAML |
-| A shared cargo `build-dir` reuses a dependency across two checkouts | 2026-10-06 | this Mac, cargo 1.96.1, a throwaway two-checkout crate with one registry dependency | the probe recorded in the session's memory note `heavy-builds-run-in-the-cloud` (probe files deleted after) | the dependency was not recompiled in the second checkout and the final binary landed in `./target/debug` and ran; not measured on a real repository |
-| The hook refuses heavy cargo in tokenfuse, trailryx and genaryx on this Mac | 2026-10-06 | this Mac, Claude Code PreToolUse hook | `~/.claude/hooks/rust-builds-go-to-cloud.test.sh` (12 planted cases, red on a neutered hook); a live `cargo test --no-run -p tokenfuse-core` refused in-session | Claude Code sessions only; cargo run from inside a script or `bash -c` is not seen |
+| wardryx: one DPoP proof is accepted once across two instances and a restart, and refused when the record cannot be asked | 2026-11-04 | forge (Intel N150, 4 cores), the built binary on a `postgres:16-alpine` container | TAIPANBOX/wardryx#130 body (merged `a55254a`), `VALIDATION.md` at that commit; `go test -count=1 -tags integration -run TestTheBuiltBinary -v ./internal/manifest/` and `go test -tags 'integration latency' -run TestDecideLatency -v ./internal/manifest/` | Same proof at instance A, instance B, and A after a kill: `7462673` answered 200, 200, 200; `a55254a` answered 200, 403, 403. `docker stop` of the database: a fresh proof 503 `agent_token_proof_unrecorded` in 1 ms, a decide with no proof 200. `docker pause`: 503 in 3.003 s. Cost at load average 3 to 4: p50 up about 2 ms for 1 or 8 callers and 4 ms for 32, about 420 bytes of WAL per proof. Scope: this commit on one box, not a release. |
+| vouchryx: tokens from a real OpenID provider go through the exchange, DPoP binding, revocation, ban and lift, and a rotated signing key is followed without a restart | 2026-11-04 | forge, Keycloak 26.8.1 in throwaway realms with generated credentials, published `v0.6.1` image | TAIPANBOX/vouchryx#65 (merged `c1295d7`), `labs/oidc-keycloak`, `docs/live-oidc-run.md`, #66 | The run found the defect it fixed: a provider rotating its key was refused until a restart. Keycloak wrote the `user://` URI into `sub`; a provider's opaque `sub` is refused by the exchange. A service account's token was presented as an RFC 7523 assertion; no real cluster has presented one, and Cross App Access was not exercised. |
+| verdryx: the typed grader on a real model, and `quality_drift` and `slo_burn` reaching the bus | 2026-11-04 | forge, typryx v0.5.1 on `openai-logprobs` over Ollama 0.40.14 serving `qwen2.5:7b`, CPU only | TAIPANBOX/verdryx#59 (merged `452ac7c`), its body | 30 `eval.outcome_met` tasks from the dev split of typryx-evalset. Mean typed score 0.815 for a working model, 0.149 for one told to refuse; drift against the first reads `regressed` (delta -0.666, t = -7.15) and the event is on the bus. Four defects on the path from a score to the bus found and fixed. The one-token judge did not separate a 63% model from a 47% one, so it reads a collapse and not a small slide. |
+| stack-k8s: an agent pod under `58-agent-tokens-network.yaml` reaches vouchryx and the gateway and nothing else | 2026-11-04 | forge, k3d | TAIPANBOX/stack-k8s#215 (merged `08b5d02`), `agent-tokens/confine-check.sh`, `evidence/agent-confinement-k3d` | Three probes: the overlay's pod, a pod with no label in the same namespace, and a pod in a namespace no policy covers as the control. The check goes red on a faulted cluster before it is trusted green. An agent run outside the namespace is not confined. |
+| wardryx: an agent with a spent error budget is held for a person while verdryx's `slo_burn` stands, and a caller cannot remove the signal | 2026-11-04 | forge, the built binary reading a file a real `verdryx slo` run wrote | TAIPANBOX/wardryx#131 (merged `1f29f4e`), `internal/sloburn/testdata/verdryx-events.ndjson`, `docs/examples/hold-while-the-budget-is-spent.yaml` | Two agents with a spent budget held, two others allowed, a grant let a held call through once, the agent's own `slo_burn: none` changed nothing, a corrupted file reported on `/readyz`. 43 hand mutants caught. Off by default, a hold only and never a deny. Recovery can take up to `WARDRYX_SIGNAL_EVENTS_MAX_AGE`, since verdryx writes no recovery event; the chain does not authenticate the writer or see lines cut from the end. |
+| verdryx: a quality failure becomes a finding, a fix is judged by the runs after it, and a person's grade outranks a model's | 2026-11-04 | forge, `qwen2.5:7b` behind Ollama, no paid API | TAIPANBOX/verdryx#60 (merged `dba5a93`) | A failing fix, a verified fix, a refused uploader and a reviewer's grades moving drift and the quality floor, through the CLI. No event type added. Until the console image is rebuilt it shows the model's score and not the person's. |
+| idryx: one report joins what is declared, what was seen and what is in the code, and names a source nobody supplied | 2026-11-04 | forge, linux/amd64: a real qryx scan (20 sites, 4 providers), a real 30 s eBPF capture (60 flows, 11 processes), the live stack's bus files | TAIPANBOX/idryx#119 (merged `f8414eb`) | The agents reported `seen_not_declared` are the ones `undeclared_llm` fires for, and the processes `seen_no_declaration` are the ones `unmanaged_egress` grades. The bus names no provider, so a governed agent reads `bus_only`, and egress names a host and never a model. |
+| mockryx: three provider-failure drills pass on an intact chain and fail on the status, the bus event or the notice when that link is broken | 2026-11-04 | Mac go1.27.3 quick tests and CI `build` on PR #87 | TAIPANBOX/mockryx#87 (merged `c51ee58`), `go test ./internal/runner -run TestProviderDrills`, `./scripts/selftest.sh` | Against a local stub and models of the gateway and the notifier, not the real TokenFuse and heraldyx. The only provider in these runs is the stub. |
+| engram: a person's fact is not displaced by a lower provenance, and refuting a fact marks what rests on it without erasing anything | 2026-11-04 | forge (linux/amd64, Python 3.13.5, SQLite 3.46.1) and GitHub CI (Python 3.11 to 3.13, encryption job) | TAIPANBOX/engram#65 (merged `553d2a5`); `pytest --cov=engram` 613 passed, 90%; 35 of 35 mutants killed; a 3.0.0-era Engram opens a migrated store | Library, MCP `why`, CLI `timeline`. Provenance is declared and not verified, refutation emits no event, and there is no MCP refute tool. |
 
-## Deployment, NOT proven, with the scope of the gap
-
-| What | Why it is open | Last touched |
-|---|---|---|
-| `stack-up` on published images | Not migrated. It builds from source by design and says so: it is the local sandbox and needs Rust, Go, Node and Python on the host. `stack-single` migrated on 2026-09-01 (stack-single#27 and #28) and now compiles nothing by default | 2026-09-01 |
-| arm64 running on arm64, as a cluster | Closed in scope on 2026-09-26: every plane of stack-k8s v1.1.10 ran on the two Ampere nodes of a MIXED GCP cluster (row above, G1). Still never run: an all-arm64 cluster, and Graviton | 2026-09-26 |
-| Windows, anywhere | Nothing, ever | n/a |
-| The recipes' CI matrix (INT-1's second half) | The offline stub refuses to start on the OpenAI wire by design, so a CI job needs a real OpenAI-shaped upstream; tokenfuse #276 ships the recipes without it | 2026-09-13 |
-| R1: RUN-7, POL-6, REC-4 | RUN-7 needs vouchryx, which stack-single does not carry (a stack-up build on the 2 vCPU box was not attempted); POL-6's eBPF radar is not a released asset; REC-4 needs SMTP to a mailbox of his | 2026-09-13 |
-| R2 GCP: UPG-2, UPG-4, REC-5, REC-6, the console halves of POL-2 and REC-1, the `/v1/chat/completions` half of RUN-1, raft re-election in FAIL-3, `alert_sent` in FAIL-1 | UPG-2 and UPG-4 have no 1.0 image to upgrade to yet; REC-5's D6 task set was not located and is real model spend; REC-6 and the passkey ceremonies are his; the pinned gateway is v0.4.4 (door is v0.5.0); HA is compiled out; no SMTP server | 2026-09-13 |
-| R2 AWS: INS-6, POL-1, POL-2, POL-4, REC-2, INT-4, FAIL-1, FAIL-3 | Measured on GCP the same day and not repeated on AWS, a cost choice, not an inability | 2026-09-13 |
-| R3: RUN-2 (the wrong door for the wire), REC-5 (the D6 set), a real OpenAI key, Nova on Bedrock's OpenAI door, the #283 fix on a running image | RUN-2 and REC-5 were not run on R3; no OpenAI key exists (OpenRouter stood in); Bedrock does not serve Nova as OpenAI wire on this account; #283 is fixed on main (#284) and measured by its tests, not yet by a released image behind a real provider | 2026-09-13 |
-| The hub VM stop window with `hub-ingress` carrying the 30 s tolerations | Measured 2026-10-05 only WITHOUT them (436 s, Deployment row above); with them expected about 3 min, not run. Also never run: a stop of a node carrying only wardryx, a network partition instead of a stopped VM | 2026-10-05 |
-| tokenfuse's MCP broker's session surviving a broker restart or a second replica, and MCP servers beyond the Python SDK (1.30.0, 2.3.0) and openwrt-mcp 0.5.0 | v1.6.1 was measured against the two Python SDK versions on the builder's machine and, on 2026-10-05, against openwrt-mcp 0.5.0 (initialize, tools/list, tools/call with SSE replies and a session id, Round 7 row above); a session answers 404 after a restart by design. The broker sends no credential upstream, so an MCP server that requires a token (openwrt-mcp does) is reachable only through a shim | 2026-10-05 |
-
-## Traps that bite an operator and that no gate holds
-
-| Trap | Where | Status |
-|---|---|---|
-| `apply -k` restores `TRAILRYX_TRUST_DOMAIN: set-me.invalid`, and the record plane then refuses every event, which reads as a quiet night | GOTCHAS 90 | Named limitation, not a defect: `cloud/{aws,gcp}/deploy-*.sh` carry `--trust-domain` and their own comment calls the empty default "the loud state and the right default". The base `deploy.sh` has no such flag, and **no gate refuses a finished deploy with the placeholder still set** |
-| A delete takes the volume and leaves the secret; `60-harden-neighbours.yaml` cannot be removed at all | GOTCHAS 91 | Measured and named. GOTCHAS 91 says outright "Nothing below is a bug"; three of four are Kubernetes as documented, and only `48` taking the plain scopyx with it is ours |
-| A GCP load balancer with a healthy backend that carries nothing | GOTCHAS 69 | Open, and marked Platform: every GCP-side object verified correct |
-| A hub entry restart or move fails every site closed: one restart 90 s (P2), a node stop 436 s of which about 4.5 min is `hub-ingress` lacking the 30 s tolerations; the entry's ACME state is an emptyDir, so every move re-issues both certificates (about 70 s) | stack-k8s `manifests/53-hub-entry.yaml`; go-to-market-2026-09 round 5 | Open defect for the tolerations (invariant 21, its gate cannot see this file); the emptyDir is unaddressed |
-
-## The estate's public surface
-
-Do not recall any of it. Run:
-
-```
-./scripts/outside-view.py
-```
-
-Two findings from its first run, 2026-09-01, that had been guessed wrong before it existed:
-
-- **Every image pinned by a manifest is anonymously pullable.** An earlier claim
-  that genaryx had no public image came from asking the registry for `genaryx`;
-  the manifests pin `genaryx-console`. The script now derives names from the
-  manifests, so that class of error cannot recur.
-- **`verdryx` and `vouchryx` are pinned by no manifest at all.** That is a
-  different statement from "their image is missing", and the correct one: they
-  are not deployed as containers anywhere, which is consistent with running
-  inside the console image.
-
-And one gap the script exposes rather than fixes: **21 of 22 repositories
-declare no `distribution`**, so where a human installs them has no declared
-answer anywhere in the estate. Only Engram declares one (`engdbram`).
+## Rust build disk writes, 2026-10-06, proven
