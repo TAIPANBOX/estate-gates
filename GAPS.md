@@ -298,6 +298,29 @@ identity.
 the observed act. See `browse-plane-plan.md`.
 **Re-check:** open `firewall.rs` and ask what supplies the `web` label.
 
+**CLOSED in code 2026-11-04, tokenfuse#495, invariant 143; the deployment half is open.**
+@measured `gh pr view 495 --repo TAIPANBOX/tokenfuse --json state,mergeCommit`
+2026-11-04: merged as `9889a6c`, twenty checks green. The `web` label no longer
+depends on a name: `report_observed_act` (`crates/gateway/src/mcpbroker.rs:1827`)
+reports to `POST /v1/fuse/observed-act` after a classified upstream
+(`TOKENFUSE_MCP_UPSTREAM_LABELS`) answered and before the answer leaves; the
+classification is held by server, and no tool name reaches that path.
+`firewall.rs`'s name map stays as the fallback, and a run carries the union. Held
+by `scripts/taint-comes-from-the-act.sh` (eleven teeth cases) and
+`tests/it/observed_act.rs`. @measured CI run 41824363186, mutant
+`label-by-tool-name`: `a_renamed_tool_carries_the_label_of_the_server_that_answered`
+failed. 29 mutants planted, 29 caught, named in the PR.
+
+No tag carries this yet, and in both stacks agents reach scopyx directly, so a read
+through scopyx is still labelled by name until the wiring lands: a tag of tokenfuse
+and of scopyx (`SCOPYX_ACCEPT_KEY_IN_META`, scopyx#71 `4f9d026`, is only on main),
+then the broker in front of scopyx in stack-single and stack-k8s. Two pieces stay
+outside that wiring: scopyx's journal still writes one `run_id` per process, so a
+`web_fetch` does not join a TokenFuse run, and the OpenAI wire's `annotations` are
+not read.
+**Re-check:** `git grep -n TOKENFUSE_MCP_UPSTREAM_LABELS origin/main -- compose.yaml manifests`
+in stack-single and stack-k8s: empty means the deployment half is open.
+
 ### G2.2 `allow_domains` has no runtime enforcement point anywhere
 
 @measured `wardryx/internal/policy/policy.go:44-52`, 2026-08-09. The field's own
@@ -311,7 +334,15 @@ policy language offers is, today, an honour system.
 **Re-check:** grep the estate for a consumer of `AllowDomains` that acts on it
 rather than reporting it.
 
-### G2.3 The NetworkPolicy protects our planes and does not confine agents
+### ~~G2.3 The NetworkPolicy protects our planes and does not confine agents~~
+
+**Closed 2026-11-04**, stack-k8s#215 `08b5d02` and #216, by its second condition: the
+README and the header of `manifests/30-network-policy.yaml` now say which side of the
+line the policy sits on. `agent-tokens/confined-agent` is an optional overlay and
+`agent-tokens/confine-check.sh` proves the confinement on a live cluster; the runs are
+in `evidence/agent-confinement-k3d`. Invariant 77, `scripts/network-policy-names-its-boundary.sh`,
+holds the wording against the labels. An agent run outside the namespace stays
+unconfined, and the text now says so. The original finding is kept below.
 
 @measured `stack-k8s/manifests/30-network-policy.yaml`, 2026-08-09: the
 `agent-stack` namespace contains `plane: money|policy|identity|console`,
@@ -438,10 +469,17 @@ gap returning; a nonzero WRITTEN-claimed count is it working.
 
 Listed so they are never sold as closable:
 
-1. **Provider-side web search is enforceable by nobody.** When an agent uses
-   Anthropic's or OpenAI's built-in search, the fetch happens on the provider's
-   infrastructure. TokenFuse sees the `tool_use` in the response, so it can
-   apply a taint label; it cannot apply a domain policy. This is a boundary.
+1. **Provider-side web search is enforceable by nobody.** When an agent uses a
+   provider's built-in search, the fetch happens on the provider's infrastructure.
+   TokenFuse labels the run from `server_tool_use` and `mcp_tool_use` blocks in the
+   provider's answer (invariant 143, tokenfuse#495), buffered and streamed, before
+   that answer's tool calls are judged; it cannot refuse the fetch or apply a domain
+   policy. The OpenAI wire carries its built-in search as `annotations` and no tool
+   block, so it is not read. This is a boundary. Corrected 2026-11-04: this entry
+   used to say TokenFuse could label such a run when it could not: @measured
+   `grep -rn server_tool_use crates docs sdk` on `90b364e` found one test pinning the
+   absence, and CI 41824363186, job `stub`, `a_search_the_provider_ran_labels_the_run`
+   went red, the run answering `allow` after a search.
 2. **The eBPF sensor is Linux-only**, and needs root or CAP_BPF plus a
    BTF-enabled kernel. A developer laptop on macOS is not covered.
 3. **`AGENT_PASSPORT_ID` attribution is self-declared.** SPEC §3.3 says so
@@ -572,7 +610,14 @@ git -C stack-k8s grep -n '^FROM\|GO_VERSION\|golang:' origin/main -- 'images/*.D
 git -C stack-k8s grep -n 'Dockerfile' origin/main -- scripts/pinned-images.sh   # no output: no gate reads them
 ```
 
-### G3.10 wardryx remembers an accepted DPoP proof per process, so a restart or a second instance accepts it again
+### ~~G3.10 wardryx remembers an accepted DPoP proof per process, so a restart or a second instance accepts it again~~
+
+**Closed in code 2026-11-04**, wardryx#130 `a55254a`. With `WARDRYX_DB` set the record
+is the table `agent_proof_replays`, one `INSERT .. ON CONFLICT DO NOTHING` shared by
+every instance; a store that cannot be asked refuses with 503
+`agent_token_proof_unrecorded` rather than pass an unchecked proof. Without a database
+the record stays in the process and `serve` says so. No tag carries this yet: every
+launcher pins v2.4.1 until a release moves it. Measured rows are in `PROVEN.md`.
 
 Opened 2026-10-28.
 
