@@ -231,6 +231,21 @@
       "recorded": "2026-10-13",
       "provenance": "@claude 2026-10-13: recorded for PR #131 under the supervisor's ruling; a reading of the vendor pages and of the gate's resolve() as they stand today, not a decision the repository's owner made."
     },
+    "not-judged-cause:openai-dropped-from-page": {
+      "rows": [
+        "tokenfuse:gpt-4.1-nano",
+        "tokenfuse:o1",
+        "tokenfuse:openai/gpt-4.1-nano",
+        "tokenfuse:openai/o1",
+        "verdryx:gpt-4.1-nano",
+        "verdryx:o1",
+        "verdryx:openai/gpt-4.1-nano",
+        "verdryx:openai/o1"
+      ],
+      "why": "OpenAI's pricing page no longer lists gpt-4.1-nano or o1, while gpt-4.1 and gpt-4.1-mini on the same page still match their rows. The rows keep the price last published, so a caller still running these models is charged at it. Re-derive: the id is absent from the OpenAI page's model tables. A listed model with this id would judge the row and make this entry stale.",
+      "recorded": "2026-11-05",
+      "provenance": "@claude 2026-11-05: read from the gate's own run on PR #155, where these rows came up NOT MEASURED and the OpenAI page listed 32 models without them; the scheduled run has been red on this since 2026-11-03. Not a decision the repository's owner made."
+    },
     "not-judged-cause:vertex-image-output-unpriced": {
       "rows": [
         "google-vertex:gemini-2.5-flash-image",
