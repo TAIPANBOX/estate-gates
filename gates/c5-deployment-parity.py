@@ -232,6 +232,11 @@ SERVICE_KIND = {
     # collapse cannot double-count, the same argument `scopyx-browser` makes.
     # @claude 2026-10-08.
     "costcrew-init": "costcrew",
+    # stack-single, behind the profile `crew` since stack-single#162: the runner, a one-shot a
+    # person starts, from the add-on's own image and store. Folded for the same reason
+    # as `costcrew-init`: it is the same component's other binary, and stack-k8s carries it
+    # inside `49-costcrew.yaml` as the `costcrew-crew` CronJob. @claude 2026-11-05.
+    "costcrew-run": "costcrew",
     # All three deployments carry it since 2026-09-25, each behind its own
     # opt-in (stack-single `--profile typed`, stack-up `--with-typed`,
     # stack-k8s `deploy.sh --with-typed`). Like vouchryx it is recorded as an
