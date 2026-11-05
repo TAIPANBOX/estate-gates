@@ -279,7 +279,7 @@ This section is new on 2026-08-09 and is the largest single body of gaps. It
 exists because the question "can an agent bypass us" had never been written
 down with an answer.
 
-### G2.1 Taint is decided on a name the caller chose, not on the act
+### ~~G2.1 Taint is decided on a name the caller chose, not on the act~~
 
 @measured `tokenfuse/crates/core/src/taint.rs:122-135` and
 `crates/gateway/src/firewall.rs:27-34`, 2026-08-09: `labels_for_tools` maps
@@ -320,7 +320,7 @@ not read.
 **Re-check:** `git grep -n TOKENFUSE_MCP_UPSTREAM_LABELS origin/main -- compose.yaml manifests`
 in stack-single and stack-k8s: empty means the deployment half is open.
 
-### G2.2 `allow_domains` has no runtime enforcement point anywhere
+### ~~G2.2 `allow_domains` has no runtime enforcement point anywhere~~
 
 @measured `wardryx/internal/policy/policy.go:44-52`, 2026-08-09. The field's own
 doc comment states it constrains only what a caller declares, and that runtime
@@ -332,6 +332,24 @@ policy language offers is, today, an honour system.
 **Closes when:** something enforces it per fetch and per subresource.
 **Re-check:** grep the estate for a consumer of `AllowDomains` that acts on it
 rather than reporting it.
+
+**Closed 2026-11-05 on re-reading: the enforcement point has existed since scopyx
+shipped, and this entry went on saying otherwise.** scopyx declares each destination
+as the request's `domains` (`internal/policy/client.go`, `Domains:
+[]string{req.Host}`), a subresource is a question of its own, and wardryx's rule 11
+denies a domain outside `allow_domains`. A policy plane that cannot answer refuses
+the fetch.
+
+`@measured` `go test -count=1 -run 'TestASubresourceHostThePolicyPlaneRefusesIsDenied|TestAnUnreachablePolicyPlaneRefusesASubresourceAndSaysWhichRefusalItWas|TestADomainThePolicyRefusesIsNotEvenAskedForItsRobots|TestTheHostIsDeclaredAsTheDomainTheActionWouldReach' ./cmd/scopyx ./internal/policy`
+on forge, scopyx `587b7df`, 2026-11-05: all four pass.
+`TestASubresourceThePolicyPlaneRefusesNeverReachesItsServer`, the case that drives a
+real browser, skips on a machine with no Chromium. It runs in scopyx's CI, which sets
+`SCOPYX_REQUIRE_CHROMIUM` so a missing browser fails rather than skips (run
+41921537321 on `587b7df`, success).
+
+The field binds what passes through scopyx. A route round scopyx is the network's to
+stop: invariant 38 of stack-single on a box, the optional `confined-agent` overlay on
+a cluster (G2.3).
 
 ### ~~G2.3 The NetworkPolicy protects our planes and does not confine agents~~
 
@@ -378,7 +396,7 @@ elsewhere is unconfined by it, exactly as the original finding said.
 `git grep -n 'taipanbox.dev/agent-token' origin/main -- manifests agent-tokens`
 for which pods carry the label.
 
-### G2.4 A general egress sensor exists and nothing asks it the right question
+### ~~G2.4 A general egress sensor exists and nothing asks it the right question~~
 
 @measured `Idryx/internal/ebpfcapture/capture_linux.go`, `environ.go`,
 `cmd/idryx/main.go:1160-1200`, 2026-08-09. This is better than expected and is
@@ -402,7 +420,7 @@ datasets already exist in compatible shapes.
 **Closes when:** an `unrouted_egress` detector exists in idryx and its finding
 reaches the shared bus. The second half depends on G4.1.
 
-### G2.4 is HALF closed, and the sentence above is wrong about the datasets
+### ~~G2.4 is HALF closed, and the sentence above is wrong about the datasets~~
 
 **The detector exists.** idryx#43, merged 2026-08-10. **Its finding does not
 reach the bus**, and that half is now blocked on something this register had not
@@ -502,6 +520,24 @@ Listed so they are never sold as closable:
    Only referential absence is checkable, a parent no record has heard of, and
    that is inventory hygiene rather than corroboration.
 
+### G2.6 Two pieces of a run's label that the act does not reach yet
+
+Opened 2026-11-05 when G2.1 was struck, so that what its closing paragraph left out
+stays under a heading of its own.
+
+- **A `web_fetch` does not join a TokenFuse run.** `@measured` `git -C scopyx grep -n
+  'RunID: runID()' origin/main -- cmd/scopyx/main.go` 2026-11-05, `587b7df`: the MCP
+  server is given one run id when the process starts, so scopyx's journal writes one
+  `run_id` per process, whatever run asked for the fetch.
+- **The OpenAI wire's `annotations` are not read.** `@measured` `git -C tokenfuse grep
+  -n annotations origin/main -- 'crates/*.rs'` 2026-11-05, `34eda2b`: no match, while
+  the same search for `mcp_tool_use` finds the Anthropic wire's reader.
+
+**Closes when:** a fetch carries the run it was made for, and the gateway reads a
+provider's citations on the OpenAI wire the way it reads `server_tool_use` on the
+Anthropic one.
+**Re-check:** the two commands above.
+
 ---
 
 ## 3. Security
@@ -531,7 +567,7 @@ anybody who has not seen invariant 27, and teach the opposite conclusion.
 day row filtering is added, that line must be replaced rather than deleted,
 because the line a deployment was built on must not stop being true in silence.
 
-### G3.5 was wrong about what ships, and the corrected finding is smaller and different
+### ~~G3.5 was wrong about what ships, and the corrected finding is smaller and different~~
 
 **The original claim, from 2026-08-05:** trailryx's federation
 `PeerService::query` ignores the predicate and returns everything it holds to
@@ -794,7 +830,7 @@ is the cost this file's own rule 0.2 names, met by the file itself: a recorded
 gap decays exactly like a recorded blocker, and the next session reads "still
 the larger one" and goes to build what exists. **Item CLOSED 2026-08-26.**
 
-### G4.5 A claimed subject has no way onto the bus, so a whole detector family never reaches it
+### ~~G4.5 A claimed subject has no way onto the bus, so a whole detector family never reaches it~~
 
 Opened 2026-08-10, found by building G2.4's detector rather than by an audit.
 
@@ -928,7 +964,7 @@ says what it does with a claim.
 **Re-check:** the grep above, and `trailryx-node events --file` against an idryx
 journal, reading the refused count rather than the accepted one.
 
-### G4.7 idryx reading its own journal back turns a claim into a governed agent
+### ~~G4.7 idryx reading its own journal back turns a claim into a governed agent~~
 
 Opened 2026-08-10, hours after G4.5 closed, and it is a consequence of that
 closure that nobody decided.
@@ -1157,10 +1193,12 @@ recurred in several services independently.
 Recorded so a decision does not evaporate between the session that made it and
 the session that would have implemented it.
 
-- **The web-egress enforcement point** (`scopyx`). Full design in
+- ~~**The web-egress enforcement point** (`scopyx`). Full design in
   `browse-plane-plan.md`. Name `@decided 2026-08-09`. Three open
   questions in that file's section 14, one of which (fail-closed on an
-  unreachable PDP) blocks implementation.
+  unreachable PDP) blocks implementation.~~
+  **Built**: scopyx is released and in both launchers, and an unreachable policy
+  plane refuses the fetch. See G2.2.
 - ~~**`unrouted_egress` detector** in idryx, plus the emitter G4.1 needs.~~
   **Built**, idryx#43, 2026-08-10, and not as the design in G2.4 described it:
   the join that item specifies cannot be built, and the detector that works is
@@ -1223,6 +1261,35 @@ the session that would have implemented it.
 ## 8. Closed, with the evidence that closed them
 
 Kept rather than deleted, so the next audit knows what was checked.
+
+### Closed 2026-11-05
+
+Each heading was struck after re-reading its entry against the current `main` of the
+repositories it names. Every one but G2.2 already said CLOSED in its own text, and only
+the heading still read as open. Heads read: scopyx `587b7df`, idryx `d8ab1e6`, wardryx
+`a367cb7`, tokenfuse `34eda2b`, stack-single `e7011fe`, stack-k8s `c74a2ab`.
+
+- ~~**G2.1, taint decided on a name the caller chose.**~~ **Closed in code 2026-11-04,
+  released 2026-11-05.** `@measured` `git grep -n TOKENFUSE_MCP_UPSTREAM_LABELS
+  origin/main -- compose.yaml manifests` in stack-single and stack-k8s, 2026-11-05:
+  `compose.yaml:950` and `manifests/52-tokenfuse-mcp-broker.yaml:220`. The two pieces
+  its closing paragraph left out moved to G2.6.
+- ~~**G2.2, `allow_domains` has no runtime enforcement point.**~~ **Closed 2026-11-05**,
+  by scopyx. The runs are in the entry.
+- ~~**G2.4, an egress sensor nothing asks; G4.5, a claimed subject with no way onto the
+  bus.**~~ **Closed 2026-08-10**, idryx#44 (`347a955`). `@measured` `IDRYX_EVENTS=out.ndjson
+  IDRYX_TRUST_DOMAIN=acme.example idryx detect --load scopyx:testdata/scopyx.ndjson --load
+  egress:testdata/ebpf_claimed.json` on forge, idryx `d8ab1e6`, 2026-11-05: `3 were written
+  about a self-declared (claimed:) identity under schema v0.3`, and the journal holds three
+  `v0.3` events with a `claimed:` subject and four `v0.2` events with a bare `agent://` one.
+- ~~**G3.5, trailryx federation.**~~ Closed earlier in this section; its heading alone was
+  still open.
+- ~~**G4.7, idryx reading its own journal back.**~~ **Closed 2026-08-10**, idryx#46
+  (`1007803`). `@measured` `idryx detect --load tokenfuse:idryx.ndjson` over that journal on
+  forge, idryx `d8ab1e6`, 2026-11-05: 4 alerts, `bom_incomplete` and `orphaned_nhi` on the two
+  established subjects, none on a `claimed:` one. The file's name is part of the command: the
+  same journal as `out.ndjson` is refused by the stream rule, 7 events not ingested, and the
+  run prints `No threats detected`.
 
 ### Closed 2026-10-28
 
