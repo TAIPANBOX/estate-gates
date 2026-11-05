@@ -298,7 +298,7 @@ identity.
 the observed act. See `browse-plane-plan.md`.
 **Re-check:** open `firewall.rs` and ask what supplies the `web` label.
 
-**CLOSED in code 2026-11-04, tokenfuse#495, invariant 143; the deployment half is open.**
+**CLOSED in code 2026-11-04, tokenfuse#495, invariant 143; wired and released 2026-11-05.**
 @measured `gh pr view 495 --repo TAIPANBOX/tokenfuse --json state,mergeCommit`
 2026-11-04: merged as `9889a6c`, twenty checks green. The `web` label no longer
 depends on a name: `report_observed_act` (`crates/gateway/src/mcpbroker.rs:1827`)
@@ -311,11 +311,10 @@ by `scripts/taint-comes-from-the-act.sh` (eleven teeth cases) and
 `label-by-tool-name`: `a_renamed_tool_carries_the_label_of_the_server_that_answered`
 failed. 29 mutants planted, 29 caught, named in the PR.
 
-No tag carries this yet, and in both stacks agents reach scopyx directly, so a read
-through scopyx is still labelled by name until the wiring lands: a tag of tokenfuse
-and of scopyx (`SCOPYX_ACCEPT_KEY_IN_META`, scopyx#71 `4f9d026`, is only on main),
-then the broker in front of scopyx in stack-single and stack-k8s. Two pieces stay
-outside that wiring: scopyx's journal still writes one `run_id` per process, so a
+Released in tokenfuse v1.21.0 and scopyx v1.2.0, and the broker stands in front of
+scopyx in both launchers: stack-single v1.5.0 (#159) and stack-k8s v1.8.0 (#218), each
+held by `scripts/scopyx-reads-go-through-the-broker.sh`. Two pieces stay outside that
+wiring: scopyx's journal still writes one `run_id` per process, so a
 `web_fetch` does not join a TokenFuse run, and the OpenAI wire's `annotations` are
 not read.
 **Re-check:** `git grep -n TOKENFUSE_MCP_UPSTREAM_LABELS origin/main -- compose.yaml manifests`
@@ -616,8 +615,8 @@ git -C stack-k8s grep -n 'Dockerfile' origin/main -- scripts/pinned-images.sh   
 is the table `agent_proof_replays`, one `INSERT .. ON CONFLICT DO NOTHING` shared by
 every instance; a store that cannot be asked refuses with 503
 `agent_token_proof_unrecorded` rather than pass an unchecked proof. Without a database
-the record stays in the process and `serve` says so. No tag carries this yet: every
-launcher pins v2.4.1 until a release moves it. Measured rows are in `PROVEN.md`.
+the record stays in the process and `serve` says so. Released in wardryx v2.5.0, and
+both launchers pin v2.5.1. Measured rows are in `PROVEN.md`.
 
 Opened 2026-10-28.
 
