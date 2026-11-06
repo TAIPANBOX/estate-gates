@@ -1,0 +1,6 @@
+./scripts/approver-key-is-minted.sh	2	30	8s	rc=1 FAIL the approver key is not a PKCS#8 "BEGIN PRIVATE KEY" document in the create input
+./scripts/broker-blocks-raw-secrets.sh	0	30	35s	
+./scripts/cost-live-refuses-unknown-rates.sh	0	30	10s	
+./scripts/costcrew-ceiling-is-set.sh	14	30	7s	rc=1 FAIL: cloud/gcp/deploy-gcp.sh does not parse --costcrew-ceiling
+./scripts/hub-add-site-reads-the-pinned-image.sh	0	30	8s	
+./scripts/secret-keys-agree.sh	0	30	18s	

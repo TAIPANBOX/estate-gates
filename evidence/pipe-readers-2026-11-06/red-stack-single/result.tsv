@@ -1,0 +1,24 @@
+./scripts/agent-tokens-are-wired.sh	11	30	145s	rc=1 OK: by default the gateway and the broker require agent tokens, with a named static allow-list; off is explicit; with the token settings on, the doors and wardryx verify tokens aga
+./scripts/approver-key-is-wired.sh	1	30	13s	rc=1 FAIL: C. the approver-key block defines no approver_key_prepare or no approver_jwks_apply
+./scripts/apt-never-removes-docker.sh	0	30	9s	
+./scripts/broker-blocks-raw-secrets.sh	0	30	46s	
+./scripts/broker-key-is-the-keys-file-line.sh	1	30	29s	rc=1 FAIL: the agent-tokens block has no agent_tokens_resolve, so the broker line was not measured
+./scripts/console-password-is-not-printed.sh	0	30	4s	
+./scripts/costcrew-can-reach-its-stream.sh	0	30	1s	
+./scripts/costcrew-runner-spends-through-the-gateway.sh	0	30	47s	
+./scripts/door-origins-are-named.sh	0	30	27s	
+./scripts/env-sources-cleanly.sh	0	30	14s	
+./scripts/felyx-through-the-gateway.sh	0	30	4s	
+./scripts/firewall-is-enforce.sh	0	30	52s	
+./scripts/identity-files-are-checked.sh	0	30	484s	
+./scripts/metered-doors-require-keys.sh	0	30	185s	
+./scripts/no-provider-key-outside-the-gateway.sh	0	30	49s	
+./scripts/pii-is-shadow.sh	1	30	113s	rc=1 FAIL: TOKENFUSE_DLP_PII (a shell metacharacter) was refused without naming the variable
+./scripts/profiles-off-are-removed.sh	0	30	64s	
+./scripts/record-is-signed-by-keyryx.sh	1	30	35s	rc=1 FAIL: B. the credential is not given to the seal's uid 10001
+./scripts/record-plane-is-on-by-default.sh	0	30	4s	
+./scripts/run-budget-ceiling.sh	1	30	71s	rc=1 FAIL: RUN_BUDGET_CEILING_USD (a trailing point) was refused without naming the variable
+./scripts/scopyx-reads-go-through-the-broker.sh	0	30	28s	
+./scripts/trailryx-root-is-pinned.sh	0	30	22s	
+./scripts/typed-data-mode.sh	1	30	254s	rc=1 FAIL: own-model with credentials in the URL: it refused, but not saying '/v1'
+./scripts/typed-risk-signal.sh	0	30	149s	
