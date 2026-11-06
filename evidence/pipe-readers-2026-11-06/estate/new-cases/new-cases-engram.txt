@@ -1,0 +1,4 @@
+this repo's gates need the package installed to measure anything.
+they say so themselves rather than passing quietly, which is the
+property this harness checks, so it cannot run without it either:
+    pip install -e ".[dev]"

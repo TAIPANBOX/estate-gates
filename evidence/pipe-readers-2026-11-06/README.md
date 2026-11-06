@@ -11,3 +11,5 @@
 | `final-*` | the merged tree, every gate of the callers | 1 | 0 |
 
 `gate-red-*.txt` is `scripts/no-reader-leaves-a-pipe-early.sh` run over the old trees. In `idle-stack-k8s` four gates are red for want of `kubeconform`, `kubectl` and `go` on PATH, which the later runs had; no other line there is red.
+
+`estate/` holds the same fault across the rest of the estate, with its own README.

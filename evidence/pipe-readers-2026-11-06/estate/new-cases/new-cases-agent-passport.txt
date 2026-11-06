@@ -1,0 +1,4 @@
+the gates here need jsonschema to validate anything. Without it the
+validator dies on its import line, and every case below would fail
+for that reason rather than the one it is about:
+    pip install "jsonschema>=4.18"
