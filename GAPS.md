@@ -549,8 +549,8 @@ constraint that is not a defect, and one correction to a finding that was
 wrong.
 
 That describes the 2026-08-09 pass. Two items opened on 2026-10-28, G3.9 and
-G3.10 at the end of this section, are open defects found by reading code after
-it.
+G3.10 at the end of this section, were defects found by reading code after it.
+Their headings say where each stands.
 
 ### G3.4 trailryx: the SQL read surface never filters a row
 
@@ -601,7 +601,11 @@ than about trailryx. It described a leak, and the severity came from reading
 one function without asking who calls it. A finding that names a consequence
 should name the caller that produces it.
 
-### G3.9 stack-k8s builds the console's TLS image from a floating base, and nothing pins the Go that compiles it
+### ~~G3.9 stack-k8s builds the console's TLS image from a floating base, and nothing pins the Go that compiles it~~
+
+**Closed 2026-11-05**, stack-k8s#221 (`3a39637`), invariant 80. See section 8. The entry stays
+as it was written, including the `@claude` line below, which turned out to be wrong: a pin on
+the base was not the only pin available.
 
 Opened 2026-10-28, found by reading what stack-k8s#210 did not touch.
 
@@ -1074,7 +1078,10 @@ acting, and the store's subject axis is the agent.
 
 ---
 
-### G4.9 Two repositories reach for a sibling with a hook's environment still set
+### ~~G4.9 Two repositories reach for a sibling with a hook's environment still set~~
+
+**Closed 2026-08-26**, the day it was opened. See section 8. The entry stays as it was
+written.
 
 Opened and gated on 2026-08-26 by C9, which was written after the fault was
 found the hard way in trailryx and fixed there.
@@ -1284,6 +1291,28 @@ the heading still read as open. Heads read: scopyx `587b7df`, idryx `d8ab1e6`, w
   `v0.3` events with a `claimed:` subject and four `v0.2` events with a bare `agent://` one.
 - ~~**G3.5, trailryx federation.**~~ Closed earlier in this section; its heading alone was
   still open.
+- ~~**G3.9, the console's TLS image from a floating base.**~~ **Closed 2026-11-05**,
+  stack-k8s#221 (`3a39637`), and wider than the entry asked. Every `FROM`, both `# syntax=`
+  lines and any `--from=` naming an image across the seven Dockerfiles carry a digest, written
+  out rather than behind an `ARG`, because a digest outranks the tag beside it and an `ARG`
+  bump would keep the old Go under the new name. `stack-caddy` compiles on
+  `golang:1.27.3-alpine` with xcaddy v0.4.7, Caddy v2.11.8 and caddy-dns/cloudflare v0.2.4
+  each named, so the Go moves with the other four and not with caddy's own builder image.
+  Dependabot's `docker` entry moves the digests. `scripts/base-images-are-pinned.sh` reads the
+  lines by discovery, 21 teeth cases. `@measured` the same gate on `c74a2ab`'s Dockerfiles
+  2026-11-05: exit 1, 20 problems named; on `3a39637`: `OK: 20 external references across 7
+  Dockerfiles`. `@measured` `docker buildx build -f images/caddy.Dockerfile` then `caddy
+  build-info` on forge 2026-11-05: `go1.27.3`, `caddy-dns/cloudflare v0.2.4`, Caddy v2.11.8,
+  `getcap` `cap_net_bind_service=ep`, `Valid configuration`; both architectures built by CI on
+  the PR. What the entry left unmeasured: `@measured` `docker exec agent-stack-caddy-1 caddy
+  build-info` on forge 2026-11-05: the published `stack-caddy:v1.7.3` carries `go1.27.3` and
+  Caddy v2.11.7. The next tag publishes from these inputs; nothing published changed.
+- ~~**G4.9, two repositories reaching for a sibling with a hook's environment.**~~
+  **Closed 2026-08-26**, in tokenfuse `361d0f0` and agent-stack-go `674a118`, and only the
+  heading stayed open. Both scripts clear the three variables through a wrapper (`dbgit`,
+  `canongit`). `@measured` `ESTATE_GATES_ROOT=<fresh clones> ./gates/c9-foreign-git-in-hooks.py
+  --mode ref --ref origin/main` 2026-11-05, tokenfuse `34eda2b` and agent-stack-go `25ac38b`:
+  37 scripts read, `ok [c9.foreign-git-clears-the-environment]`.
 - ~~**G4.7, idryx reading its own journal back.**~~ **Closed 2026-08-10**, idryx#46
   (`1007803`). `@measured` `idryx detect --load tokenfuse:idryx.ndjson` over that journal on
   forge, idryx `d8ab1e6`, 2026-11-05: 4 alerts, `bom_incomplete` and `orphaned_nhi` on the two

@@ -610,6 +610,15 @@ stack-single PR #162, merged as `b39672b` on the 1.5.0 pins, released as v1.6.0 
 | Fresh install, twice, on six profiles | 2026-11-05 | GitHub CI, `install.yml` on PR #162 at `3f3c0e0`, run 41974293070 | that run | default, delegation, typed-risk, identity, openai-door, static-only, each twice on a fresh Ubuntu runner, and the typed-risk leg's agent tokens end to end. |
 | The gates can fail | 2026-11-05 | forge, `scripts/gates-have-teeth.sh` at `9d87b42` | `/var/tmp/ss-parity-teeth.log` | `OK: 747 cases`. The first pass, at `f67ff97`, was 113 of 744 failed, and caught a gate of mine that could not fail. |
 
+## Every base image pinned, 2026-11-05, proven
+
+| What | When | On what | Artifact | Scope |
+|---|---|---|---|---|
+| `images/caddy.Dockerfile` built from its pins and run | 2026-11-05 | forge, `docker buildx build --load`, stack-k8s branch of #221 | stack-k8s#221 (`3a39637`); image removed after the run | Built in 102 seconds. `caddy version` v2.11.8, `caddy build-info` `go1.27.3` and `caddy-dns/cloudflare v0.2.4`, `dns.providers.cloudflare` listed, `getcap` `cap_net_bind_service=ep`, the entrypoint writes its Caddyfile and `caddy validate` says `Valid configuration` |
+| `images/wg.Dockerfile` built from its pins and run | 2026-11-05 | forge, the same run | stack-k8s#221 | Built in 15 seconds; `wg --version` and `wireguard-go` answer |
+| Which Go the published `stack-caddy` carries | 2026-11-05 | forge, `docker exec agent-stack-caddy-1 caddy build-info`, on `stack-caddy:v1.7.3` | that container | `go1.27.3`, Caddy v2.11.7, `caddy-dns/cloudflare v0.2.4` |
+| `stack-caddy`, `stack-wg` and the console on amd64 and arm64 | 2026-11-05 | GitHub Actions, stack-k8s#221: `tunnel-images.yml` and `console-image.yml` build-only jobs | that PR's checks, 15 passed | The three images CI builds, from their pins, with their smoke tests. The bases of the other four Dockerfiles were read by `docker buildx imagetools inspect`: each digest resolves, on linux/amd64 and linux/arm64 |
+
 ## Nightly test agents on forge, 2026-10-31 to 2026-11-05, proven
 
 Real multi-turn agents through the box's own gateway: a benign task on an agent token and on a static key, a poisoned search result with a forced send, the same page under a free summary task on a stronger model, a runaway against a run budget, and five identity probes. A verdict needs the HTTP code and its event on the bus. `range-agents.timer` starts it nightly at about 02:20 London.
