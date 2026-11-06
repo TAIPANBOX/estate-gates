@@ -1282,7 +1282,8 @@ Kept rather than deleted, so the next audit knows what was checked.
   and streamed. `@measured` `git -C tokenfuse grep -n annotations origin/main -- 'crates/*.rs'`
   2026-11-06, `6b1ef8d`: `crates/core/src/taint.rs` and `crates/gateway/src/streamgate.rs`.
   `@measured` CI on tokenfuse#506 2026-11-06, each new test red on a commit that lacked its code
-  and green at `8c66609`, 19 checks. It reaches a box with the next tags of both.
+  and green at `8c66609`, 19 checks. It reached a box with tokenfuse v1.22.0 and scopyx v1.3.0,
+  pinned by stack-k8s 1.8.2 and stack-single 1.6.1 on 2026-11-06.
 
   Two defects the same work found, both older than it and both fixed in tokenfuse#506. The
   broker's client followed redirects, so a 307 would have re-sent a body holding the secrets the
@@ -1327,7 +1328,8 @@ the heading still read as open. Heads read: scopyx `587b7df`, idryx `d8ab1e6`, w
   `getcap` `cap_net_bind_service=ep`, `Valid configuration`; both architectures built by CI on
   the PR. What the entry left unmeasured: `@measured` `docker exec agent-stack-caddy-1 caddy
   build-info` on forge 2026-11-05: the published `stack-caddy:v1.7.3` carries `go1.27.3` and
-  Caddy v2.11.7. The next tag publishes from these inputs; nothing published changed.
+  Caddy v2.11.7. The tag `v1.8.1` published from these inputs on 2026-11-06, and stack-single 1.6.1
+  pins that image.
 - ~~**G4.9, two repositories reaching for a sibling with a hook's environment.**~~
   **Closed 2026-08-26**, in tokenfuse `361d0f0` and agent-stack-go `674a118`, and only the
   heading stayed open. Both scripts clear the three variables through a wrapper (`dbgit`,
