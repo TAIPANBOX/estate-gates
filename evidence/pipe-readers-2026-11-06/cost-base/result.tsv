@@ -1,0 +1,1 @@
+./scripts/costcrew-ceiling-is-set.sh	181	300	66s	rc=1 FAIL: deploy.sh writes COSTCREW_CEILING without a guard on the value, so an empty flag would write an empty figure

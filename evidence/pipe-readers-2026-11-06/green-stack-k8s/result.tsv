@@ -1,0 +1,6 @@
+./scripts/approver-key-is-minted.sh	0	30	9s	
+./scripts/broker-blocks-raw-secrets.sh	0	30	36s	
+./scripts/cost-live-refuses-unknown-rates.sh	0	30	10s	
+./scripts/costcrew-ceiling-is-set.sh	0	30	7s	
+./scripts/hub-add-site-reads-the-pinned-image.sh	0	30	8s	
+./scripts/secret-keys-agree.sh	0	30	18s	
