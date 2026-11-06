@@ -520,7 +520,10 @@ Listed so they are never sold as closable:
    Only referential absence is checkable, a parent no record has heard of, and
    that is inventory hygiene rather than corroboration.
 
-### G2.6 Two pieces of a run's label that the act does not reach yet
+### ~~G2.6 Two pieces of a run's label that the act does not reach yet~~
+
+**Closed in code 2026-11-06**, scopyx#74 and tokenfuse#506. See section 8. The entry stays as it
+was written.
 
 Opened 2026-11-05 when G2.1 was struck, so that what its closing paragraph left out
 stays under a heading of its own.
@@ -1268,6 +1271,24 @@ the session that would have implemented it.
 ## 8. Closed, with the evidence that closed them
 
 Kept rather than deleted, so the next audit knows what was checked.
+
+### Closed 2026-11-06
+
+- ~~**G2.6, two pieces of a run's label the act did not reach.**~~ **Closed in code
+  2026-11-06.** A fetch carries the run that asked for it: scopyx#74 (`4018826`, invariant 17)
+  reads `X-Fuse-Run-Id` into the record and the question to the policy plane, and tokenfuse#506
+  (`6b1ef8d`, invariant 143) writes it on the forwarded `tools/call` for a classified upstream
+  and for no other. The OpenAI wire's `url_citation` labels the run as `web_search`, buffered
+  and streamed. `@measured` `git -C tokenfuse grep -n annotations origin/main -- 'crates/*.rs'`
+  2026-11-06, `6b1ef8d`: `crates/core/src/taint.rs` and `crates/gateway/src/streamgate.rs`.
+  `@measured` CI on tokenfuse#506 2026-11-06, each new test red on a commit that lacked its code
+  and green at `8c66609`, 19 checks. It reaches a box with the next tags of both.
+
+  Two defects the same work found, both older than it and both fixed in tokenfuse#506. The
+  broker's client followed redirects, so a 307 would have re-sent a body holding the secrets the
+  broker wrote to whichever host the answer named: `upstream_client` follows none, and a 3xx is
+  an upstream error. A tool call in a closing `message` chunk reached the client unheld, because
+  the stream read only `delta`.
 
 ### Closed 2026-11-05
 
