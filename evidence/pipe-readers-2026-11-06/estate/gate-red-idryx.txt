@@ -1,0 +1,9 @@
+FAIL: scripts/ebpf-optional.sh:107 pipes into `grep -q`, which leaves before its input ends: a writer still writing takes SIGPIPE, and under pipefail the pipeline fails with the line there. Use `grep ... <<<"$text"`, or `grep -c ... >/dev/null` where the writer's status counts or the text is a key
+FAIL: scripts/ebpf-optional.sh:168 pipes into `grep -q`, which leaves before its input ends: a writer still writing takes SIGPIPE, and under pipefail the pipeline fails with the line there. Use `grep ... <<<"$text"`, or `grep -c ... >/dev/null` where the writer's status counts or the text is a key
+FAIL: scripts/gates-have-teeth.sh:165 pipes into `grep -qF`, which leaves before its input ends: a writer still writing takes SIGPIPE, and under pipefail the pipeline fails with the line there. Use `grep ... <<<"$text"`, or `grep -c ... >/dev/null` where the writer's status counts or the text is a key
+FAIL: scripts/gates-have-teeth.sh:179 pipes into `grep -qF`, which leaves before its input ends: a writer still writing takes SIGPIPE, and under pipefail the pipeline fails with the line there. Use `grep ... <<<"$text"`, or `grep -c ... >/dev/null` where the writer's status counts or the text is a key
+FAIL: scripts/gates-have-teeth.sh:229 pipes into `grep -qF`, which leaves before its input ends: a writer still writing takes SIGPIPE, and under pipefail the pipeline fails with the line there. Use `grep ... <<<"$text"`, or `grep -c ... >/dev/null` where the writer's status counts or the text is a key
+FAIL: scripts/gates-have-teeth.sh:258 pipes into `grep -qF`, which leaves before its input ends: a writer still writing takes SIGPIPE, and under pipefail the pipeline fails with the line there. Use `grep ... <<<"$text"`, or `grep -c ... >/dev/null` where the writer's status counts or the text is a key
+
+6 problem(s). A check has to say what the text holds, not which of two processes
+finished first. See AGENTS.md invariant 20.

@@ -1,0 +1,5 @@
+./scripts/no-warm-context.sh	0	100	34s	
+./scripts/no-delegated-decisions.sh	0	100	13s	
+./scripts/meta-key-stops-at-the-door.sh	0	100	20s	
+./scripts/one-way-out.sh	0	100	52s	
+./scripts/no-compliance-claims.sh	0	100	9s	

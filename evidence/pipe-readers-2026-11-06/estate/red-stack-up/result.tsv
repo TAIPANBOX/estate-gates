@@ -1,0 +1,9 @@
+./scripts/typed-mode.sh	5	100	119s	rc=1 FAIL: training off: own-model plan: output does not say: backend: openai-logprobs
+./scripts/demo-issuer-is-unbound.sh	0	100	3s	
+./scripts/pins-are-release-tags.sh	0	100	23s	
+./scripts/risk-hold-is-seeded.sh	0	100	6s	
+./scripts/chain-verify-routine.sh	0	100	140s	
+./scripts/keyryx-is-per-run.sh	0	100	23s	
+./scripts/keyryx-alerts-reach-readers.sh	0	100	14s	
+./scripts/record-is-signed-by-default.sh	0	100	19s	
+./scripts/record-key-is-pinned.sh	0	100	16s	

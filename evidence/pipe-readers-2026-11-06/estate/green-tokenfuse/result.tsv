@@ -1,0 +1,3 @@
+./scripts/taint-comes-from-the-act.sh	0	100	13s	
+./scripts/upstream-key-is-never-forwarded.sh	0	100	1s	
+./scripts/cloud-credentials-are-digested.sh	0	100	6s	

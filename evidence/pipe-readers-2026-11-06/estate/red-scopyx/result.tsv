@@ -1,0 +1,5 @@
+./scripts/no-warm-context.sh	2	100	52s	rc=1 FAIL internal/backend/chromium.go does not create a temporary profile directory; a fixed --user-data-dir is a warm browser spelled as a path
+./scripts/no-delegated-decisions.sh	0	100	17s	
+./scripts/meta-key-stops-at-the-door.sh	0	100	20s	
+./scripts/one-way-out.sh	0	100	58s	
+./scripts/no-compliance-claims.sh	0	100	10s	

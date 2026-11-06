@@ -1,0 +1,29 @@
+=== faults each gate must catch ===
+
+=== and what they must NOT catch ===
+
+=== and the one this estate learned the hard way ===
+    a gate whose subject is gone must SAY so, not report OK on nothing
+
+=== compat/1.0.json, the surface trailryx's 1.0 will freeze (invariant 43) ===
+ok  no-reader-leaves-a-pipe-early: a gate pipes its text into grep -q again (fail)
+ok  no-reader-leaves-a-pipe-early: the pipe is carried over a line (fail)
+ok  no-reader-leaves-a-pipe-early: a workflow step reads through the pipe (fail)
+ok  no-reader-leaves-a-pipe-early: the words are only in a comment (pass)
+ok  no-reader-leaves-a-pipe-early: the words are a command handed to another shell (pass)
+ok  no-reader-leaves-a-pipe-early: the words are in a here-document (pass)
+ok  no-reader-leaves-a-pipe-early: grep -c reads to the end of a pipe (pass)
+ok  no-reader-leaves-a-pipe-early: a here-string has no pipe to leave (pass)
+ok  no-reader-leaves-a-pipe-early: a substitution in quotes reads through the pipe (fail)
+ok  no-reader-leaves-a-pipe-early: a long option leaves as early as a short one (fail)
+ok  no-reader-leaves-a-pipe-early: a quote left open loses the reader its place (fail)
+ok  no-reader-leaves-a-pipe-early: the reader stops knowing -q (fail)
+ok  no-reader-leaves-a-pipe-early: the reader stops reporting what it finds (fail)
+ok  no-reader-leaves-a-pipe-early: the reader starts reading quoted text (fail)
+ok  no-reader-leaves-a-pipe-early: the control writes less than a pipe holds (fail)
+ok  no-reader-leaves-a-pipe-early: no pipe is read             (fail)
+ok  no-reader-leaves-a-pipe-early: no shell file is read       (fail)
+ok  no-reader-leaves-a-pipe-early: no workflow step is read    (fail)
+
+OK: 18 cases. Every gate fails on its own fault, passes on a non-fault,
+    and refuses to report success when it measured nothing.

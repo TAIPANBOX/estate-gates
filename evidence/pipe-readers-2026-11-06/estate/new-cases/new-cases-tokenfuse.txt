@@ -1,0 +1,22 @@
+baseline  no-reader-leaves-a-pipe-early: a gate pipes its text into grep -q again  1s
+baselines taken on the clean tree in 1s
+ok  no-reader-leaves-a-pipe-early: a gate pipes its text into grep -q again (fail)  0s
+ok  no-reader-leaves-a-pipe-early: the pipe is carried over a line (fail)  1s
+ok  no-reader-leaves-a-pipe-early: a workflow step reads through the pipe (fail)  0s
+ok  no-reader-leaves-a-pipe-early: the words are only in a comment (pass)  1s
+ok  no-reader-leaves-a-pipe-early: the words are a command handed to another shell (pass)  1s
+ok  no-reader-leaves-a-pipe-early: the words are in a here-document (pass)  0s
+ok  no-reader-leaves-a-pipe-early: grep -c reads to the end of a pipe (pass)  1s
+ok  no-reader-leaves-a-pipe-early: a here-string has no pipe to leave (pass)  0s
+ok  no-reader-leaves-a-pipe-early: a substitution in quotes reads through the pipe (fail)  1s
+ok  no-reader-leaves-a-pipe-early: a long option leaves as early as a short one (fail)  0s
+ok  no-reader-leaves-a-pipe-early: a quote left open loses the reader its place (fail)  1s
+ok  no-reader-leaves-a-pipe-early: the reader stops knowing -q (fail)  1s
+ok  no-reader-leaves-a-pipe-early: the reader stops reporting what it finds (fail)  0s
+ok  no-reader-leaves-a-pipe-early: the reader starts reading quoted text (fail)  1s
+ok  no-reader-leaves-a-pipe-early: the control writes less than a pipe holds (fail)  0s
+ok  no-reader-leaves-a-pipe-early: no pipe is read             (fail)  1s
+ok  no-reader-leaves-a-pipe-early: no shell file is read       (fail)  0s
+ok  no-reader-leaves-a-pipe-early: no workflow step is read    (fail)  1s
+
+18 cases: every gate still fails on its fault and passes on what it must not catch.

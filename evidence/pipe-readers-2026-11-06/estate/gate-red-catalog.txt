@@ -1,0 +1,6 @@
+FAIL: scripts/gates-have-teeth.sh:148 pipes into `grep -qF`, which leaves before its input ends: a writer still writing takes SIGPIPE, and under pipefail the pipeline fails with the line there. Use `grep ... <<<"$text"`, or `grep -c ... >/dev/null` where the writer's status counts or the text is a key
+FAIL: scripts/no-executables.sh:36 pipes into `grep -q`, which leaves before its input ends: a writer still writing takes SIGPIPE, and under pipefail the pipeline fails with the line there. Use `grep ... <<<"$text"`, or `grep -c ... >/dev/null` where the writer's status counts or the text is a key
+FAIL: scripts/templates-load.sh:80 pipes into `grep -q`, which leaves before its input ends: a writer still writing takes SIGPIPE, and under pipefail the pipeline fails with the line there. Use `grep ... <<<"$text"`, or `grep -c ... >/dev/null` where the writer's status counts or the text is a key
+
+3 problem(s). A check has to say what the text holds, not which of two processes
+finished first. See CLAUDE.md invariant 6.
