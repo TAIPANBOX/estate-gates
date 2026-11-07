@@ -1398,8 +1398,10 @@ the session that would have implemented it.
 - **The second hardening wave.** `@claude` 2026-11-07, its scope as read that day, nothing started:
   an Auditor-style check of a box from outside, small, with a TPM tier on forge (TPM 2.0 present,
   Secure Boot off, `@measured` `/sys/class/tpm` on forge 2026-11-07) and a software tier for rollcall's
-  state reports; a seccomp and AppArmor profile for `scopyx-browser`, whose `seccomp:unconfined` is a
-  recorded decision to keep Chrome's own sandbox; `--jitless` after a measurement; G3.13; G3.14;
+  state reports; an AppArmor profile of our own for `scopyx-browser` on Debian 13, where the installer
+  picks `unconfined` because `docker-default` refuses Chrome's user namespace (stack-single#175), and
+  the same filter and both sandboxes in stack-k8s, whose `48-scopyx-browser.yaml` sets
+  `SCOPYX_CHROMIUM_NO_SANDBOX=1`; `--jitless` after a measurement; G3.13; G3.14;
   a hardened image for the routers after a Flint 2 measurement (OpenWrt 25.12's filogic config has
   `INIT_ON_ALLOC` and `INIT_ON_FREE` off and no lockdown LSM, `@measured` the raw configs on the
   `openwrt-25.12` branch 2026-11-07). Not taken, with the reason in the note of that day: hardened_malloc
@@ -1448,6 +1450,14 @@ section of that name in PROVEN.md.
   before the factors are checked, and an audit log a flood folds rather than empties.
 - ~~**The agent on the router shared the router's network.**~~ `@measured` `hermes-jail.py` at
   hermes-openwrt `0c65a9d`. hermes-openwrt#84, r21: its own `inet hermes_agent` table, by uid.
+- ~~**The browser ran with its syscall filter off.**~~ `@measured` `compose.yaml` at stack-single
+  `a2f4dcb`: `seccomp:unconfined` on `scopyx-browser`, to keep Chrome's own sandbox. stack-single#175:
+  `seccomp/chromium-v1.json`, Docker's default plus `chroot`, `clone` into a user, pid and net
+  namespace, and `unshare` into a user namespace, each measured by taking it out, and the AppArmor
+  line measured per host by the installer.
+- ~~**A person who kept granting one agent one tool had no way to stop being asked, short of a shell.**~~
+  genaryx#152: "Always allow" on a held call, admin only, behind the passkey, writing the policy
+  `agent-allow` writes.
 - ~~**An apk upgrade left the old daemon running.**~~ `@measured` `hermes-openwrt/CLAUDE.md`: apk runs
   post-upgrade on an upgrade, and three repositories packed only post-install. openwrt-mcp#14,
   openwrt-llm-gateway#5 and rollcall#16.
