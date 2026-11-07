@@ -244,6 +244,20 @@ product is and needs the user, as above.
 **Re-check:** `grep -n 'routines\|manual' stack-single/install.sh` for what the
 install starts, and the C5 `c5.routines-read` lines for the count.
 
+
+**Update 2026-11-07: one routine now runs on every box, and the rest of the
+single-box half stands.** `verdryx-slo` (stack-single invariant 66, stack-k8s
+invariant 82) measures every agent's error budget every six hours, and it is
+installer-managed and on by default, in stack-single 1.6.3 and stack-k8s 1.8.5.
+The routines this entry names stay as the 2026-10-28 update says: `focus-export`,
+`verdryx-drift` and `idryx-detect` still wait on a person. One fact changes what
+that update implies: until stack-single#168 `verdryx-drift` could not start at
+all, because it ran the console's image with no entrypoint and the console server
+refused `/bin/sh` as an argument. Anybody who enabled `routines` before 1.6.3 got
+a restart loop from it, so "behind a profile no install enables" was hiding a
+service that had never run. @measured `docker run <console image> /bin/sh -c 'echo
+hi'` on forge 2026-11-07: `error: unexpected argument '/bin/sh' found`.
+
 ### ~~G1.5 The pin table in agent-stack-go's CLAUDE.md is a fourth copy, and all six rows are wrong~~
 **Closed 2026-08-09 by deleting the table; the heading was struck 2026-10-28.**
 See section 8 for the evidence. The body below is the finding as written.

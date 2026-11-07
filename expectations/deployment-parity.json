@@ -221,6 +221,11 @@
           "provenance": "@claude",
           "why": "A ROUTINE that runs as a compose SERVICE, which is why it shows up in this family at all: the identity sweep, reading the shared bus read-only. compose has no cron, so the `routines` profile runs each as a long-lived loop, exactly as the `record` profile already ran trailryx-seal.\\n\\nSo the same work is a CronJob in stack-k8s, a timer entry in stack-up, and a service here. It is recorded in BOTH families on purpose: as a service because compose starts it, and in the routines family because that is the question somebody actually asks. This file's model has no notion of a routine that is also a service, which is the third time its shape has cost an extra entry, after the two profiles."
         },
+        "services:stack-single:extra:verdryx-slo": {
+          "recorded": "2026-11-07",
+          "provenance": "@claude 2026-11-07",
+          "why": "A ROUTINE that runs as a compose SERVICE: the error budget, reading both doors' traces read only and appending to its own stream, which wardryx reads. compose has no cron, so it loops. In stack-k8s the same work is a sidecar of the gateway's pod, because the traces are that pod's emptyDir (stack-single invariant 66, stack-k8s invariant 82)."
+        },
         "services:stack-single:extra:verdryx-drift": {
           "recorded": "2026-08-28",
           "provenance": "@claude",
