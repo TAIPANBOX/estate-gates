@@ -737,6 +737,19 @@ of the same owner with the bound on published keys still holding. That is a chan
 keyryx or vouchryx, then a pin in both launchers.
 **Re-check:** `GET /v1/keys` on a box, the `state` of each key whose `owner` is `vouchryx`.
 
+**The change is in keyryx `main`, in no release yet.** TAIPANBOX/keyryx#27, merged
+`de529d1`, takes the second road. At the bound a new key of an owner retires that owner's
+oldest, once the next key has been signing for the name's overlap, so no token the old key
+signed is cut, and a burst of starts still meets the refusal. `@decided 2026-11-07`: this
+road, because keeping the key across a restart puts a private key good for 72 hours on a
+volume and in its backups. A retired key is not revoked: the witness refuses a record seen
+after `revoked_at`, and a restart stole nothing. @measured `labs/five-starts` on forge
+2026-11-07 (PROVEN.md): before it the fifth start got no token, after it the fifth got one,
+at a box's own policy 721 seconds after it started when each start waited for its token, and
+1021 seconds in a burst. Starts twelve minutes apart wait only the publish-ahead. What is left
+is the tag and the pin in both launchers. On a box, a vouchryx with no key takes one at its
+next retry, within five minutes of the new custody, with no restart of its own.
+
 ## 4. The seams between services
 
 ### ~~G4.1 idryx emits nothing into the shared event envelope~~
