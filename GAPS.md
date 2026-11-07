@@ -287,6 +287,17 @@ a sibling's instruction file.
 
 ---
 
+### G1.6 wardryx emits two types the 6.2 registry does not list
+
+@measured `./run-gates.py --mode clone`, GitHub Actions run 42407869118, 2026-11-07: C4 says
+`wardryx emits 2 type(s) under wardryx that 6.2 does not list: approval_queue_full, policy_loaded`.
+Both are wardryx v2.6.0's, in `internal/api/api.go`, and both go through its ordinary `emit`, so a
+reader that knows only the registry meets them as strangers. This is what makes C4 red on every run
+from that release on, this repository's own included: the rest of `gates` is green.
+
+**Closes when:** agent-passport's SPEC 6.2 lists both under `wardryx`. **Re-check:**
+`python3 gates/c4-event-registry.py --mode clone`.
+
 ## 2. Agent monitoring: what we can and cannot see
 
 This section is new on 2026-08-09 and is the largest single body of gaps. It
