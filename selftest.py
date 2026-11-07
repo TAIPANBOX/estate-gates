@@ -3241,6 +3241,83 @@ MUTATIONS: dict[str, list[tuple[str, callable]]] = {
         "no workflow in the estate signs an image",
         lambda r: drop(r, "tokenfuse/.github/workflows/sign.yml"),
     )],
+    # ---- C27
+    "c27.block-differs": [
+        (
+            # The defect that started this: a rule of one stack reaching further
+            # than the same rule of the other.
+            "stack-k8s narrows the floor to ids with a scheme",
+            lambda r: edit(r, "stack-k8s/lib/tool-hold.sh", """'  target: "*"'""", """'  target: "agent://*"'"""),
+        ),
+        (
+            "stack-single grants a tool stack-k8s does not",
+            lambda r: edit(r, "stack-single/install.sh", "'  grant_tool: [ask]'", "'  grant_tool: [ask, list_questions]'"),
+        ),
+        (
+            "one stack carries a seed the other has not",
+            lambda r: edit(r, "stack-single/install.sh", "    '- name: grant-install-check' \\\n", "    '- name: grant-extra' \\\n    '- name: grant-install-check' \\\n"),
+        ),
+        (
+            # A comparison that stopped at the shorter body would call this equal.
+            "one body ends a line early",
+            lambda r: edit(r, "stack-k8s/lib/tool-hold.sh", "  printf '%s\\n' '# tool-hold: end'\n", ""),
+        ),
+        (
+            # The same lines under another condition are not the same rule.
+            "the condition around the web grant differs",
+            lambda r: edit(r, "stack-k8s/lib/tool-hold.sh", "if tool_hold_web_wanted; then", "if tool_hold_web_wanted && false; then"),
+        ),
+        (
+            "two lines swap places",
+            lambda r: edit(
+                r,
+                "stack-k8s/lib/tool-hold.sh",
+                "    '  require_identity_source: [client-key]' \\\n    '  deny_if_chain_unproven: true'\n",
+                "    '  deny_if_chain_unproven: true' \\\n    '  require_identity_source: [client-key]'\n",
+            ),
+        ),
+    ],
+    "c27.sources-differ": [(
+        # Two identical bodies, and one renders a grant a static key can reach.
+        "stack-k8s prints an identity list stack-single cannot",
+        lambda r: edit(r, "stack-k8s/lib/tool-hold.sh", "*) printf 'agent-token, none' ;;", "*) printf 'agent-token, client-key, none' ;;"),
+    )],
+    "c27.no-floor": [(
+        "both stacks agree on a floor that holds nothing",
+        lambda r: (
+            edit(r, "stack-single/install.sh", "'  when_no_grant: hold'", "'  when_no_grant: allow'"),
+            edit(r, "stack-k8s/lib/tool-hold.sh", "'  when_no_grant: hold'", "'  when_no_grant: allow'"),
+        ),
+    )],
+    "c27.marker-missing": [(
+        "a stack rewords the line it renders and removes by",
+        lambda r: edit(r, "stack-k8s/lib/tool-hold.sh", "# tool-hold: begin (managed by", "# tool hold begins here (managed by"),
+    )],
+    "c27.anchor-missing": [
+        (
+            "the function is renamed in stack-k8s",
+            lambda r: edit(r, "stack-k8s/lib/tool-hold.sh", "tool_hold_block() {", "tool_hold_body() {"),
+        ),
+        (
+            "the sources function is renamed in stack-single",
+            lambda r: edit(r, "stack-single/install.sh", "tool_hold_sources() {", "tool_hold_doors() {"),
+        ),
+        (
+            # Two empty lists read as agreement.
+            "the sources function stops printing with printf",
+            lambda r: edit(r, "stack-k8s/lib/tool-hold.sh", "printf 'agent-token,", "echo 'agent-token,", every=True),
+        ),
+    ],
+    "c27.file-missing": [
+        (
+            "stack-k8s loses lib/tool-hold.sh",
+            lambda r: drop(r, "stack-k8s/lib/tool-hold.sh"),
+        ),
+        (
+            "stack-single loses install.sh",
+            lambda r: drop(r, "stack-single/install.sh"),
+        ),
+    ],
     # ---- C18
     "c18.expectations-unreadable": [(
         "the pending list cannot be read, so nothing may be called pending",

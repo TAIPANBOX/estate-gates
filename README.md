@@ -621,6 +621,17 @@ missing either is red, named by repository, file and line. Finding no sign line 
 all is measured nothing, not a pass. It does not read flags set some other way than
 on the command line.
 
+**C27, the tool hold is one block in both stacks** (`gates/c27-tool-hold-block.py`).
+Decided on 2026-11-07, paraphrased: a tool call nothing grants is held for a person on a
+default install of either stack, and only an explicit grant lifts it. stack-single's
+`install.sh` and stack-k8s's `lib/tool-hold.sh` each write that block with a function of their
+own, and each repository's gate holds its own copy. This compares `tool_hold_block` line by
+line, the condition around the web grant included, and `tool_hold_sources` by the identity
+lists it can print, so one body cannot render two grants. Only the begin marker may differ, by
+the file and invariant it names. Agreeing on no floor is red, and a file, a function or a
+marker that is gone reads as measured nothing. stack-up is not a subject: its block goes with
+`--typed-risk-signal`, and its own gate holds it.
+
 ## Running it
 
 Locally, against the sibling checkouts in the parent directory:
