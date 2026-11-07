@@ -89,6 +89,9 @@ finding ids c3.argcap-differ and c3.argcap-unreadable). The two new teeth cases,
 c23.undeclared-not-judged-row-public and c23.undeclared-not-judged-vertex, are not counted.
 Only a docstring line changed after that run.
 
+@measured `./selftest.py` on forge, exit 0, 2026-11-07, on feat/tool-hold-tails: 361 entries in MUTATIONS over
+191 FAIL paths across 27 gates. The fourteen entries and six finding ids of C27 are this change's.
+
 WHAT THIS DOES NOT PROVE
 
 That the fixture still looks like the real estate. It cannot: the fixture is
