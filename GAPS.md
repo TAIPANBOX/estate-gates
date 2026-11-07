@@ -715,6 +715,28 @@ git -C wardryx grep -n 'v\.proofs\|proofs   *map' origin/main -- internal/agentt
 git -C stack-k8s grep -n -B3 'replicas:' origin/main -- manifests/10-planes.yaml   # the wardryx Deployment
 ```
 
+### G3.11 A restart of vouchryx spends one of four certified keys, and the fifth start waits up to three days
+
+@measured `docker logs agent-stack-keyryx-1`, `GET /v1/keys` on forge 2026-11-07. vouchryx
+keeps its working key in memory, so each start asks custody to certify a new one. Custody
+holds at most four live keys of a name (`certify.MaxLive`), and a key stays live to its
+`not_after` plus the overlap, 72 hours and ten minutes under the launcher's policy. Four
+starts inside that time leave the next one with no key: `refused delegate:
+reason=too_many_live_keys`, and every token request gets `no_certified_signing_key` until
+the oldest ages out. Callers on a static key are not touched, and it recovers alone,
+because vouchryx asks again every five minutes.
+
+On forge the four came from the 1.6.0 rollout on 2026-11-05, and stack-single 1.6.3 was the
+start past them: it changes `init-volumes`, and compose recreates what depends on it. CI
+cannot see this: an install leg starts from no statements, and two runs spend two at most.
+The installer does see it, and fails `vouchryx holds a certified key`. Revoking one needs
+`KEYRYX_ADMIN_KEYS`, which no launcher sets, so a box has no quick way out.
+
+**Closes when:** a start of vouchryx does not cost a slot, or a new key retires the oldest
+of the same owner with the bound on published keys still holding. That is a change in
+keyryx or vouchryx, then a pin in both launchers.
+**Re-check:** `GET /v1/keys` on a box, the `state` of each key whose `owner` is `vouchryx`.
+
 ## 4. The seams between services
 
 ### ~~G4.1 idryx emits nothing into the shared event envelope~~
