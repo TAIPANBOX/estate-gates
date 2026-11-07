@@ -150,6 +150,9 @@ ROUTINE_KIND = {
     "focus-export": "focus-export",
     "qryx-trend": "qryx-trend",
     "verdryx-drift": "verdryx-drift",
+    # The error budget, added 2026-11-07: a compose service in stack-single and a
+    # sidecar of the gateway's pod in stack-k8s, whose traces are that pod's emptyDir.
+    "verdryx-slo": "verdryx-slo",
     "idryx-detect": "idryx-detect",
     "mockryx-drill": "mockryx-drill",
     # trailryx-node events over the shared event directory, sealing what the
@@ -276,6 +279,7 @@ SERVICE_KIND = {
     "focus-export": "focus-export",
     "idryx-detect": "idryx-detect",
     "verdryx-drift": "verdryx-drift",
+    "verdryx-slo": "verdryx-slo",
     # stack-single, behind `--profile record`. It is a long-running
     # SERVICE here and a CronJob in the cluster, which is why the same
     # work shows up in two families of this check: compose has no cron,

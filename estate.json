@@ -99,6 +99,7 @@
       "role": "the quality plane. Holds hand-copied mirrors of three tokenfuse constants.",
       "runs": [
         "verdryx-drift",
+        "verdryx-slo",
         "verdryx"
       ],
       "price_table": {
