@@ -287,6 +287,19 @@ a sibling's instruction file.
 
 ---
 
+### ~~G1.6 wardryx emits two types the 6.2 registry does not list~~
+
+**Closed 2026-11-07.** `@decided 2026-11-07`, paraphrased: wardryx changes and the registry does not. wardryx#139, released as v2.6.1: both facts are log lines now, and a gate in that repository holds every emit to the 6.2 row. C4 is green from that tag on (PROVEN.md).
+
+@measured `./run-gates.py --mode clone`, GitHub Actions run 42407869118, 2026-11-07: C4 says
+`wardryx emits 2 type(s) under wardryx that 6.2 does not list: approval_queue_full, policy_loaded`.
+Both are wardryx v2.6.0's, in `internal/api/api.go`, and both go through its ordinary `emit`, so a
+reader that knows only the registry meets them as strangers. This is what makes C4 red on every run
+from that release on, this repository's own included: the rest of `gates` is green.
+
+**Closes when:** agent-passport's SPEC 6.2 lists both under `wardryx`. **Re-check:**
+`python3 gates/c4-event-registry.py --mode clone`.
+
 ## 2. Agent monitoring: what we can and cannot see
 
 This section is new on 2026-08-09 and is the largest single body of gaps. It
@@ -715,7 +728,9 @@ git -C wardryx grep -n 'v\.proofs\|proofs   *map' origin/main -- internal/agentt
 git -C stack-k8s grep -n -B3 'replicas:' origin/main -- manifests/10-planes.yaml   # the wardryx Deployment
 ```
 
-### G3.11 A restart of vouchryx spends one of four certified keys, and the fifth start waits up to three days
+### ~~G3.11 A restart of vouchryx spends one of four certified keys, and the fifth start waits up to three days~~
+
+**Closed 2026-11-08.** keyryx v0.1.4 (keyryx#27), pinned by stack-single 1.7.1 and stack-k8s 1.8.9: at the bound a new key retires its owner's oldest. On forge vouchryx was certified 4 minutes 26 seconds after the upgrade started it (PROVEN.md).
 
 @measured `docker logs agent-stack-keyryx-1`, `GET /v1/keys` on forge 2026-11-07. vouchryx
 keeps its working key in memory, so each start asks custody to certify a new one. Custody
@@ -727,8 +742,17 @@ the oldest ages out. Callers on a static key are not touched, and it recovers al
 because vouchryx asks again every five minutes.
 
 On forge the four came from the 1.6.0 rollout on 2026-11-05, and stack-single 1.6.3 was the
-start past them: it changes `init-volumes`, and compose recreates what depends on it. CI
-cannot see this: an install leg starts from no statements, and two runs spend two at most.
+start past them. It changes `init-volumes`, and forge's Compose recreates what sits below a
+recreated service. **That is a property of Compose below 2.35, not of Compose.** @measured
+docker/compose source at the tags, 2026-11-07 (PROVEN.md): up to 2.29 a recreated service forces
+its dependents, 2.30 to 2.34 stop and start each of them, and from 2.35 only a dependent with
+`restart: true` follows, and `compose.yaml` has none. Debian 13 ships 2.26.1, which is what forge
+runs. Only `init-volumes` and `keyryx` sit above vouchryx, so on a Compose below 2.35 a change
+to either of those spends a key, and on 2.35 or later a change to them spends none.
+The install legs of CI could not see it, for a stronger reason than this entry first gave: an
+install leg starts from no statements, and its runner's Compose is 2.38.2, where the cascade is
+not there at all. stack-single's `upgrade` job has run Compose 2.26.1 since 2026-11-07, for
+this reason.
 The installer does see it, and fails `vouchryx holds a certified key`. Revoking one needs
 `KEYRYX_ADMIN_KEYS`, which no launcher sets, so a box has no quick way out.
 
@@ -749,6 +773,53 @@ at a box's own policy 721 seconds after it started when each start waited for it
 1021 seconds in a burst. Starts twelve minutes apart wait only the publish-ahead. What is left
 is the tag and the pin in both launchers. On a box, a vouchryx with no key takes one at its
 next retry, within five minutes of the new custody, with no restart of its own.
+
+### ~~G3.12 Three services carry no container baseline, and they are the ones a key hangs on~~
+
+**Closed 2026-11-08.** stack-single#176, in 1.7.1: `init-volumes`, `keyryx` and `vouchryx` take the baseline, `init-volumes` with only CHOWN, DAC_OVERRIDE and FOWNER, and a chown that fails now stops it. Measured on Compose 2.26.1 with the keys read before and after, then on forge.
+
+@measured `hardening-exceptions.json` in stack-single at `a2f4dcb`, 2026-11-07. Wave 1 gave every
+service a read-only root, no capabilities, no core dump and a process limit, or a named line saying
+why not. `init-volumes`, `keyryx` and `vouchryx` were left as they were on purpose: on a Compose
+below 2.35 any change to them starts vouchryx again and spends a certified key (G3.11), and the
+five exception lines say `until G3.11`. stack-k8s is outside this entry: its pods run under their
+own `securityContext`.
+
+**Closes when:** a keyryx with #27 is released and pinned in both launchers, and the three take the
+baseline in one release, measured on Compose 2.26.1 with `GET /v1/keys` read before and after.
+**Re-check:** `python3 -c "import json;print(json.load(open('hardening-exceptions.json')))"` in stack-single.
+
+### G3.13 `tools/list` shows an agent every tool, whatever its policy lets it call
+
+@measured `crates/gateway/src/mcpbroker.rs` at tokenfuse `872b2e0`, 2026-11-07. The broker scans the
+list and does not narrow it by the agent's `allow_tool`. Nothing is reached that way, because a call
+of a tool the agent may not use is refused at the gate, so this is what an agent is shown and not
+what it can do. `TOKENFUSE_TOOLS_PRUNE=shadow` exists to measure it first.
+
+**Closes when:** a shadow run has said what narrowing would remove, and the list is narrowed or the
+reason not to is written down. **Re-check:** `git -C tokenfuse grep -n TOOLS_PRUNE origin/main -- crates`.
+
+### G3.14 openwrt-mcp runs as root, with no jail and no filter
+
+@measured its init script at `fde61df`, 2026-11-07: root, no `procd` jail, no seccomp. llm-gateway and
+rollcall have all three now, and the first is the shape to copy. The server's whole job is to reach
+ubus and UCI as root on the agent's behalf, so a jail is the first step and a split of the part that
+parses from the part that acts is the second.
+
+**Closes when:** the daemon runs in a jail with the mounts it needs, and the part that parses input
+holds no root. **Re-check:** `git -C openwrt-mcp show origin/main:files/etc/init.d/openwrt-mcp`.
+
+### G3.15 A person's grant reaches the agent by hand
+
+@measured genaryx `f38763c` and `git grep x-fuse-approval-token` over stack-single and stack-k8s,
+2026-11-07. Since genaryx#151 the console shows the raw token once, with its header and a countdown.
+Nothing hands it on: the operator pastes it into whatever retries the call, or writes a grant.
+`agent-allow` is the way out that needs no passkey, and wardryx's release notes say so.
+
+**Closes when:** an enforcement point redeems a grant by `approval_id` at the retry, or MCP's
+`InputRequiredResult` carries the wait, which is a decision about wardryx's invariant 7 first.
+**Re-check:** `git -C stack-single grep -n x-fuse-approval-token origin/main -- '*.sh' '*.yml'`, and the
+same in stack-k8s: each names it in its docs and nowhere else.
 
 ## 4. The seams between services
 
@@ -1172,6 +1243,19 @@ which is a change in each of those repositories.
 
 ---
 
+### G4.10 The broker drills cannot reach a broker with a door
+
+@measured `probeMCP` in mockryx at `752e5af` and `TOKENFUSE_MCP_KEYS` in both stacks, 2026-11-07.
+Mockryx sends the broker no key, on purpose: its invariant 13 keeps the gateway's client key off a
+service the operator did not give it to. Both stacks set `TOKENFUSE_MCP_KEYS`, so a drill in
+`scenarios/mcp/` against either stack's broker comes back a `401` that is not JSON-RPC, a hard
+Finding. So the three broker drills, `mcp-ungranted-tool-held` among them, run against a rehearsal
+broker in front of a fake MCP server, and each stack proves its own broker in its own CI step.
+
+**Closes when:** mockryx takes a broker key of its own, kept off argv and out of every report as the
+two others are, which is a new setting and so a decision. **Re-check:** `git -C mockryx grep -n
+'x-fuse-key' origin/main -- internal/runner/runner.go`.
+
 ## 5. Ungated invariants, estate-wide
 
 @measured `grep -c '(not enforced)'` across every `CLAUDE.md`, 2026-08-09.
@@ -1317,9 +1401,72 @@ the session that would have implemented it.
 
 ---
 
+- **The second hardening wave.** `@claude` 2026-11-07, its scope as read that day, nothing started:
+  an Auditor-style check of a box from outside, small, with a TPM tier on forge (TPM 2.0 present,
+  Secure Boot off, `@measured` `/sys/class/tpm` on forge 2026-11-07) and a software tier for rollcall's
+  state reports; an AppArmor profile of our own for `scopyx-browser` on Debian 13, where the installer
+  picks `unconfined` because `docker-default` refuses Chrome's user namespace (stack-single#175), and
+  the same filter and both sandboxes in stack-k8s, whose `48-scopyx-browser.yaml` sets
+  `SCOPYX_CHROMIUM_NO_SANDBOX=1`; `--jitless` after a measurement; G3.13; G3.14;
+  a hardened image for the routers after a Flint 2 measurement (OpenWrt 25.12's filogic config has
+  `INIT_ON_ALLOC` and `INIT_ON_FREE` off and no lockdown LSM, `@measured` the raw configs on the
+  `openwrt-25.12` branch 2026-11-07). Not taken, with the reason in the note of that day: hardened_malloc
+  on routers (39-bit virtual addresses, and a static Go binary skips malloc), MTE and PAC (Cortex-A53),
+  and fake success for an agent (leave a thing out, never lie).
+
 ## 8. Closed, with the evidence that closed them
 
 Kept rather than deleted, so the next audit knows what was checked.
+
+### Closed 2026-11-07
+
+Each of these was found on `main` the same day, by a reading of the estate against one outside
+design, and closed by the first hardening wave. None had an entry above. The evidence is the
+section of that name in PROVEN.md.
+
+- ~~**An agent no policy targets was allowed.**~~ `@measured` `internal/pdp/pdp.go` at wardryx
+  `5ca25ae`: `allowed: no policy targets agent`, and both stacks' starter rules targeted only the
+  fire drills. `@decided 2026-11-07`: a tool call nothing grants is held for a person on a default
+  install, a model call passes, and only an explicit grant lifts the hold. wardryx v2.6.0
+  (`when_no_grant`, `grant_tool`, rule 15), stack-single v1.7.0 and stack-k8s v1.8.7 (block, stop on a
+  box with a history, `agent-allow`). C27 holds the two blocks equal. stack-up carries it under
+  `--typed-risk-signal` (TAIPANBOX/stack-up#64), the one run whose broker asks wardryx, and says that
+  a default run has no policy decision point on tool calls. The same sentence of the old rule stays
+  in the code: replay compares it, and a floor that is not in a file changes nothing.
+- ~~**A person's approval never reached the agent, not even as text.**~~ `@measured` genaryx at
+  `57d12f1`: the console read the token and kept only its parsed fields. genaryx#151 shows it once.
+  The rest of that path is G3.15.
+- ~~**A held tool call did not say why.**~~ tokenfuse#513, in v1.23.0: `-32004` carries the reason.
+- ~~**A loop of held calls grew the queue without bound.**~~ wardryx v2.6.0: one pending row for an
+  agent, run and call, and `WARDRYX_PENDING_PER_AGENT`, 20 by default.
+- ~~**Nothing compared what a box runs with its pins.**~~ `@measured` stack-single at `daf60f6`.
+  stack-single#170: `install.sh status` does, one line per container, and every run says root on the
+  box can change either side.
+- ~~**The installer compared no version, and a box could go backwards by mistake.**~~ stack-single#171:
+  a journal on the box and an integer rollback index, and going below it takes a written reason. It
+  guards against a mistake and not an attacker: the check is inside the tree it checks.
+- ~~**28 services and 7 with a baseline.**~~ `@measured` `compose.yaml` at stack-single `daf60f6`:
+  `read_only`, `cap_drop` and `no-new-privileges` on 7, no process limit anywhere. stack-single#172 and
+  invariant 69: all but three. Those three are G3.12.
+- ~~**llm-gateway ran as root, in the house's reach.**~~ `@measured` its init script at `96620b5`.
+  openwrt-llm-gateway#5 and #6: a root step that ends, then its own user, a jail, no capabilities,
+  and its own seccomp filter on aarch64 and amd64.
+- ~~**openwrt-mcp's lockout was five tries, in memory, reset by a restart.**~~ `@measured` `mfa.go` at
+  `b145aaf`: 480 tries a day. openwrt-mcp#14: delays that grow to one try an hour, the count on disk
+  before the factors are checked, and an audit log a flood folds rather than empties.
+- ~~**The agent on the router shared the router's network.**~~ `@measured` `hermes-jail.py` at
+  hermes-openwrt `0c65a9d`. hermes-openwrt#84, r21: its own `inet hermes_agent` table, by uid.
+- ~~**The browser ran with its syscall filter off.**~~ `@measured` `compose.yaml` at stack-single
+  `a2f4dcb`: `seccomp:unconfined` on `scopyx-browser`, to keep Chrome's own sandbox. stack-single#175:
+  `seccomp/chromium-v1.json`, Docker's default plus `chroot`, `clone` into a user, pid and net
+  namespace, and `unshare` into a user namespace, each measured by taking it out, and the AppArmor
+  line measured per host by the installer.
+- ~~**A person who kept granting one agent one tool had no way to stop being asked, short of a shell.**~~
+  genaryx#152: "Always allow" on a held call, admin only, behind the passkey, writing the policy
+  `agent-allow` writes.
+- ~~**An apk upgrade left the old daemon running.**~~ `@measured` `hermes-openwrt/CLAUDE.md`: apk runs
+  post-upgrade on an upgrade, and three repositories packed only post-install. openwrt-mcp#14,
+  openwrt-llm-gateway#5 and rollcall#16.
 
 ### Closed 2026-11-06
 

@@ -1246,6 +1246,57 @@ volumes:
   events:
 """
 
+# C27: the tool hold, one function in each stack. Only the begin marker differs, and
+# a comment is a non-fault, so the baseline shows both being read past.
+TOOL_HOLD_BLOCK = r"""tool_hold_block() {
+  printf '%s\n' \
+    '# tool-hold: begin (managed by @FILE@; TOOL_HOLD, invariant @N@)' \
+    '- name: tool-hold' \
+    '  target: "*"' \
+    '  when_no_grant: hold' \
+    '- name: grant-drills' \
+    '  target: agent://mockryx.local/*' \
+    '  grant_tool: ["*"]' \
+    '- name: grant-install-check' \
+    '  target: agent://local.invalid/install-check' \
+    '  grant_tool: [ask]' \
+    '  require_identity_source: [client-key]' \
+    '  deny_if_chain_unproven: true'
+  # @COMMENT@
+  if tool_hold_web_wanted; then
+    printf '%s\n' \
+      '- name: grant-operator-web' \
+      "  target: agent://$(tool_hold_domain)/agents/operator" \
+      '  grant_tool: [fetch_url, browse]' \
+      "  require_identity_source: [$(tool_hold_sources)]" \
+      '  deny_if_chain_unproven: true'
+  fi
+  printf '%s\n' '# tool-hold: end'
+}
+"""
+
+STACK_SINGLE_TOOL_HOLD = TOOL_HOLD_BLOCK.replace("@FILE@", "install.sh").replace("@N@", "70").replace(
+    "@COMMENT@", "the web grant goes with the box"
+) + r"""tool_hold_sources() { # [static]: this box's .env can name its agents as static
+  local keys
+  keys=",$(tool_hold_env_get TOKENFUSE_MCP_AGENT_TOKENS_STATIC_KEYS),"
+  case "${1:-}$keys" in
+    static*|*,agents,*) printf 'agent-token, client-key, none' ;;
+    *) printf 'agent-token, none' ;;
+  esac
+}
+"""
+
+K8S_TOOL_HOLD = "# The tool hold. Sourced by the launchers, not run.\n\n" + TOOL_HOLD_BLOCK.replace(
+    "@FILE@", "lib/tool-hold.sh"
+).replace("@N@", "83").replace("@COMMENT@", "the web grant goes with the cluster") + r"""tool_hold_sources() { # [static]
+  case "${1:-}" in
+    static) printf 'agent-token, client-key, none' ;;
+    *) printf 'agent-token, none' ;;
+  esac
+}
+"""
+
 STACK_SINGLE_INSTALL = """#!/usr/bin/env bash
 # stack-single installer.
 
@@ -1262,7 +1313,7 @@ WARDRYX_KEYS=$WARDRYX_ADMIN_SECRET:default:admin,$WARDRYX_GATEWAY_SECRET:default
 
 # Ordering Docker after tailscaled is service setup, not a scheduled routine.
 mkdir -p /etc/systemd/system/docker.service.d
-"""
+""" + STACK_SINGLE_TOOL_HOLD
 
 K8S_BROKER = """---
 apiVersion: apps/v1
@@ -2086,6 +2137,7 @@ func TestWireTypesIsExactlyWhatTheCallSitesProduce(t *testing.T) {}
         "manifests/10-planes.yaml": K8S_PLANES,
         "manifests/52-tokenfuse-mcp-broker.yaml": K8S_BROKER,
         "install.sh": K8S_INSTALL,
+        "lib/tool-hold.sh": K8S_TOOL_HOLD,
         "manifests/15-policy-store.yaml": K8S_STORE,
         "manifests/20-console.yaml": K8S_CONSOLE,
         "manifests/40-routines.yaml": K8S_ROUTINES,
