@@ -68,7 +68,7 @@
         "routines:stack-single:absent:mockryx-drill": {
           "recorded": "2026-08-28",
           "provenance": "@claude",
-          "why": "STILL ABSENT. It needs the scenario files, which live in the mockryx repository and are not in this image, and it is opt-in in both other deployments anyway, which is why it matters least of the six."
+          "why": "STILL ABSENT AS A ROUTINE, and a manual job since 2026-11-08. stack-single 1.7.2 runs the broker fire drills as `mockryx-drill`, a compose service behind the `manual` profile that a person starts with `docker compose run --rm mockryx-drill` and nothing schedules, declared under `manual_jobs` in stack-single's components.json and recorded in the services family as `services:stack-single:extra:mockryx-drill`. The reason this entry once gave, scenario files missing from the image, stopped being true with mockryx v0.1.1, whose image carries its scenarios. It stays a divergence because the other two deployments schedule the drill (disabled, but scheduled) and this one does not."
         },
         "routines:stack-single:absent:trailryx-seal": {
           "recorded": "2026-08-28",
@@ -220,6 +220,11 @@
           "recorded": "2026-08-28",
           "provenance": "@claude",
           "why": "A ROUTINE that runs as a compose SERVICE, which is why it shows up in this family at all: the identity sweep, reading the shared bus read-only. compose has no cron, so the `routines` profile runs each as a long-lived loop, exactly as the `record` profile already ran trailryx-seal.\\n\\nSo the same work is a CronJob in stack-k8s, a timer entry in stack-up, and a service here. It is recorded in BOTH families on purpose: as a service because compose starts it, and in the routines family because that is the question somebody actually asks. This file's model has no notion of a routine that is also a service, which is the third time its shape has cost an extra entry, after the two profiles."
+        },
+        "services:stack-single:extra:mockryx-drill": {
+          "recorded": "2026-11-08",
+          "provenance": "@claude 2026-11-08",
+          "why": "A MANUAL JOB that is a compose SERVICE, which is why it shows up in this family: mockryx's broker fire drills against this box's own MCP broker, with the drills' key at the broker (`drills-broker`), behind the `manual` profile no install passes, started by a person with `docker compose run --rm mockryx-drill`. The compose shape of stack-k8s's suspended `drills` and `drills-broker` CronJobs and of stack-up's opt-in drill. Recorded as `extra` for the reason idryx-detect is: a service and a routine are compared against different things."
         },
         "services:stack-single:extra:verdryx-slo": {
           "recorded": "2026-11-07",
