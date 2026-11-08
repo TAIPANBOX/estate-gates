@@ -287,7 +287,9 @@ a sibling's instruction file.
 
 ---
 
-### G1.6 wardryx emits two types the 6.2 registry does not list
+### ~~G1.6 wardryx emits two types the 6.2 registry does not list~~
+
+**Closed 2026-11-07.** `@decided 2026-11-07`, paraphrased: wardryx changes and the registry does not. wardryx#139, released as v2.6.1: both facts are log lines now, and a gate in that repository holds every emit to the 6.2 row. C4 is green from that tag on (PROVEN.md).
 
 @measured `./run-gates.py --mode clone`, GitHub Actions run 42407869118, 2026-11-07: C4 says
 `wardryx emits 2 type(s) under wardryx that 6.2 does not list: approval_queue_full, policy_loaded`.
@@ -726,7 +728,9 @@ git -C wardryx grep -n 'v\.proofs\|proofs   *map' origin/main -- internal/agentt
 git -C stack-k8s grep -n -B3 'replicas:' origin/main -- manifests/10-planes.yaml   # the wardryx Deployment
 ```
 
-### G3.11 A restart of vouchryx spends one of four certified keys, and the fifth start waits up to three days
+### ~~G3.11 A restart of vouchryx spends one of four certified keys, and the fifth start waits up to three days~~
+
+**Closed 2026-11-08.** keyryx v0.1.4 (keyryx#27), pinned by stack-single 1.7.1 and stack-k8s 1.8.9: at the bound a new key retires its owner's oldest. On forge vouchryx was certified 4 minutes 26 seconds after the upgrade started it (PROVEN.md).
 
 @measured `docker logs agent-stack-keyryx-1`, `GET /v1/keys` on forge 2026-11-07. vouchryx
 keeps its working key in memory, so each start asks custody to certify a new one. Custody
@@ -770,7 +774,9 @@ at a box's own policy 721 seconds after it started when each start waited for it
 is the tag and the pin in both launchers. On a box, a vouchryx with no key takes one at its
 next retry, within five minutes of the new custody, with no restart of its own.
 
-### G3.12 Three services carry no container baseline, and they are the ones a key hangs on
+### ~~G3.12 Three services carry no container baseline, and they are the ones a key hangs on~~
+
+**Closed 2026-11-08.** stack-single#176, in 1.7.1: `init-volumes`, `keyryx` and `vouchryx` take the baseline, `init-volumes` with only CHOWN, DAC_OVERRIDE and FOWNER, and a chown that fails now stops it. Measured on Compose 2.26.1 with the keys read before and after, then on forge.
 
 @measured `hardening-exceptions.json` in stack-single at `a2f4dcb`, 2026-11-07. Wave 1 gave every
 service a read-only root, no capabilities, no core dump and a process limit, or a named line saying
