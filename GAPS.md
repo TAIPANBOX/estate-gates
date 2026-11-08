@@ -799,7 +799,9 @@ what it can do. `TOKENFUSE_TOOLS_PRUNE=shadow` exists to measure it first.
 **Closes when:** a shadow run has said what narrowing would remove, and the list is narrowed or the
 reason not to is written down. **Re-check:** `git -C tokenfuse grep -n TOOLS_PRUNE origin/main -- crates`.
 
-### G3.14 openwrt-mcp runs as root, with no jail and no filter
+### ~~G3.14 openwrt-mcp runs as root, with no jail and no filter~~
+
+**Closed 2026-11-08.** openwrt-mcp 0.5.0.9 (tag `v0.5.0-taipanbox.9`, `81960b1`), shipped beside hermes-agent 0.21.5-r23 in the signed hermes-openwrt feed and running on the Flint 2: the listener the agent talks to runs as the account `openwrt-mcp` with every capability set empty, `NoNewPrivs 1` and `Seccomp 2`, and refuses root; the helper that holds root keeps nine capabilities (`30fb`) under its own filter and opens no network socket, answering only that account over a Unix socket checked with `SO_PEERCRED` (PROVEN.md). `@decided 2026-11-08`: a light cage in place of the jail the first condition names, because a jail took every program `exec` starts away from the router and did not hold a root daemon that has the whole of ubus, so the split is what keeps parsing away from root.
 
 @measured its init script at `fde61df`, 2026-11-07: root, no `procd` jail, no seccomp. llm-gateway and
 rollcall have all three now, and the first is the shape to copy. The server's whole job is to reach
@@ -1407,7 +1409,7 @@ the session that would have implemented it.
   state reports; an AppArmor profile of our own for `scopyx-browser` on Debian 13, where the installer
   picks `unconfined` because `docker-default` refuses Chrome's user namespace (stack-single#175), and
   the same filter and both sandboxes in stack-k8s, whose `48-scopyx-browser.yaml` sets
-  `SCOPYX_CHROMIUM_NO_SANDBOX=1`; `--jitless` after a measurement; G3.13; G3.14;
+  `SCOPYX_CHROMIUM_NO_SANDBOX=1`; `--jitless` after a measurement; G3.13; G3.14 (closed 2026-11-08);
   a hardened image for the routers after a Flint 2 measurement (OpenWrt 25.12's filogic config has
   `INIT_ON_ALLOC` and `INIT_ON_FREE` off and no lockdown LSM, `@measured` the raw configs on the
   `openwrt-25.12` branch 2026-11-07). Not taken, with the reason in the note of that day: hardened_malloc
