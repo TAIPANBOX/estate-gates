@@ -789,7 +789,9 @@ own `securityContext`.
 baseline in one release, measured on Compose 2.26.1 with `GET /v1/keys` read before and after.
 **Re-check:** `python3 -c "import json;print(json.load(open('hardening-exceptions.json')))"` in stack-single.
 
-### G3.13 `tools/list` shows an agent every tool, whatever its policy lets it call
+### ~~G3.13 `tools/list` shows an agent every tool, whatever its policy lets it call~~
+
+**Closed 2026-11-08.** tokenfuse 1.24.0 (tag `v1.24.0` on `7fb3c39`, tokenfuse#516, its invariant 146): with wardryx enforcing and the caller named, the MCP broker leaves out of a `tools/list` answer every tool wardryx refuses that agent outright, the ones a `deny_tool` rule names and the ones an `allow_tool` list leaves out, asked through `POST /v1/filter-tools` after the poisoning and rug-pull scans; a tool the agent simply has no grant for stays listed, because its call is the one the tool hold keeps for a person. Shadow removes nothing and writes `_tokenfuse.tools_would_hide`; an unavailable wardryx leaves the list whole. Pinned by stack-single 1.7.2 and stack-k8s 1.9.0. `@decided 2026-11-08`, paraphrased: hide what the policy refuses outright, under `deny_tool` and outside an `allow_tool` list, and keep ungranted tools listed. `@claude 2026-11-08`, a correction to the text below: `TOKENFUSE_TOOLS_PRUNE=shadow` measures only the MODEL request path; the broker never read it, so it could not have measured this.
 
 @measured `crates/gateway/src/mcpbroker.rs` at tokenfuse `872b2e0`, 2026-11-07. The broker scans the
 list and does not narrow it by the agent's `allow_tool`. Nothing is reached that way, because a call
@@ -1245,7 +1247,10 @@ which is a change in each of those repositories.
 
 ---
 
-### G4.10 The broker drills cannot reach a broker with a door
+### ~~G4.10 The broker drills cannot reach a broker with a door~~
+
+**Closed 2026-11-08.** mockryx 0.5.0 (tag `v0.5.0` on `d8ff2c1`, mockryx#93, its invariant 19) takes a key of the broker's own from a file (`--mcp-broker-key-file`, `$MOCKRYX_MCP_BROKER_KEY_FILE`) and sends it to the broker alone. Both stacks mint it as `drills-broker` and put it on the broker's static list: stack-single 1.7.2 (`mockryx-drill`, a service a person runs, stack-single#179, its invariant 74) and stack-k8s 1.9.0 (the suspended `drills-broker` CronJob, stack-k8s#235, its invariant 85). Each runs the broker drills against its own broker in CI, and carries its own copy of the tool-hold drill, whose second call is refused by the broker's vault after the hold let it through, because no MCP server of either stack answers mockryx's own `search_notes`. `@decided 2026-11-08`, paraphrased: mockryx takes a broker key of its own, separate from the gateway's client key, and the drills get it in both stacks.
+
 
 @measured `probeMCP` in mockryx at `752e5af` and `TOKENFUSE_MCP_KEYS` in both stacks, 2026-11-07.
 Mockryx sends the broker no key, on purpose: its invariant 13 keeps the gateway's client key off a
@@ -1403,13 +1408,18 @@ the session that would have implemented it.
 
 ---
 
-- **The second hardening wave.** `@claude` 2026-11-07, its scope as read that day, nothing started:
+- **The second hardening wave.** `@claude` 2026-11-08: the browser part is done in both stacks: stack-single 1.7.2
+  runs `scopyx-browser` under an AppArmor profile of its own (Docker's default plus `userns,`, its invariant 73),
+  and stack-k8s 1.9.0 keeps Chromium's sandbox under a Localhost seccomp profile (its invariant 84); G3.13, G3.14
+  and G4.10 are closed. Left from the list below: the Auditor (attestryx, private, in progress), `--jitless`, and
+  the routers' hardened image.
+  `@claude` 2026-11-07, its scope as read that day, nothing started:
   an Auditor-style check of a box from outside, small, with a TPM tier on forge (TPM 2.0 present,
   Secure Boot off, `@measured` `/sys/class/tpm` on forge 2026-11-07) and a software tier for rollcall's
   state reports; an AppArmor profile of our own for `scopyx-browser` on Debian 13, where the installer
   picks `unconfined` because `docker-default` refuses Chrome's user namespace (stack-single#175), and
   the same filter and both sandboxes in stack-k8s, whose `48-scopyx-browser.yaml` sets
-  `SCOPYX_CHROMIUM_NO_SANDBOX=1`; `--jitless` after a measurement; G3.13; G3.14 (closed 2026-11-08);
+  `SCOPYX_CHROMIUM_NO_SANDBOX=1`; `--jitless` after a measurement; G3.13 (closed 2026-11-08); G3.14 (closed 2026-11-08);
   a hardened image for the routers after a Flint 2 measurement (OpenWrt 25.12's filogic config has
   `INIT_ON_ALLOC` and `INIT_ON_FREE` off and no lockdown LSM, `@measured` the raw configs on the
   `openwrt-25.12` branch 2026-11-07). Not taken, with the reason in the note of that day: hardened_malloc
