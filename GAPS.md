@@ -825,6 +825,81 @@ Nothing hands it on: the operator pastes it into whatever retries the call, or w
 **Re-check:** `git -C stack-single grep -n x-fuse-approval-token origin/main -- '*.sh' '*.yml'`, and the
 same in stack-k8s: each names it in its docs and nowhere else.
 
+### G3.16 In stack-k8s, planes that share a uid can write each other's stream
+
+@measured 2026-11-11, stack-k8s `be8e23f`, by reading every pod that mounts the `stack-events` claim
+(`grep -n 'claimName: stack-events' manifests/*.yaml`, then each pod's `securityContext` and its
+mount of `/var/lib/stack/events`): wardryx, typryx, costcrew, costcrew-crew and vouchryx mount it
+read-write as uid 65532, and the gateway, the control plane and the console as uid 10001. Each stream
+is made 0640 by its writer's own uid (stack-k8s invariant 59). That keeps another uid out and does
+nothing between two planes of one uid: a costcrew pod can append to `wardryx.ndjson`, the decision
+journal, or truncate it. Where the storage honours `fsGroup` the directory also carries the group
+write bit, so a member of group 10001 can rename a stream away and put its own in its place.
+
+stack-single closes both halves: a root init service owns the bus directory, mode 0751, and every
+producer has a uid of its own (its invariant 41). Pod Security `restricted` forbids that root init
+here, and this repository's README says the default planes do not yet write under per-producer
+identities.
+
+`@claude` 2026-11-11, a design that fits `restricted`, not built and not run: one uid per producer,
+numbered as stack-single numbers them; the streams in a subdirectory made once by an owner uid no
+plane runs as, mode 2750; each file owned by that uid, in the producer's own group, mode 0664. A
+producer then appends through its group, a reader reads inside a directory only the bus group can
+enter, and nobody but the owner can create, rename or remove a name there. Every plane's uid
+changes, so the streams of an existing cluster have to be made again or re-owned, and that
+migration is a decision of its own.
+
+**Closes when:** no two planes that can write the bus share a uid, and a plane cannot create, rename
+or remove a name in the bus directory, measured on a cluster with the launcher's own storage class.
+**Re-check:** the grep above; `evidence/keyryx-kind/run.sh`, step 3, for the two-uid half.
+
+### G3.17 The person who approves a held tool call reads its name, its target and a digest, never its arguments
+
+@measured 2026-11-11: wardryx `3c2a324`, CLAUDE.md invariant 28 (the approval's context records the
+call's name, target, `arguments_truncated` and digest, "never the arguments"); genaryx `fd0710e`,
+`apps/web/src/lib/policyExport.ts:86-100`, where the arguments field of an approval reads "not sent
+by wardryx". The grant is bound to the sha-256 of the arguments, so an approved call cannot be
+swapped for another one. The person still cannot tell `delete repo X` from `delete repo Y` unless the
+target says so. Keeping arguments out of the policy plane is deliberate: they can hold secrets and
+personal data.
+
+**Closes when:** the approver is shown what the call carries, by the enforcement point that holds it
+(the broker or the gateway), after its own DLP pass and in text no model wrote; or a policy can
+require a target that names the object. What may leave the enforcement point is the decision that
+comes first.
+**Re-check:** the two files above.
+
+### G3.18 The installers are fetched from `main`, and stack-single's signer identity names any repository of the account
+
+@measured 2026-11-11: stack-single `0480657`, README.md:7 and install.sh:4
+(`curl .../main/install.sh | bash`); stack-k8s `be8e23f`, README.md:289 and deploy.sh:4;
+stack-single install.sh:2129, where `TAIPANBOX_SIGNER` accepts `release.yml` at a `v*` tag of any
+repository under the account, while stack-k8s's `policy/image-policy.yaml` names one repository per
+image. The images are pinned by digest in files that the same `main` carries, so whoever can move
+`main` chooses the installer and the pins together, and the signature check then guards the registry
+and not the source. Since 2026-11-11 a release tag can be neither moved nor deleted (a tag ruleset in
+every repository, PROVEN.md), which keeps a published release what it was. It does not stop a new
+tag.
+
+**Closes when:** the documented install line names a release (a tag, with the installer's sha256
+beside it, or the script as a signed release asset), and stack-single checks each image against its
+own repository's workflow.
+**Re-check:** the lines above.
+
+### G3.19 A custody key cannot be rotated or revoked from stack-single
+
+@measured 2026-11-11, stack-single `0480657`: README.md:1220, "it sets no `KEYRYX_ADMIN_KEYS`, so
+keyryx's own rotate and revoke routes refuse every call on a box it installed";
+`grep -n -i -E 'rotat|rekey' install.sh` finds comments and no command; a static key is replaced by
+running the installer again with a new file. The root key is a file on the box (keyryx README, NOT
+PROVEN: no cloud key management), and the witness is a separate uid on the same machine. So after a
+suspected compromise the box has no route that retires one key: the answer today is a new root and
+a re-pin (README, "Re-pinning keyryx's delegation root, on purpose").
+
+**Closes when:** the installer rotates each key it mints and revokes a custody key, by a command an
+operator runs on the box, and the witness sees it.
+**Re-check:** the grep above.
+
 ## 4. The seams between services
 
 ### ~~G4.1 idryx emits nothing into the shared event envelope~~
@@ -1429,6 +1504,51 @@ the session that would have implemented it.
 ## 8. Closed, with the evidence that closed them
 
 Kept rather than deleted, so the next audit knows what was checked.
+
+### Closed 2026-11-11
+
+Found on `main` the same day by a read of the estate for what an outsider could break, and closed
+the same day. None had an entry above. The evidence is the section of that name in PROVEN.md. What
+the same read left open is G3.16 to G3.19.
+
+- ~~**stack-single's broker let a tool call through when its check gave no answer.**~~ `@measured`
+  stack-single `0480657`: `TOKENFUSE_MCP_TAINT_FAILMODE` named nowhere in `compose.yaml` or
+  `install.sh`, and tokenfuse `defaults.rs` closes only on the word `closed`. The installer's own
+  check key at the broker was not a gateway key, so the gateway answered its check 401 and the call
+  went through on the open default. `@decided 2026-11-11`: the check fails closed with no operator
+  switch, and every static key the broker admits is a gateway key of the same id and secret, bound
+  to the one agent it speaks as. stack-single#182 (`f15eb06`, its invariant 75,
+  `scripts/broker-callers-are-gateway-keys.sh`), the shape stack-k8s already had (its invariants 54
+  and 85). It reaches a box with the next stack-single release.
+- ~~**stack-single fetched and unpacked stack-k8s's `main` on every install.**~~ As root, with no pin
+  and no check, for a tree only `BUILD_FROM_SOURCE` reads. stack-single#182 (invariant 76,
+  `scripts/no-unverified-download-outside-build.sh`). The piped install line itself is G3.18.
+- ~~**stack-k8s applied other projects' manifests and the k3s installer straight from a URL.**~~
+  Longhorn, Calico and Hetzner's cloud controller by `kubectl apply -f https://...`, and
+  `curl https://get.k3s.io | sh`, a script that is whatever was last published. Now each is
+  downloaded once on the operator's machine and checked against a sha256 written beside its
+  version before any node is touched, and k3s's script comes from the release's own tag.
+  stack-k8s#238 (`34f669e`, invariant 87, `scripts/remote-fetches-are-verified.sh`).
+- ~~**A stack-k8s deploy said "Done." and exited 0 when its own checks failed.**~~ `verify.sh` and
+  `security-tests.sh` ran with `|| true`. The way in is still printed, and the deploy now names
+  what failed and exits non-zero. stack-k8s#238 (invariant 88).
+- ~~**A compiled binary was tracked in stack-k8s.**~~ `images/uapi-proxy/uapi-proxy`, Mach-O arm64,
+  7.3 MB, beside the source the image builds from. Removed, and a gate reads the magic bytes of
+  every tracked file. stack-k8s#238 (invariant 86, `scripts/no-binary-is-tracked.sh`).
+- ~~**Nothing looked for a new advisory unless somebody pushed.**~~ Each repository audits on push
+  and pull request only, and GO-2026-6859 was met by accident on a README change. A nightly run
+  here now scans `main` of every repository in `estate.json` with the tool that repository already
+  requires (invariant 32, `scripts/vuln-scan.py`, estate-gates#178). Its first run found three
+  findings, all in genaryx, and they are open: RUSTSEC-2026-0459 in `libsqlite3-sys` 0.38.1 (fixed
+  by `rusqlite` 0.41.1), and the vite and vitest advisories its Dependabot pull requests carry.
+- ~~**A release tag could be moved or deleted, and three default branches had no protection.**~~
+  A ruleset on `refs/tags/v*` in every repository of the estate refuses an update and a deletion,
+  and `main` of keyryx, typryx and taipan now requires its checks. What that does not reach is
+  G3.18.
+- ~~**C23 was red for two nights.**~~ Anthropic's page listed Claude Fable 5.2 from 2026-11-10 and
+  no price table had a row, so a call was priced at the fallback. tokenfuse#522 and verdryx#70 add
+  the row from the page (8 / 40, cache writes 10 / 16, cache hits 0.20); estate-gates#179 records
+  what the vendors' pages do not state.
 
 ### Closed 2026-11-07
 
