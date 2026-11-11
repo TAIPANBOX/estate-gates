@@ -280,6 +280,11 @@ SERVICE_KIND = {
     "idryx-detect": "idryx-detect",
     "verdryx-drift": "verdryx-drift",
     "verdryx-slo": "verdryx-slo",
+    # stack-single, behind `--profile manual`, added 2026-11-08: the broker fire drills as a
+    # service a person runs (`docker compose run --rm mockryx-drill`), the compose shape of
+    # stack-k8s's suspended drill CronJobs. A manual job, not a routine: stack-single's
+    # components.json declares it under `manual_jobs`.
+    "mockryx-drill": "mockryx-drill",
     # stack-single, behind `--profile record`. It is a long-running
     # SERVICE here and a CronJob in the cluster, which is why the same
     # work shows up in two families of this check: compose has no cron,
