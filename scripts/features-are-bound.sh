@@ -80,6 +80,10 @@ BINDING = re.compile(r"@fires:([A-Za-z0-9._-]+)")
 # teeth case in selftest.py instead, because no FAIL path produces it. Checked
 # against selftest.TEETH_CASES, which main() requires to have run in full.
 TEETH = re.compile(r"@teeth:([A-Za-z0-9._-]+)")
+# A scenario about the vulnerability scan binds to a case in
+# scripts/vuln-scan-selftest.py instead: that scanner is not a gate, needs real
+# tools and the network, and proves itself in its own workflow.
+SCAN = re.compile(r"@scan:([A-Za-z0-9._-]+)")
 
 
 def declared_ids(root: pathlib.Path) -> dict[str, str]:
@@ -116,10 +120,27 @@ def declared_teeth(root: pathlib.Path) -> set[str]:
     return set(json.loads(out.stdout))
 
 
+def declared_scan(root: pathlib.Path) -> set[str]:
+    """Case names scripts/vuln-scan-selftest.py runs, for `@scan:<name>`.
+
+    Read with --list, which imports nothing that needs a tool: the cases are
+    proved elsewhere, and this only has to know their names."""
+    script = root / "scripts" / "vuln-scan-selftest.py"
+    if not script.is_file():
+        return set()
+    out = subprocess.run([sys.executable, str(script), "--list"], cwd=root, capture_output=True, text=True)
+    if out.returncode != 0:
+        print("FAIL: could not read the scan cases out of scripts/vuln-scan-selftest.py:", file=sys.stderr)
+        print(out.stderr.strip()[:600], file=sys.stderr)
+        raise SystemExit(1)
+    return {ln.strip() for ln in out.stdout.splitlines() if ln.strip()}
+
+
 def scenarios(root: pathlib.Path) -> list[tuple[str, int, str, list[tuple[str, str]]]]:
     """(file, line, title, bindings) for every scenario in features/.
 
-    A binding is ("fires", finding id) or ("teeth", teeth case name)."""
+    A binding is ("fires", finding id), ("teeth", teeth case name) or
+    ("scan", vulnerability scan case name)."""
     found = []
     feat = root / "features"
     for path in sorted(feat.glob("*.feature")):
@@ -132,6 +153,10 @@ def scenarios(root: pathlib.Path) -> list[tuple[str, int, str, list[tuple[str, s
             hit = TEETH.search(line)
             if hit:
                 pending.append(("teeth", hit.group(1)))
+                continue
+            hit = SCAN.search(line)
+            if hit:
+                pending.append(("scan", hit.group(1)))
                 continue
             m = SCENARIO.match(line)
             if m:
@@ -157,14 +182,23 @@ def check(root: pathlib.Path) -> list[str]:
                 "direction measured nothing."]
 
     teeth = declared_teeth(root)
+    scan_cases = declared_scan(root)
 
     bound: set[str] = set()
+    bound_scan: set[str] = set()
     for path, line, title, bindings in found:
         if not bindings:
             problems.append(
                 f"UNBOUND   {path}:{line}\n"
                 f"          {title!r} names no finding, so it proves nothing")
         for kind, b in bindings:
+            if kind == "scan":
+                bound_scan.add(b)
+                if b not in scan_cases:
+                    problems.append(
+                        f"DANGLING  {path}:{line}\n"
+                        f"          @scan:{b} names a case scripts/vuln-scan-selftest.py does not run")
+                continue
             if kind == "teeth":
                 if b not in teeth:
                     problems.append(
@@ -188,6 +222,14 @@ def check(root: pathlib.Path) -> list[str]:
                 f"UNWRITTEN {gate}\n"
                 f"          {ident} can be printed and no scenario describes it")
 
+    # The same third direction for the scan: a case that exists and that no
+    # scenario describes is the scanner behaviour somebody forgot to write down.
+    for name in sorted(scan_cases):
+        if name not in bound_scan:
+            problems.append(
+                f"UNWRITTEN scripts/vuln-scan-selftest.py\n"
+                f"          the case {name} runs and no scenario describes it")
+
     return problems
 
 
@@ -201,6 +243,7 @@ if sys.argv[1:] and sys.argv[1] == "--prove":
     MANIFESTS = "features/component-manifests.feature"
     CAP = "features/c13-delegation-cap.feature"
     C23F = "features/c23-model-prices-match-the-vendors.feature"
+    SCANF = "features/vuln-scan.feature"
 
     def swap(work, rel, old, new_text):
         f = work / rel
@@ -229,6 +272,13 @@ if sys.argv[1:] and sys.argv[1] == "--prove":
          lambda w: swap(w, C23F, "@teeth:c23.unmeasured-row-public",
                         "@teeth:c23.was-renamed-yesterday"),
          "DANGLING"),
+        ("a scan binding pointing at nothing",
+         lambda w: swap(w, SCANF, "@scan:clean-modules-are-clean",
+                        "@scan:was-renamed-yesterday"),
+         "DANGLING"),
+        ("a scan case with no scenario",
+         lambda w: swap(w, SCANF, "  @scan:nested-lockfiles-are-scanned\n", "  "),
+         "UNWRITTEN"),
         # Not a fault: a scenario whose prose changes is still bound. Required
         # NOT to fire, because a harness that only ever demands red proves the
         # check is noisy rather than that it is right.
@@ -277,7 +327,7 @@ if sys.argv[1:] and sys.argv[1] == "--prove":
     if bad:
         raise SystemExit(1)
     print()
-    print("OK: 6 cases. Every direction fails on its own fault, and a reworded")
+    print("OK: 8 cases. Every direction fails on its own fault, and a reworded")
     print("    scenario that is still bound does not.")
     raise SystemExit(0)
 

@@ -665,6 +665,81 @@ exception, `3` clean but every unread or unmeasured subject sits in a repository
 with no public remote. CI treats 3 as success with a notice and fails on
 everything else.
 
+## Known vulnerabilities, nightly
+
+`scripts/vuln-scan.py` reads the main branch of every repository
+`estate.json` names for known vulnerabilities, and
+`.github/workflows/vulnerability-scan.yml` runs it every night. It is not a
+gate: a gate compares the estate with itself in a few seconds with nothing but
+python and git, and this needs four tools and the network. It is also kept out
+of `gates.yml` on purpose, so a new advisory (an event outside the estate) does
+not turn the drift gates red and a drifted estate does not turn this red.
+
+**Why it is here and not in each repository.** Each repository audits on push
+and on pull request, and nobody publishes an advisory on a repository's
+schedule, so a vulnerability stays invisible until somebody pushes. A schedule
+in each repository would not fix that: GitHub switches a scheduled workflow off
+in a public repository after 60 days without activity, so the quiet ones would
+stop being checked without a word. This repository is active every day, and the
+list of repositories is `estate.json`, so one cannot be left out without
+editing the registry.
+
+**What runs.** The tool each repository already treats as a required check, so
+a red night means the next pull request there is red too, each at a pinned
+version that the script reads before it trusts the tool:
+
+- Go: `govulncheck ./...` in every `go.mod` directory, with `GOTOOLCHAIN=auto`
+  so the toolchain line of that module is the one judged. An imported package
+  whose vulnerable function is never called is clean, as in the repositories'
+  own CI.
+- Rust: `cargo-audit` over every `Cargo.lock`, run from the repository root so
+  its own `.cargo/audit.toml` applies. The accepted advisories and their
+  reasons live there; this repository never copies them, and prints them.
+- Python: `pip-audit` over `requirements*.txt` and `requirements*.lock`, and over
+  a `pyproject.toml` with nothing pinned beside it, resolved with every extra
+  and nothing installed. The `--ignore-vuln` ids a repository's own workflow
+  passes are passed and printed. `uv.lock`, `poetry.lock` and `Pipfile.lock` go
+  to `osv-scanner`.
+- JavaScript: `osv-scanner` over `package-lock.json`, `pnpm-lock.yaml`,
+  `yarn.lock` and `npm-shrinkwrap.json`.
+
+**How to read the result.** One line per repository, ecosystem and path.
+
+| line | meaning |
+|---|---|
+| `clean` | the tool ran, read the subject and found nothing |
+| `FINDING` | an advisory: id, package, installed version and the version that fixes it |
+| `FAIL` | `estate.json` says the repository has no manifest and it has one |
+| `COULD NOT MEASURE` | a tool that could not start or is another version, a clone that failed, or a repository with no recognised manifest that `estate.json` does not say has none |
+| `declared` | `estate.json` records `vuln_scan: {manifests: none, why}` and the tree confirms it |
+| `NOT MEASURED` | a repository with no public remote |
+
+Exit codes: `0` every subject measured and nothing found, `1` a finding or a
+stale declaration, `2` nothing found but something could not be measured, or
+nothing was, `3` nothing found and the only subjects left are repositories with
+no public remote (CI treats 3 as success and prints them). A finding outranks the
+rest. Zero findings over zero scanned subjects is exit 2, never a pass.
+
+There is no list of exceptions here. A finding stays a finding until the
+repository that owns it fixes it or accepts it in its own configuration.
+
+```sh
+python3 scripts/vuln-scan-selftest.py   # the teeth, 18 cases, need the four tools
+python3 scripts/vuln-scan.py            # main of every repository, fresh clones
+python3 scripts/vuln-scan.py --root ~/Development --only tokenfuse   # local checkouts
+```
+
+The selftest plants a crate, a called Go function, a JavaScript lock and a
+Python pin with known advisories and requires each to be a finding, plants a
+vulnerable package that is never called and requires clean, and then breaks the
+scanner's own preconditions (no manifest, a stale declaration, a missing,
+broken or wrong-version tool, a subject with no checkout, a run of nothing) and
+requires each to be anything but clean. The workflow runs it before the scan.
+
+Not covered: container base images, `.terraform.lock.hcl`, a dependency named
+in no manifest (agent-passport's `jsonschema` is pinned in its CI file, so it is
+declared rather than scanned), and any vulnerability no database knows yet.
+
 ## Shared tools for the service repositories
 
 Some checks have to run inside the repository they judge, on its own pull

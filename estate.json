@@ -46,7 +46,12 @@
     "own pages every day: 'path', 'format' (one of the readers in gates/_prices.py),",
     "and 'every_current_model', true for a table that must price every model a",
     "vendor's page marks current (the gateway's book), false with a 'why' for one",
-    "that must not (a mirror, or a console pricing only its own catalogue)."
+    "that must not (a mirror, or a console pricing only its own catalogue).",
+    "",
+    "'vuln_scan' on a repository: {\"manifests\": \"none\", \"why\": ...} records that the",
+    "repository holds no dependency manifest, so scripts/vuln-scan.py has nothing to scan in it.",
+    "A repository with neither a recognised manifest nor this record is COULD NOT MEASURE, and a",
+    "repository with this record that does hold a manifest is a stale declaration, red."
   ],
   "repos": {
     "agent-passport": {
@@ -58,6 +63,10 @@
       "compat": {
         "manifest": "SPEC.md",
         "gate": "scripts/version-compatibility.sh"
+      },
+      "vuln_scan": {
+        "manifests": "none",
+        "why": "a specification: JSON Schemas, examples and docs. Its one dependency, jsonschema, is pinned by a pip install line in .github/workflows/ci.yml and in no manifest this scan reads."
       }
     },
     "agent-stack-go": {
@@ -219,7 +228,11 @@
       "github": "TAIPANBOX/typryx-evalset",
       "local": "typryx-evalset",
       "role": "typryx's benchmark: 3000 synthetic typed questions with truth by construction, a frozen test split, a runner and metrics for any typryx backend, and no-model baselines. Runs nothing.",
-      "runs": []
+      "runs": [],
+      "vuln_scan": {
+        "manifests": "none",
+        "why": "a dataset and a baseline written against the Python standard library only, with no pyproject, requirements or lock file."
+      }
     },
     "vouchryx": {
       "github": "TAIPANBOX/vouchryx",
@@ -248,13 +261,21 @@
       "github": "TAIPANBOX/catalog",
       "local": "catalog",
       "role": "the estate's own documentation. No check reads it today.",
-      "runs": []
+      "runs": [],
+      "vuln_scan": {
+        "manifests": "none",
+        "why": "policy, drill, passport and Terraform module templates, all JSON and HCL. No provider lock file and no language manifest."
+      }
     },
     "stack-up": {
       "github": "TAIPANBOX/stack-up",
       "local": "stack-up",
       "role": "deployment one: compose plus a governance routines timer.",
-      "runs": []
+      "runs": [],
+      "vuln_scan": {
+        "manifests": "none",
+        "why": "a launcher: shell scripts and docs. It installs published images and builds nothing."
+      }
     },
     "stack-single": {
       "github": "TAIPANBOX/stack-single",
@@ -263,6 +284,10 @@
       "runs": [],
       "compat": {
         "exempt": "a stack release is a pinned set with a date, nothing more (RELEASE-1.0-PLAN 4.3, the launchers' own release): its surface is the images it pins and the installer's own flags, held by its own pinned-images/manifest-is-true gates and by C5 and C20; a compat manifest is not what a launcher promises"
+      },
+      "vuln_scan": {
+        "manifests": "none",
+        "why": "a launcher: shell scripts, docs and one seccomp profile. It installs published images and builds nothing."
       }
     },
     "stack-k8s": {
