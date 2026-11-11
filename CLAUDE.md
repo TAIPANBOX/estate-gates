@@ -65,6 +65,12 @@ somebody's uncommitted work is a finding they did not make yet.
 CI runs every line above except the last, then `./run-gates.py --mode clone`.
 Only that last one is allowed to be red: it is a report about the estate.
 
+The vulnerability scan has its own workflow and its own teeth, because it needs
+real tools and the network (invariant 32). On a machine that has the four
+pinned tools: `python3 scripts/vuln-scan-selftest.py`, then
+`python3 scripts/vuln-scan.py`. Nothing is installed from here; the tool list
+is in the docstring of `scripts/vuln-scan.py` and the workflow installs it.
+
 ## Hard invariants
 
 Each carries how it is held today. Use `(gate: ...)`, `(test: ...)`,
@@ -887,3 +893,47 @@ Stop and tell the user, then wait:
 
 31. **The tool hold is one block in both stacks.** `@decided 2026-11-07`, paraphrased: a tool call nothing grants is held for a person on a default install of either stack, a model call passes, and only an explicit grant lifts the hold. Each stack writes the block with a function of its own and each stack's gate holds its own copy, so the space between them is this repository's. The body of `tool_hold_block` is compared line by line, the condition around the web grant included, and the begin marker alone may differ, by the file and invariant number it names. `tool_hold_sources` is compared by what it can print, because a body that says `$(tool_hold_sources)` renders two grants from one text if the two functions differ. stack-up is not a subject: its block goes with a flag and grants its own printed example, and its own gate holds it.
     *(gate: `gates/c27-tool-hold-block.py`, six findings and fourteen mutations in `selftest.py`: a rule narrowed, a tool added, a seed in one stack, a body that ends a line early, the condition around the web grant, two lines swapped, an identity list in one stack, both stacks agreeing on no floor, a marker reworded, each function renamed, a function that prints nothing this check can read, and each file gone. Its baseline carries the non-faults: the two markers, and a comment that differs.)*
+
+32. **Every repository's main branch is read for known vulnerabilities every
+    night, from here, and a subject the scan could not read is never clean.**
+    `@decided 2026-11-11`, paraphrased: a new advisory is published on nobody's
+    schedule and a repository audits only when somebody pushes, so the estate
+    is scanned nightly in one place. It is not a schedule in each repository,
+    because GitHub switches a scheduled workflow off in a public repository
+    after 60 days without activity and the quiet repositories would stop being
+    checked without a word. Subjects come from `estate.json`; a repository
+    with no recognised manifest must say so there (`vuln_scan: {manifests:
+    none, why}`), and a declaration that a manifest has outgrown is red. The
+    tool is the one each repository already runs as a required check
+    (govulncheck, cargo-audit, pip-audit, and osv-scanner where there is no
+    native one), at a pinned version that the script reads before trusting it,
+    so a red night means the next pull request there is red too. The
+    repositories' own accepted advisories stay in their own files
+    (`.cargo/audit.toml`, the `--ignore-vuln` ids in a workflow) and are
+    printed, never copied; this repository carries no list of exceptions.
+    A tool that cannot start or reports another version, a clone that failed,
+    a repository nobody can read, and a run that scanned nothing are each
+    COULD NOT MEASURE, exit 2, never OK. A finding outranks that (exit 1);
+    repositories with no public remote end a clean run at exit 3, as in the
+    gates. It sits in `scripts/` and its own workflow and not in `gates/`,
+    because a gate is dependency-free (invariant 8) and compares the
+    estate with itself, while this needs four tools and the network, and an
+    event outside the estate must not turn the drift gates red.
+    *(test: `scripts/vuln-scan-selftest.py`, eighteen cases run by
+    `.github/workflows/vulnerability-scan.yml` before the scan: a crate, a
+    called Go function, a JavaScript lock and a Python pin each with a known
+    advisory are FINDINGs; a vulnerable package that is imported and never
+    called, and clean modules, are clean; a nested lock file and a nested Go
+    module are scanned; no manifest and no declaration, a declaration with a
+    manifest, a registry subject with no checkout, a missing, a broken and a
+    wrong-version tool, and a run of nothing are not clean; a private
+    repository is exit 3; a finding outranks a gap. Each case was first run
+    against a scanner stub that says clean about everything, and the three
+    clean cases against one that accuses everything, and failed. Bound by
+    `features/vuln-scan.feature` through `scripts/features-are-bound.sh`, which
+    reads the case names with `@scan:`. Not enforced: that the workflow's pins
+    equal the script's `PINS`, which the version check catches on the first
+    run rather than at review. The scan does not read container base images,
+    `.terraform.lock.hcl`, or a dependency named in no manifest, and a
+    declared repository's own CI installs, such as agent-passport's
+    `jsonschema`, are outside it.)*
