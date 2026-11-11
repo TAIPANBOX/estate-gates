@@ -261,11 +261,13 @@
       "rows": [
         "google-vertex:gemini-2.5-pro-computer-use-preview",
         "google-vertex:gemini-4-argon",
-        "google-vertex:gemini-4-argon-cyber-permissive"
+        "google-vertex:gemini-4-argon-cyber-permissive",
+        "google-vertex:gemini-4-carbon",
+        "google-vertex:gemini-4-carbon-cyber-permissive"
       ],
-      "why": "Vertex AI's page lists a price for each of these ids (Gemini 4 Argon has a promotional rate through 2026-11-30 and a standard rate from 2026-12-01), and no price table in the estate has a row for it. Vertex AI marks no set of current models, so no table is required to price it. This entry names that gap and does not decide it. Re-derive: the page still lists the id, and no table row resolves to it.",
+      "why": "Vertex AI's page lists a price for each of these ids (Gemini 4 Argon and Gemini 4 Carbon each have a promotional rate through 2026-11-30 and a standard rate from 2026-12-01), and no price table in the estate has a row for it. Vertex AI marks no set of current models, so no table is required to price it. This entry names that gap and does not decide it. Re-derive: the page still lists the id, and no table row resolves to it.",
       "recorded": "2026-10-13",
-      "provenance": "@claude 2026-10-13: recorded for PR #131 under the supervisor's ruling; a reading of the vendor pages and of the gate's resolve() as they stand today, not a decision the repository's owner made."
+      "provenance": "@claude 2026-10-13: recorded for PR #131 under the supervisor's ruling; a reading of the vendor pages and of the gate's resolve() as they stand today, not a decision the repository's owner made. @claude 2026-11-11: gemini-4-carbon and gemini-4-carbon-cyber-permissive added to the rows, the same reading as for gemini-4-argon and gemini-4-argon-cyber-permissive: Vertex AI lists a price for each, marks no current set, and no table in the estate has a row for the Argon pair either; first reported NOT MEASURED by the scheduled run of 2026-11-11. Not a decision the repository's owner made."
     },
     "tier-not-on-page:tokenfuse:gpt-6-astra:above-272000": {
       "why": "OpenAI's pricing page, read 2026-10-28, states no long-prompt price for gpt-6-astra: the flagship text-token table renders the short price only, and the page computes the price for prompts above 272,000 tokens in script, which this check does not run. The row is the book's own.",
@@ -346,6 +348,26 @@
       "why": "OpenAI's pricing page, read 2026-10-28, states no long-prompt price for openai/gpt-6.1-terra: the flagship text-token table renders the short price only, and the page computes the price for prompts above 272,000 tokens in script, which this check does not run. The row is the book's own.",
       "recorded": "2026-10-28",
       "provenance": "@claude 2026-10-28: a reading of OpenAI's pricing page as it stands today, recorded so the run says not judged for this tier rather than NOT MEASURED; not a decision the repository's owner made. The openai/ twin of gpt-6.1-terra, which tokenfuse inserts with the same rows and tier as the bare id (tokenfuse invariant 107, #434) and verdryx mirrors; the same reading as the entry for gpt-6.1-terra."
+    },
+    "tier-not-on-page:tokenfuse:gpt-5.6-sol:above-272000": {
+      "why": "OpenAI's pricing page, read 2026-11-11, states no long-prompt price for gpt-5.6-sol: the flagship text-token table renders the short price only (4 / 20 / cache read 0.40 / cache write 5), and the page computes the price for prompts above 272,000 tokens in script, which this check does not run. The row is the book's own.",
+      "recorded": "2026-11-11",
+      "provenance": "@claude 2026-11-11: a reading of OpenAI's pricing page as it stands today, recorded so the run says not judged for this tier rather than NOT MEASURED; not a decision the repository's owner made. The gate judged this tier until 2026-11-09 (the scheduled run of that day was clean) and reports it as not shown on the page from the run of 2026-11-10."
+    },
+    "tier-not-on-page:tokenfuse:openai/gpt-5.6-sol:above-272000": {
+      "why": "OpenAI's pricing page, read 2026-11-11, states no long-prompt price for openai/gpt-5.6-sol: the flagship text-token table renders the short price only (4 / 20 / cache read 0.40 / cache write 5), and the page computes the price for prompts above 272,000 tokens in script, which this check does not run. The row is the book's own.",
+      "recorded": "2026-11-11",
+      "provenance": "@claude 2026-11-11: a reading of OpenAI's pricing page as it stands today, recorded so the run says not judged for this tier rather than NOT MEASURED; not a decision the repository's owner made. The gate judged this tier until 2026-11-09 (the scheduled run of that day was clean) and reports it as not shown on the page from the run of 2026-11-10. The openai/ twin of gpt-5.6-sol, which tokenfuse inserts with the same rows and tier as the bare id (tokenfuse invariant 107, #434) and verdryx mirrors; the same reading as the entry for gpt-5.6-sol."
+    },
+    "tier-not-on-page:verdryx:gpt-5.6-sol:above-272000": {
+      "why": "OpenAI's pricing page, read 2026-11-11, states no long-prompt price for gpt-5.6-sol: the flagship text-token table renders the short price only (4 / 20 / cache read 0.40 / cache write 5), and the page computes the price for prompts above 272,000 tokens in script, which this check does not run. The row is the book's own.",
+      "recorded": "2026-11-11",
+      "provenance": "@claude 2026-11-11: a reading of OpenAI's pricing page as it stands today, recorded so the run says not judged for this tier rather than NOT MEASURED; not a decision the repository's owner made. The gate judged this tier until 2026-11-09 (the scheduled run of that day was clean) and reports it as not shown on the page from the run of 2026-11-10."
+    },
+    "tier-not-on-page:verdryx:openai/gpt-5.6-sol:above-272000": {
+      "why": "OpenAI's pricing page, read 2026-11-11, states no long-prompt price for openai/gpt-5.6-sol: the flagship text-token table renders the short price only (4 / 20 / cache read 0.40 / cache write 5), and the page computes the price for prompts above 272,000 tokens in script, which this check does not run. The row is the book's own.",
+      "recorded": "2026-11-11",
+      "provenance": "@claude 2026-11-11: a reading of OpenAI's pricing page as it stands today, recorded so the run says not judged for this tier rather than NOT MEASURED; not a decision the repository's owner made. The gate judged this tier until 2026-11-09 (the scheduled run of that day was clean) and reports it as not shown on the page from the run of 2026-11-10. The openai/ twin of gpt-5.6-sol, which tokenfuse inserts with the same rows and tier as the bare id (tokenfuse invariant 107, #434) and verdryx mirrors; the same reading as the entry for gpt-5.6-sol."
     }
   }
 }
