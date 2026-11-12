@@ -49,7 +49,13 @@ The verifiers, and there are three because there are three languages:
 
   Rust    `chainproof::resolve`, or `verify_delegation` from
           `tokenfuse-delegation` (which was `cloud::delegation` until it was
-          cut into its own crate so the gateway could use it).
+          cut into its own crate so the gateway could use it). And
+          `chainproof::resolve_at_door`, which every tokenfuse door calls since
+          its invariant 147: it resolves the Authorization chain with `resolve`,
+          or verifies a delegation riding beside an agent token with
+          `verify_delegation`, and nothing else. Until it was named here the
+          broker's door read as unverified, the moment it stopped calling
+          `resolve` directly (tokenfuse#524, 2026-11-12).
   Go      `delegation.Verify` / `delegation.VerifyToken` from agent-stack-go.
   Python  no verifier exists yet, so a Python producer setting this is a
           finding by construction and says so in its own words.
@@ -149,6 +155,7 @@ SETS_TRUE = re.compile(
 # would make this check pass on the wreckage. The open paren is the whole point.
 VERIFIERS = (
     "chainproof::resolve(",
+    "chainproof::resolve_at_door(",
     "verify_delegation(",
     "delegation.Verify(",
     "delegation.VerifyToken(",
