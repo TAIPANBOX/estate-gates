@@ -876,6 +876,26 @@ a re-pin (README, "Re-pinning keyryx's delegation root, on purpose").
 operator runs on the box, and the witness sees it.
 **Re-check:** the grep above.
 
+### G3.20 stack-k8s's gateway drill cannot see whether heraldyx told anyone
+
+@claude 2026-11-12, read from stack-k8s `manifests/40-routines-and-secrets.yaml`, `45-heraldyx.yaml`
+and mockryx v0.5.0 `scenarios/reaction-chain-reaches-heraldyx.yaml`, `internal/watch/watch.go`: the
+second step of that scenario waits for heraldyx's `alert_sent`, which heraldyx writes only to
+`sent.ndjson` on its own ReadWriteOnce volume `heraldyx-state`. The CronJob `drills` mounts the bus
+and not that volume, and mockryx treats a watched path that is not there as "no event within 20s", a
+Finding. heraldyx is not in the default set: without it the Finding is true (nothing tells a person
+about the deny); with it, the Finding describes the drill's view, not heraldyx. stack-k8s invariant
+90 names this, and `scripts/drills-can-start.sh` prints it on every run.
+
+**Closes when:** stack-k8s runs that step where heraldyx's journal is visible: a suspended drill of its
+own in `45-heraldyx.yaml` (`backoffLimit: 0`, an `activeDeadlineSeconds`, required pod affinity to
+heraldyx on `kubernetes.io/hostname`, `heraldyx-state` read only, supplemental group 65532, watching
+`wardryx.ndjson` and `sent.ndjson`), with the scenario out of the gateway drill's set. Either a
+mirrored scenario directory in a ConfigMap with a hash gate against the pinned image, or a scenario
+selection in mockryx (a release). On a run it sends the operator a real mail, and `HERALDYX_QUIET`
+can make it a Finding.
+**Re-check:** `./scripts/drills-can-start.sh` in stack-k8s no longer prints the heraldyx note.
+
 ## 4. The seams between services
 
 ### ~~G4.1 idryx emits nothing into the shared event envelope~~
