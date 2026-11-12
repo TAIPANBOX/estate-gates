@@ -1761,6 +1761,31 @@ pub fn admit(req: &Request) -> DecideContext {
 }
 """
 
+# The MCP broker's door as tokenfuse has it since invariant 147: every door calls
+# `chainproof::resolve_at_door`, which resolves the Authorization chain with
+# `resolve` or verifies a delegation riding beside an agent token with
+# `verify_delegation`. C11's second baseline, and its non-fault: a literal `true`
+# behind that call is a verified one and must stay green.
+MCPBROKER_RS = """//! The MCP broker's door: the resolver every door calls.
+
+pub fn admit(req: &Request, agent: Option<&VerifiedAgent>) -> CallContext {
+    match crate::chainproof::resolve_at_door(&req.cfg, agent, &req.presented()) {
+        Chain::Proven { chain, proof } => CallContext {
+            on_behalf_of: chain,
+            chain_proven: true,
+            delegation_proof: Some(proof),
+            ..Default::default()
+        },
+        Chain::Claimed(chain) => CallContext {
+            on_behalf_of: chain,
+            chain_proven: false,
+            ..Default::default()
+        },
+        Chain::Refused(_) => CallContext::refused(),
+    }
+}
+"""
+
 # C17's baseline: a workflow gated on a `v*` tag with an escape hatch (a
 # pull_request trigger scoped to its own path) and one guarded publish job.
 # `binaries` has no publish step and needs no guard, which is what proves the
@@ -1939,6 +1964,7 @@ ESTATE: dict[str, dict] = {
         "crates/delegation/src/lib.rs": DELEGATION_RS,
         "crates/delegation/testdata/chain-verdict-vectors.json": CHAIN_VERDICT_VECTORS,
         "crates/gateway/src/chainproof.rs": CHAINPROOF_RS,
+        "crates/gateway/src/mcpbroker.rs": MCPBROKER_RS,
         "crates/gateway/src/wardryx.rs": WARDRYX_RS,
         ".github/workflows/release.yml": RELEASE_WORKFLOW_YML,
         ".github/workflows/sign.yml": SIGN_WORKFLOW_YML,
