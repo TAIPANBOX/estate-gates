@@ -809,6 +809,20 @@ GAPS G3.20, closed in stack-k8s (#241, merged `16cf0af`): the whole reaction cha
 | The published binaries are built with go1.27.4 | 2026-11-12 | this Mac, the linux/arm64 entrypoint of each image pulled by the registry API (no daemon) and read with `go version <binary>` | the same eight images by tag | `agent-conform`, `costcrew`, `keyryx`, `typryx`: `go1.27.4`; `heraldyx`, `idryx`, `qryx`, `scopyx`, `wardryx` (`/usr/local/bin/service`): `go1.27.4` |
 | Each image's build attestation verifies | 2026-11-12 | this Mac, `gh attestation verify oci://ghcr.io/taipanbox/<image>:<tag> -R TAIPANBOX/<repo>` | exit 0 for all ten images, `scopyx` `-chromium` included | the GitHub build attestation of the release workflow on the tag |
 
+## tokenfuse 1.25.0 and the stacks that pin it, 2026-11-12, proven
+
+The delegation door (a person's delegation beside the agent token) reaching the two stacks, together with the Go 1.27.4 pins of the section above and vouchryx v0.8.0.
+
+| What | When | On what | Artifact | Scope |
+|---|---|---|---|---|
+| tokenfuse v1.25.0 published | 2026-11-12, tag 15:20, published 15:46 London | GitHub Actions, release run 43246765713, tag `v1.25.0` on `ad60ca6` (#525) | that run; `gh release view v1.25.0 -R TAIPANBOX/tokenfuse`, 17 assets | `tokenfuse` `sha256:3a81dbcd...`, control plane `sha256:e7d41606...`, each for amd64 and arm64 with a `.sig` tag; build attestation verified with `gh attestation verify` |
+| tokenfuse post-tag pins | 2026-11-12 | TAIPANBOX/tokenfuse#526, merged `07e55a7` | that commit | README and `cloud/docker-compose.yml` name v1.25.0 and its digest |
+| stack-single pins moved, all checks green | 2026-11-12, merged about 18:11 London | stack-single #188 (merged `9f502ec`), then the notes PR #189 (`00cfdaa`), GitHub Actions on main | gates run 43277306659, install run 43277306992, secretscan 43277307729 | tokenfuse v1.25.0, vouchryx v0.8.0 and the nine Go 1.27.4 releases, by tag and digest; the pin gates and the teeth cases read them; the install legs ran the box with the guests probe |
+| stack-single 1.9.0 tagged | 2026-11-12, about 21:24 London | tag `v1.9.0` on `00cfdaa` | `gates` run 43310006191 on the tag, success | The box on the pins above plus the `guests` network (#187); `docs/releases/v1.9.0.md` |
+| stack-k8s pins moved, all checks green | 2026-11-12, merged about 17:43 London | stack-k8s #245 (merged `d7025b6`), then the notes PR #246 (`27482de`) | gates run 43272429874, secretscan 43272430960 on main | the same pins plus qryx v1.2.0 by commit (`QRYX_REF` `912724d`, invariant 68); the console's engine labels agree with the manifests |
+| stack-k8s 1.11.0 tagged, the console and tunnel images built from the tag | 2026-11-12, 21:24 to 21:36 London | tag `v1.11.0` on `27482de`; GitHub Actions, `console-image.yml` run 43310007962 (amd64 and arm64), `tunnel-images.yml` run 43310008060 | those runs; `docker buildx imagetools inspect` of each image | `genaryx-console:v1.11.0` `sha256:9b7e989f...`, `stack-caddy:v1.11.0` `sha256:e6605531...`, `stack-wg:v1.11.0` `sha256:5897a533...` |
+| The published console carries the stack's own engines | 2026-11-12 | this Mac, `docker buildx imagetools inspect <console by digest> --format '{{json .Image}}'`, labels `dev.taipanbox.engine.*`, both architectures | that command's output | tokenfuse `v1.25.0@sha256:3a81dbcd...` and wardryx `v2.6.2@sha256:b799701c...`, the digests the manifests pin |
+
 ## Nightly test agents on forge, 2026-10-31 to 2026-11-06, proven
 
 Real multi-turn agents through the box's own gateway: a benign task on an agent token and on a static key, a poisoned search result with a forced send, the same page under a free summary task on a stronger model, a runaway against a run budget, and five identity probes. A verdict needs the HTTP code and its event on the bus. `range-agents.timer` starts it nightly at about 02:20 London.
