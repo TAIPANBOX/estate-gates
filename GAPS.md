@@ -876,25 +876,9 @@ a re-pin (README, "Re-pinning keyryx's delegation root, on purpose").
 operator runs on the box, and the witness sees it.
 **Re-check:** the grep above.
 
-### G3.20 stack-k8s's gateway drill cannot see whether heraldyx told anyone
+### ~~G3.20 stack-k8s's gateway drill cannot see whether heraldyx told anyone~~
 
-@claude 2026-11-12, read from stack-k8s `manifests/40-routines-and-secrets.yaml`, `45-heraldyx.yaml`
-and mockryx v0.5.0 `scenarios/reaction-chain-reaches-heraldyx.yaml`, `internal/watch/watch.go`: the
-second step of that scenario waits for heraldyx's `alert_sent`, which heraldyx writes only to
-`sent.ndjson` on its own ReadWriteOnce volume `heraldyx-state`. The CronJob `drills` mounts the bus
-and not that volume, and mockryx treats a watched path that is not there as "no event within 20s", a
-Finding. heraldyx is not in the default set: without it the Finding is true (nothing tells a person
-about the deny); with it, the Finding describes the drill's view, not heraldyx. stack-k8s invariant
-90 names this, and `scripts/drills-can-start.sh` prints it on every run.
-
-**Closes when:** stack-k8s runs that step where heraldyx's journal is visible: a suspended drill of its
-own in `45-heraldyx.yaml` (`backoffLimit: 0`, an `activeDeadlineSeconds`, required pod affinity to
-heraldyx on `kubernetes.io/hostname`, `heraldyx-state` read only, supplemental group 65532, watching
-`wardryx.ndjson` and `sent.ndjson`), with the scenario out of the gateway drill's set. Either a
-mirrored scenario directory in a ConfigMap with a hash gate against the pinned image, or a scenario
-selection in mockryx (a release). On a run it sends the operator a real mail, and `HERALDYX_QUIET`
-can make it a Finding.
-**Re-check:** `./scripts/drills-can-start.sh` in stack-k8s no longer prints the heraldyx note.
+**Closed 2026-11-12**, moved to section 8 with its evidence.
 
 ## 4. The seams between services
 
@@ -1502,6 +1486,53 @@ the session that would have implemented it.
 Kept rather than deleted, so the next audit knows what was checked.
 
 ### Closed 2026-11-12
+
+- ~~**G3.20: stack-k8s's gateway drill could not see whether heraldyx told anyone.**~~
+  `@decided 2026-11-12`: closed with a drill of its own beside heraldyx. TAIPANBOX/stack-k8s#241
+  (merged `16cf0af`, its invariant 90): `drills-heraldyx`, a suspended CronJob in `45-heraldyx.yaml`, runs
+  that cluster's copy of mockryx v0.5.0's reaction chain on heraldyx's node (required podAffinity on
+  `kubernetes.io/hostname`), with `heraldyx-state` read only on the volume and on the mount,
+  supplemental group 65532, `activeDeadlineSeconds: 900` and `backoffLimit: 0`, watching heraldyx's
+  `sent.ndjson`. Its copy is one step, the denied request and heraldyx's `alert_sent` for that run: a
+  review found that the original's second step can refuse heraldyx's line about the first step's
+  denial (mockryx counts a reaction only from the second its own step's request went out, and heraldyx
+  mails once per run id), a false Finding. The gateway drill's set no longer waits for heraldyx: the
+  image's `reaction-chain-reaches-heraldyx.yaml` is replaced by subPath with a copy that stops at
+  wardryx's own record, as `drills-broker` already did for its tool-hold drill. That is a third shape
+  beside the two this entry named: the copies are edited, not mirrored, so nothing is hashed against
+  the image; `scripts/drills-can-start.sh` reads them instead, as the pod sees its scenario directory,
+  and refuses a mounted file the image has no file of that name for. `@measured TAIPANBOX/stack-k8s
+  evidence/drills-heraldyx/parse.sh 2026-11-12` on forge, with no network and no gateway: the pinned
+  mockryx loads both copies and starts with the watch list each CronJob sets, and refuses the heraldyx
+  copy with none (exit 2). The gate is red on `0e80406` with four problems
+  (`evidence/drills-heraldyx/gate-red-on-0e80406.txt`) and has twenty-four teeth cases; it also holds
+  heraldyx's group, a whole-claim mount, a suspended job and the drills' network label. Each run sends the
+  operator one real mail, and inside `HERALDYX_QUIET` hours it is a Finding about the hour; the
+  manifest and the README say both. The section of that name in PROVEN.md carries the run.
+  **Re-check:** `./scripts/drills-can-start.sh` in stack-k8s prints no heraldyx note and lists
+  `drills-heraldyx` waiting for heraldyx.
+
+  The entry as it stood:
+
+  > **G3.20 stack-k8s's gateway drill cannot see whether heraldyx told anyone**
+  >
+  > @claude 2026-11-12, read from stack-k8s `manifests/40-routines-and-secrets.yaml`, `45-heraldyx.yaml`
+  > and mockryx v0.5.0 `scenarios/reaction-chain-reaches-heraldyx.yaml`, `internal/watch/watch.go`: the
+  > second step of that scenario waits for heraldyx's `alert_sent`, which heraldyx writes only to
+  > `sent.ndjson` on its own ReadWriteOnce volume `heraldyx-state`. The CronJob `drills` mounts the bus
+  > and not that volume, and mockryx treats a watched path that is not there as "no event within 20s", a
+  > Finding. heraldyx is not in the default set: without it the Finding is true (nothing tells a person
+  > about the deny); with it, the Finding describes the drill's view, not heraldyx. stack-k8s invariant
+  > 90 names this, and `scripts/drills-can-start.sh` prints it on every run.
+  >
+  > **Closes when:** stack-k8s runs that step where heraldyx's journal is visible: a suspended drill of its
+  > own in `45-heraldyx.yaml` (`backoffLimit: 0`, an `activeDeadlineSeconds`, required pod affinity to
+  > heraldyx on `kubernetes.io/hostname`, `heraldyx-state` read only, supplemental group 65532, watching
+  > `wardryx.ndjson` and `sent.ndjson`), with the scenario out of the gateway drill's set. Either a
+  > mirrored scenario directory in a ConfigMap with a hash gate against the pinned image, or a scenario
+  > selection in mockryx (a release). On a run it sends the operator a real mail, and `HERALDYX_QUIET`
+  > can make it a Finding.
+  > **Re-check:** `./scripts/drills-can-start.sh` in stack-k8s no longer prints the heraldyx note.
 
 - ~~**G3.16: in stack-k8s, a plane could write or replace another plane's stream on the bus.**~~
   `@measured TAIPANBOX/stack-k8s evidence/bus-per-producer-longhorn/run.sh 2026-11-12` on k3s
