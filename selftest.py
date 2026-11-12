@@ -1846,6 +1846,18 @@ MUTATIONS: dict[str, list[tuple[str, callable]]] = {
                 "req.declared_chain() /* verify_delegation was here */",
             ),
         ),
+        (
+            # The door every tokenfuse door calls since its invariant 147. Named in
+            # VERIFIERS because it verifies; taken out of the broker's door here, the
+            # same literal `true` must be refused, so the name counts only as a call.
+            "the broker's door asserts a proved chain and its resolver call is gone",
+            lambda r: edit(
+                r,
+                "tokenfuse/crates/gateway/src/mcpbroker.rs",
+                "crate::chainproof::resolve_at_door(&req.cfg, agent, &req.presented())",
+                "req.declared_chain() /* resolve_at_door was here */",
+            ),
+        ),
     ],
     "c11.no-producer": [(
         # The field is RENAMED, so it exists nowhere. That is the case worth
@@ -1859,12 +1871,13 @@ MUTATIONS: dict[str, list[tuple[str, callable]]] = {
         # all. Counting mentions fixed the gate and made that mutation useless,
         # which is the mutation doing its job in reverse.
         "the field the PDP decides on is renamed away",
-        lambda r: edit(
-            r,
-            "tokenfuse/crates/gateway/src/chainproof.rs",
-            "chain_proven",
-            "chain_was_proved",
-            every=True,
+        # In every fixture file that carries it: both doors, chainproof.rs and
+        # mcpbroker.rs. A rename in one leaves the other mentioning the field.
+        lambda r: (
+            edit(r, "tokenfuse/crates/gateway/src/chainproof.rs",
+                 "chain_proven", "chain_was_proved", every=True),
+            edit(r, "tokenfuse/crates/gateway/src/mcpbroker.rs",
+                 "chain_proven", "chain_was_proved", every=True),
         ),
     )],
     "c4.producer-undeclared": [
