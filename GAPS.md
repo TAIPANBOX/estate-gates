@@ -825,33 +825,9 @@ Nothing hands it on: the operator pastes it into whatever retries the call, or w
 **Re-check:** `git -C stack-single grep -n x-fuse-approval-token origin/main -- '*.sh' '*.yml'`, and the
 same in stack-k8s: each names it in its docs and nowhere else.
 
-### G3.16 In stack-k8s, planes that share a uid can write each other's stream
+### ~~G3.16 In stack-k8s, planes that share a uid can write each other's stream~~
 
-@measured 2026-11-11, stack-k8s `be8e23f`, by reading every pod that mounts the `stack-events` claim
-(`grep -n 'claimName: stack-events' manifests/*.yaml`, then each pod's `securityContext` and its
-mount of `/var/lib/stack/events`): wardryx, typryx, costcrew, costcrew-crew and vouchryx mount it
-read-write as uid 65532, and the gateway, the control plane and the console as uid 10001. Each stream
-is made 0640 by its writer's own uid (stack-k8s invariant 59). That keeps another uid out and does
-nothing between two planes of one uid: a costcrew pod can append to `wardryx.ndjson`, the decision
-journal, or truncate it. Where the storage honours `fsGroup` the directory also carries the group
-write bit, so a member of group 10001 can rename a stream away and put its own in its place.
-
-stack-single closes both halves: a root init service owns the bus directory, mode 0751, and every
-producer has a uid of its own (its invariant 41). Pod Security `restricted` forbids that root init
-here, and this repository's README says the default planes do not yet write under per-producer
-identities.
-
-`@claude` 2026-11-11, a design that fits `restricted`, not built and not run: one uid per producer,
-numbered as stack-single numbers them; the streams in a subdirectory made once by an owner uid no
-plane runs as, mode 2750; each file owned by that uid, in the producer's own group, mode 0664. A
-producer then appends through its group, a reader reads inside a directory only the bus group can
-enter, and nobody but the owner can create, rename or remove a name there. Every plane's uid
-changes, so the streams of an existing cluster have to be made again or re-owned, and that
-migration is a decision of its own.
-
-**Closes when:** no two planes that can write the bus share a uid, and a plane cannot create, rename
-or remove a name in the bus directory, measured on a cluster with the launcher's own storage class.
-**Re-check:** the grep above; `evidence/keyryx-kind/run.sh`, step 3, for the two-uid half.
+**Closed 2026-11-12**, moved to section 8 with its evidence.
 
 ### G3.17 The person who approves a held tool call reads its name, its target and a digest, never its arguments
 
@@ -1504,6 +1480,63 @@ the session that would have implemented it.
 ## 8. Closed, with the evidence that closed them
 
 Kept rather than deleted, so the next audit knows what was checked.
+
+### Closed 2026-11-12
+
+- ~~**G3.16: in stack-k8s, a plane could write or replace another plane's stream on the bus.**~~
+  `@measured TAIPANBOX/stack-k8s evidence/bus-per-producer-longhorn/run.sh 2026-11-12` on k3s
+  v1.36.2+k3s1 and Longhorn v1.7.2, the launcher's pins, in a guest on forge: the root of a Longhorn
+  RWX volume is `root:root 0777` and kubelet gives it no `fsGroup` (`fsGroupPolicy:
+  ReadWriteOnceWithFSType`), so the entry's reading was short of the truth. In the shape at
+  `34f669e` a pod as costcrew appended a forged `policy_allow` to `wardryx.ndjson`, and a pod as typryx
+  renamed the gateway's stream away, wrote its own under the name and removed the original: whatever
+  the uid, not only between two planes of one uid. `@decided 2026-11-11`: the separation stack-single
+  holds with a root init holds in stack-k8s too, under Pod Security `restricted`, and a running
+  cluster's streams may be made again for it. TAIPANBOX/stack-k8s#239 (merged `31410ef`, its
+  invariant 89): the Job `bus-owner`, uid 20000, which no plane runs as, is the only pod that mounts
+  the claim's root read-write and makes `streams/` `20000:10001 2750` and each stream
+  `20000:<producer gid> 0664`; every plane runs under a uid and a group of its own, stack-single's
+  numbers where it has one, mounts `streams/` by subPath and waits for the owner's marker, because
+  kubelet makes a missing subPath itself as `root 0777`. On the same stand each producer appended to
+  its own stream, and another producer's append, truncate, create, rename, remove, link and chmod were
+  refused; wardryx v2.6.1 (agent-stack-go v2.0.2) and tokenfuse v1.24.0 opened a stream they do not own;
+  NFS with AUTH_SYS honoured sixteen groups and the owner needs twelve. A review of the first version found the owner itself following a link a producer could plant in the archive or in `conform/` (measured: it wrote into `typryx.ndjson`); the merged owner writes only in `streams/` and moves with `mv -T`, and the gate holds both. The whole stack from the branch
+  came up on Longhorn RWX with `verify.sh` 24 passed 0 failed and `security-tests.sh` 29 passed 0
+  failed, its check 11c refusing costcrew's identity on `wardryx.ndjson`. It is a breaking change for
+  a running cluster, and stack-k8s's README says how to move one (the owner copies an old stream in
+  once). The section of that name in PROVEN.md carries the runs.
+  **Re-check:** `./scripts/bus-writers-are-separate.sh` in stack-k8s, and `security-tests.sh` 11c on a
+  live cluster.
+
+  The entry as it stood:
+
+  > **G3.16 In stack-k8s, planes that share a uid can write each other's stream**
+  >
+  > @measured 2026-11-11, stack-k8s `be8e23f`, by reading every pod that mounts the `stack-events` claim
+  > (`grep -n 'claimName: stack-events' manifests/*.yaml`, then each pod's `securityContext` and its
+  > mount of `/var/lib/stack/events`): wardryx, typryx, costcrew, costcrew-crew and vouchryx mount it
+  > read-write as uid 65532, and the gateway, the control plane and the console as uid 10001. Each stream
+  > is made 0640 by its writer's own uid (stack-k8s invariant 59). That keeps another uid out and does
+  > nothing between two planes of one uid: a costcrew pod can append to `wardryx.ndjson`, the decision
+  > journal, or truncate it. Where the storage honours `fsGroup` the directory also carries the group
+  > write bit, so a member of group 10001 can rename a stream away and put its own in its place.
+  >
+  > stack-single closes both halves: a root init service owns the bus directory, mode 0751, and every
+  > producer has a uid of its own (its invariant 41). Pod Security `restricted` forbids that root init
+  > here, and this repository's README says the default planes do not yet write under per-producer
+  > identities.
+  >
+  > `@claude` 2026-11-11, a design that fits `restricted`, not built and not run: one uid per producer,
+  > numbered as stack-single numbers them; the streams in a subdirectory made once by an owner uid no
+  > plane runs as, mode 2750; each file owned by that uid, in the producer's own group, mode 0664. A
+  > producer then appends through its group, a reader reads inside a directory only the bus group can
+  > enter, and nobody but the owner can create, rename or remove a name there. Every plane's uid
+  > changes, so the streams of an existing cluster have to be made again or re-owned, and that
+  > migration is a decision of its own.
+  >
+  > **Closes when:** no two planes that can write the bus share a uid, and a plane cannot create, rename
+  > or remove a name in the bus directory, measured on a cluster with the launcher's own storage class.
+  > **Re-check:** the grep above; `evidence/keyryx-kind/run.sh`, step 3, for the two-uid half.
 
 ### Closed 2026-11-11
 
