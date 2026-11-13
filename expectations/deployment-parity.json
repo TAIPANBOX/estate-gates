@@ -226,6 +226,16 @@
           "provenance": "@claude 2026-11-08",
           "why": "A MANUAL JOB that is a compose SERVICE, which is why it shows up in this family: mockryx's broker fire drills against this box's own MCP broker, with the drills' key at the broker (`drills-broker`), behind the `manual` profile no install passes, started by a person with `docker compose run --rm mockryx-drill`. The compose shape of stack-k8s's suspended `drills` and `drills-broker` CronJobs and of stack-up's opt-in drill. Recorded as `extra` for the reason idryx-detect is: a service and a routine are compared against different things."
         },
+        "services:stack-single:extra:guest-door": {
+          "recorded": "2026-11-13",
+          "provenance": "@claude 2026-11-13",
+          "why": "The proxy a container of ANOTHER PROJECT on the box (a lab's gateway, an IdP bridge) reaches the stack through, stack-single invariant 77: the only thing of the stack on the guests network, answering there to vouchryx, the gateway and the MCP broker by name and forwarding an agent's routes to each, with no key. It exists because a Docker container answers a name from every network it is on, so a door beside such a container could be handed a call meant for the stack. stack-k8s draws the same boundary with NetworkPolicies, and stack-up has no foreign containers to draw it against."
+        },
+        "services:stack-single:extra:guest-callback": {
+          "recorded": "2026-11-13",
+          "provenance": "@claude 2026-11-13",
+          "why": "guest-door's other direction, stack-single invariant 77: a service of the stack calling a container of another project back (the broker calling a lab's relay) dials it on core, and it forwards to the container guest-callbacks.txt names, for callers on core only. No key. Same reason for being stack-single's alone as guest-door."
+        },
         "services:stack-single:extra:verdryx-slo": {
           "recorded": "2026-11-07",
           "provenance": "@claude 2026-11-07",
@@ -325,6 +335,16 @@
           "recorded": "2026-08-28",
           "provenance": "@claude",
           "why": "A DECISION and not a gap: Caddy, upstream. TLS termination in front of the console; see `services:stack-single:extra:caddy`. The check asks the coverage question in both directions, and upstream software installed beside our own is the honest exception to the second one. It is recorded rather than filtered out in code, because 'this one does not count' is a judgement and judgements belong in this file where somebody can disagree with them."
+        },
+        "coverage:guest-door:claimed-by-no-repository": {
+          "recorded": "2026-11-13",
+          "provenance": "@claude 2026-11-13",
+          "why": "A DECISION and not a gap: Caddy, upstream, the image stack-single's caddy runs, with a configuration of stack-single's own (`guest-door/Caddyfile`); see `services:stack-single:extra:guest-door`. The check asks the coverage question in both directions, and upstream software installed beside our own is the honest exception to the second one. It is recorded rather than filtered out in code, because 'this one does not count' is a judgement and judgements belong in this file where somebody can disagree with them."
+        },
+        "coverage:guest-callback:claimed-by-no-repository": {
+          "recorded": "2026-11-13",
+          "provenance": "@claude 2026-11-13",
+          "why": "A DECISION and not a gap: Caddy, upstream, the image stack-single's caddy runs, with routes stack-single's installer writes from guest-callbacks.txt; see `services:stack-single:extra:guest-callback`. The check asks the coverage question in both directions, and upstream software installed beside our own is the honest exception to the second one. It is recorded rather than filtered out in code, because 'this one does not count' is a judgement and judgements belong in this file where somebody can disagree with them."
         },
         "coverage:init-volumes:claimed-by-no-repository": {
           "recorded": "2026-08-28",

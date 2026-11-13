@@ -331,6 +331,13 @@ SERVICE_KIND = {
     "console": "console",
     "wg": "wg",
     "caddy": "caddy",
+    # stack-single, added 2026-11-13: the two proxies a container of another project on the box
+    # reaches the stack through (stack-single invariant 77). guest-door forwards a guest's call
+    # to vouchryx, the gateway or the broker on an agent's routes; guest-callback forwards a call
+    # back from core to a guest. No key in either. Each its own kind: a Docker network boundary
+    # stack-k8s draws with NetworkPolicies and stack-up does not draw at all.
+    "guest-door": "guest-door",
+    "guest-callback": "guest-callback",
     "init-volumes": "init-volumes",
     # stack-k8s (Deployment / StatefulSet metadata.name)
     "genaryx-console": "console",
