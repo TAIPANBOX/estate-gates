@@ -336,6 +336,16 @@
           "provenance": "@claude",
           "why": "A DECISION and not a gap: Caddy, upstream. TLS termination in front of the console; see `services:stack-single:extra:caddy`. The check asks the coverage question in both directions, and upstream software installed beside our own is the honest exception to the second one. It is recorded rather than filtered out in code, because 'this one does not count' is a judgement and judgements belong in this file where somebody can disagree with them."
         },
+        "coverage:guest-door:claimed-by-no-repository": {
+          "recorded": "2026-11-13",
+          "provenance": "@claude 2026-11-13",
+          "why": "A DECISION and not a gap: Caddy, upstream, the image stack-single's caddy runs, with a configuration of stack-single's own (`guest-door/Caddyfile`); see `services:stack-single:extra:guest-door`. The check asks the coverage question in both directions, and upstream software installed beside our own is the honest exception to the second one. It is recorded rather than filtered out in code, because 'this one does not count' is a judgement and judgements belong in this file where somebody can disagree with them."
+        },
+        "coverage:guest-callback:claimed-by-no-repository": {
+          "recorded": "2026-11-13",
+          "provenance": "@claude 2026-11-13",
+          "why": "A DECISION and not a gap: Caddy, upstream, the image stack-single's caddy runs, with routes stack-single's installer writes from guest-callbacks.txt; see `services:stack-single:extra:guest-callback`. The check asks the coverage question in both directions, and upstream software installed beside our own is the honest exception to the second one. It is recorded rather than filtered out in code, because 'this one does not count' is a judgement and judgements belong in this file where somebody can disagree with them."
+        },
         "coverage:init-volumes:claimed-by-no-repository": {
           "recorded": "2026-08-28",
           "provenance": "@claude",
