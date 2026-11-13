@@ -258,6 +258,21 @@ def golden_openai_new() -> list[str]:
     expect("OpenAI gpt-5.6-cyber states no long price ('-')", _offer(o, "gpt-5.6-cyber", above=272000), None)
     expect("OpenAI gpt-6-astra's long price, which the page now computes in script", _offer(o, "gpt-6-astra", above=272000), None)
     expect("OpenAI model count: 37 flagship rows and two cyber-only rows", len(o.models), 39)
+
+    # A model the page is retiring (first seen 2026-11-13: gpt-4.1, gpt-4o, gpt-5 and others) carries
+    # {'label': name, 'deprecated': true} where its name was, in every table it is in. It is still a row
+    # with prices a caller is charged, so it reads as the plain name did; a head with no label is skipped.
+    plain = '[0,&quot;gpt-4.1-mini&quot;]'
+    if openai.count(plain) < 1:
+        problems.append("the saved page has no gpt-4.1-mini row head to mark deprecated, so the case tests nothing")
+    else:
+        dep = P.parse_openai(openai.replace(plain, '[0,{&quot;label&quot;:[0,&quot;gpt-4.1-mini&quot;],&quot;deprecated&quot;:[0,true]}]'))
+        expect("OpenAI gpt-4.1-mini marked deprecated reads at the price it had", _offer(dep, "gpt-4.1-mini"), _offer(o, "gpt-4.1-mini"))
+        expect("OpenAI gpt-4.1-mini marked deprecated has a price at all", _offer(dep, "gpt-4.1-mini") is not None, True)
+        expect("OpenAI model count with one row marked deprecated", len(dep.models), len(o.models))
+        nolabel = P.parse_openai(openai.replace(plain, '[0,{&quot;deprecated&quot;:[0,true]}]'))
+        expect("OpenAI a deprecated head with no label is not read as a model", "gpt-4.1-mini" in nolabel.models, False)
+        expect("OpenAI a deprecated head with no label is named as skipped", any("shape this check does not read" in n for n in nolabel.notes), True)
     expect("OpenAI tiers marked incomplete", o.tiers_complete, False)
 
     def two_tables(label, page, want_problem, absent=(), present=()):

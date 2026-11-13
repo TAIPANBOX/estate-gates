@@ -859,10 +859,16 @@ class _OpenAITable:
         if not isinstance(rows, list) or not rows:
             raise E.Missing(f"OpenAI's {self.label} carries no rows")
         for row in rows:
-            if not isinstance(row, list) or not row or not isinstance(row[0], str):
+            head = row[0] if isinstance(row, list) and row else None
+            # A model the page is retiring carries {'label': name, 'deprecated': True} in place of its
+            # name (first seen 2026-11-13: gpt-4.1, gpt-4o, gpt-5 and others), and it is still a row
+            # with prices a caller is charged. Read by its label; anything else in that place is skipped.
+            if isinstance(head, dict) and isinstance(head.get("label"), str):
+                head = head["label"]
+            if not isinstance(row, list) or not row or not isinstance(head, str):
                 self.skipped.append(repr(row)[:60])
                 continue
-            raw = row[0]
+            raw = head
             name = re.sub(r"\s*\(.*\)\s*$", "", raw).strip()
             tm = re.search(r"\((.*)\)", raw)
             tier = tm.group(1).strip() if tm else ""
