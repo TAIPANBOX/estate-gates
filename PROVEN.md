@@ -812,6 +812,15 @@ homelab's `preview-run/run.sh` (`75f5d90`) on forge, stack-single 1.10.0 (`c376e
 | A held call's arguments are sealed, and the backup holds only ciphertext | 2026-11-14, 00:09 to 00:11 | forge, `preview-run.sh start` then `check`; holds `ap_4d5880ec...` (A), `ap_b71906ac...` (B), `ap_d30c3de5...` (C) | those runs' output | 11 PASS. `GET /v1/approvals/{id}/preview` for A and C: sealed, suite `kem=0x647a,kdf=0x0001,aead=0x0003`, 3712 base64 chars, `Cache-Control: no-store`, no argument in the clear. One ciphertext row each in `approval_previews`; `approval_requested` on the bus records `sealed` and the same `pvd`. B: state `truncated`, no row. The canary is in none of the 45120-byte `pg_dumpall` (the command forge-backup runs) and none of the 23 places searched (every `agent-stack_*` volume and `/opt/agent-stack`); the dump carries A and C only as ciphertext rows. |
 | The run closed without decisions | 2026-11-14, about 01:25 | forge, `preview-run.sh cleanup`, then `cd /opt/agent-stack && sudo ./install.sh status` | those runs' output | `lab-preview-run` removed and the run's state in `/run` gone; `cleanup` FAILs its one check, holds A, B and C still waiting: forge refuses a decision without a passkey statement (`WARDRYX_APPROVER_JWKS` set, key approvals off). Their ciphertext rows expire 2026-11-15 00:09. `status`: 79 ok, 0 FAIL. The console's decisions (A seen, B and C unseen, the row deleted at the decision, `GET .../preview` 410) are the next run's. |
 
+## AI sessions on forge hold no root, 2026-11-14, proven
+
+The fix for the first finding of the 2026-11-11 review, on forge: AI sessions log in as their own account with no root, and root needs the owner's Touch ID on every connection. Record and scripts: homelab#48, `mgmt/forge-access/`. London times.
+
+| What | When | On what | Artifact | Scope |
+|---|---|---|---|---|
+| The sessions' account reads the stack's status and nothing more | 2026-11-14, about 02:10 | forge, `sudo -n /usr/local/sbin/ops-status` as the sessions' account, stack-single 1.10.0 | that run's output | 79 ok, "every check passed", exit 0. The same account: no sudo beyond the two read-only wrappers, no docker, the stack's `.env` unreadable, `/opt/agent-stack` not writable, tunnels refused. |
+| The old ways in are closed | 2026-11-14, about 02:20 to 02:25 | from the Mac, homelab's `mgmt/forge-access/checks.sh` | that run's output, in the homelab README | 5 PASS: the Mac's plain key refused as the operator, root over Tailscale with no key refused (it got in before the change), the operator over Tailscale with the plain key refused, the sessions' account as above, its tunnel refused. By hand: the operator account reached only with the Secure Enclave key after Touch ID; Tailscale SSH off. |
+
 ## stack-k8s's heraldyx drill beside heraldyx, 2026-11-12, proven
 
 GAPS G3.20, closed in stack-k8s (#241, merged `16cf0af`): the whole reaction chain runs in a drill of its own on heraldyx's node, reading heraldyx's journal read only, and the gateway drills run a copy that stops at wardryx's record. London times.
