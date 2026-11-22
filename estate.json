@@ -320,6 +320,12 @@
       "local": "architecture",
       "role": "the architecture record. Read by C18; declares nothing and runs nothing.",
       "runs": []
+    },
+    "netryx": {
+      "github": "TAIPANBOX/netryx",
+      "local": "netryx",
+      "role": "the home network console on the OpenWrt router: traffic by device, app and country, rules and time limits, quarantine for new devices, alerts. Public since 2026-11-22; runs on the router, in none of the three stacks.",
+      "runs": []
     }
   }
 }
