@@ -5,11 +5,15 @@
     "C18 reports it as stale. Subjects are estate.json; this file only says",
     "which of them are still pending and since when.",
     "",
-    "Empty today: every registry entry already has a services/<name>.md file",
-    "in TAIPANBOX/architecture as of 2026-09-09, so there is nothing to record",
-    "as pending. Add an entry here only for a repository whose file has not",
-    "been written, with the date and a reason; do not add one to excuse a file",
-    "that exists."
+    "Every registry entry had a services/<name>.md file in TAIPANBOX/architecture",
+    "as of 2026-09-09; netryx, added on 2026-11-22, is pending. Add an entry here",
+    "only for a repository whose file has not been written, with the date and a",
+    "reason; do not add one to excuse a file that exists."
   ],
-  "pending": {}
+  "pending": {
+    "netryx": {
+      "recorded": "2026-11-22",
+      "why": "added to estate.json the day it went public; the netryx dossier is not written yet. Its invariants and the test or gate holding each are in netryx's own CLAUDE.md meanwhile."
+    }
+  }
 }
