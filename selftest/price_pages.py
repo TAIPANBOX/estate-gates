@@ -46,6 +46,10 @@ PAGES = HERE / "pages" / "2026-10-13"
 #: OpenAI split its text-token prices into a flagship table and a cyber group,
 #: both marked tier "standard", with the rendered columns in a new order.
 PAGES_NEW = HERE / "pages" / "2026-10-28"
+#: Vertex AI's page on 2026-11-23, whose Gemini 4 tables head three price columns,
+#: "Price", "Price * Cache read" and "Price Cache write" (the last dated "***",
+#: effective 2027-01-12). Until that day all three were read as the price.
+PAGES_NOV = HERE / "pages" / "2026-11-23"
 SEEDS = 60
 #: one parse of a trimmed page takes milliseconds; a hostile one taking this
 #: long is a reader that has stopped being linear.
@@ -131,6 +135,24 @@ def golden() -> list[str]:
            {"input": 4.0, "cache_read": 0.2, "output": 20.0})
     expect("Vertex Gemini 3.8 Flash has no tier: its > 200K column repeats the base price",
            [x.above for x in g.models["gemini-3.8-flash"] if x.above is not None], [])
+    g4 = P.parse_vertex(_read("vertex.html", PAGES_NOV))
+    today = datetime.date(2026, 11, 23)
+    expect("Vertex Gemini 4 Neon, global: the price column, not the dated cache-write column",
+           _offer(g4, "gemini-4-neon", "global", "", today), {"input": 3.0, "cache_read": 0.15, "output": 15.0})
+    expect("Vertex Gemini 4 Neon, non-global", _offer(g4, "gemini-4-neon", "regional", "", today),
+           {"input": 3.3, "cache_read": 0.165, "output": 16.5})
+    expect("Vertex Gemini 4 Neon Cyber, global", _offer(g4, "gemini-4-neon-cyber", "global", "", today),
+           {"input": 3.0, "cache_read": 0.15, "output": 15.0})
+    expect("Vertex Gemini 4 Hydrogen, global", _offer(g4, "gemini-4-hydrogen", "global", "", today),
+           {"input": 1.5, "cache_read": 0.075, "output": 7.5})
+    expect("Vertex Gemini 4 Carbon, global, promotional: the price column, not the cache-read column",
+           _offer(g4, "gemini-4-carbon", "global", "", today), {"input": 2.0, "cache_read": 0.1, "output": 10.0})
+    expect("Vertex Gemini 4 Carbon, global, from 2026-12-01",
+           _offer(g4, "gemini-4-carbon", "global", "", datetime.date(2026, 12, 1)),
+           {"input": 4.0, "cache_read": 0.2, "output": 20.0})
+    dated = sorted({m for m, offers in g4.models.items() for x in offers if "cache_write" in x.prices
+                    or x.prices.get("input") in (3.75, 4.125, 1.875, 2.0625)})
+    expect("Vertex: the dated cache-write column is never read as a price", dated, [])
     priority = [m for m, offers in g.models.items() for x in offers if x.prices.get("input") in (3.6, 2.7, 2.25)]
     expect("Vertex prices read off a Priority tab", priority, [])
     expect("Vertex marks current models", g.current, None)
@@ -361,6 +383,7 @@ READERS = [
     ("parse_anthropic", P.parse_anthropic, "anthropic.html", PAGES),
     ("parse_openai", P.parse_openai, "openai.html", PAGES),
     ("parse_vertex", P.parse_vertex, "vertex.html", PAGES),
+    ("parse_vertex", P.parse_vertex, "vertex.html", PAGES_NOV),
     ("parse_openrouter_providers", P.parse_openrouter_providers, "openrouter-endpoints-deepseek_deepseek-chat.json", PAGES),
     ("parse_openrouter_endpoints", P.parse_openrouter_endpoints, "openrouter-endpoints-openai_gpt-5.6-sol.json", PAGES),
     ("parse_anthropic", P.parse_anthropic, "anthropic.html", PAGES_NEW),

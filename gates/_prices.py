@@ -1201,6 +1201,16 @@ def parse_vertex(page: str, url: str = VERTEX_URL) -> Vendor:
         for i, h in enumerate(header):
             if i in cols.values() or "price" not in h:
                 continue
+            # Columns are read by what their heading names, never by position.
+            # The Gemini 4 tables head three columns "Price", "Price * Cache
+            # read" and "Price Cache write"; until 2026-11-23 all three were
+            # read as the price, so the last one present won: the cache-write
+            # column for Neon and Hydrogen (dated "***", effective 2027-01-12)
+            # and the cache-read column for Carbon and Argon. A cache write is
+            # not a component this check compares, and that column's price is
+            # dated, so it is never read as a current price.
+            if "cache write" in h:
+                continue
             over = re.search(r">\s*([0-9]+)\s*k\b", h)
             upto = re.search(r"<=\s*([0-9]+)\s*k\b", h)
             if over:
@@ -1209,7 +1219,8 @@ def parse_vertex(page: str, url: str = VERTEX_URL) -> Vendor:
                 tier = (f"up to {upto.group(1)}K input tokens", None)
             else:
                 tier = ("", None)
-            price_cols.append((i, "cached" if "cached" in h else "price", tier))
+            cached = "cached" in h or "cache read" in h
+            price_cols.append((i, "cached" if cached else "price", tier))
         if not any(kind == "price" for _, kind, _ in price_cols):
             continue
         used += 1
