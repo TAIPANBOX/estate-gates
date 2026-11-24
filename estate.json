@@ -270,11 +270,11 @@
     "stack-up": {
       "github": "TAIPANBOX/stack-up",
       "local": "stack-up",
-      "role": "deployment one: compose plus a governance routines timer.",
+      "role": "deployment one: one machine, every plane built from source and run as a local process, plus a governance routines timer.",
       "runs": [],
       "vuln_scan": {
         "manifests": "none",
-        "why": "a launcher: shell scripts and docs. It installs published images and builds nothing."
+        "why": "a launcher: shell scripts and docs, with no language manifest of its own. It builds every plane from source at the release tag and commit its pin table names (up.sh pin_of) and runs no containers, so each plane's dependencies are the ones scanned in that plane's own repository at that tag."
       }
     },
     "stack-single": {
