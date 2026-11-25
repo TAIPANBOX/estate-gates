@@ -2362,6 +2362,24 @@ MUTATIONS: dict[str, list[tuple[str, callable]]] = {
             ),
         ),
         (
+            "keyryx's custody stops announcing a revocation its 6.2 row lists",
+            lambda r: edit(
+                r,
+                "keyryx/internal/api/api.go",
+                '\t_ = announce.Revoked("k", "a", "ES256")\n',
+                "",
+            ),
+        ),
+        (
+            "keyryx's custody constructs its rotation under another type",
+            lambda r: edit(
+                r,
+                "keyryx/internal/announce/announce.go",
+                "return Announcement{Type: KeyRotated,",
+                "return Announcement{Type: KeyRevoked,",
+            ),
+        ),
+        (
             "keyryx's witness stops raising a finding its 6.2 row lists",
             lambda r: edit(
                 r,
