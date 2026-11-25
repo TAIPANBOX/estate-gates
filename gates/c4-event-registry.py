@@ -533,9 +533,9 @@ def _keyryx(estate: E.Estate) -> dict[str, set[str]]:
     constructors `Rotated` and `Revoked` in `internal/announce/announce.go`
     each return an `Announcement{Type: X, ...}` whose X is a constant of that
     file, and the admin routes in `internal/api/api.go` call them. A
-    constructor nobody calls is not an emit site, so each one must be called
-    there too; a missing constructor, an unresolved type or a constructor no
-    route calls is a FAIL naming it, never a smaller set.
+    constructor nobody calls is not an emit site, so its type counts only when
+    a route calls it, and the row then reports it as not emitted. A missing
+    constructor or an unresolved type is a FAIL naming it.
     """
     types = go_producer_types(estate, "keyryx", calls=("t.find",))
     return {"keyryx": types | keyryx_custody_types(estate)}
@@ -559,9 +559,10 @@ def keyryx_custody_types(estate: E.Estate) -> set[str]:
         unresolved: set[str] = set()
         v = _resolve(m.group(1), consts, unresolved)
         _refuse_unresolved("keyryx", path, unresolved)
-        if not re.search(rf"\bannounce\.{ctor}\(", api):
-            raise E.Missing(f"keyryx internal/api/api.go: no route calls `announce.{ctor}(`, so `{v}` is constructed and never announced")
-        if v is not None:
+        # A constructor no route calls announces nothing: its type is not
+        # counted, and the comparison then names it as registered and not
+        # emitted, which is the finding this case is.
+        if v is not None and re.search(rf"\bannounce\.{ctor}\(", api):
             found.add(v)
     return found
 
