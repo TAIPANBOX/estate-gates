@@ -526,12 +526,45 @@ def _wardryx(estate: E.Estate) -> dict[str, set[str]]:
 
 
 def _keyryx(estate: E.Estate) -> dict[str, set[str]]:
-    """The witness writes each finding through `t.find(`, from every non-test Go file.
+    """Two writers under one source: the witness and custody.
 
-    Only the witness is a producer at origin/main: the custody side writes no
-    event, and 6.2 declares its `key_*` types ahead of it.
+    The witness writes each finding through `t.find(`, from every non-test Go
+    file. Custody (keyryx#35) announces a key change through its outbox: the
+    constructors `Rotated` and `Revoked` in `internal/announce/announce.go`
+    each return an `Announcement{Type: X, ...}` whose X is a constant of that
+    file, and the admin routes in `internal/api/api.go` call them. A
+    constructor nobody calls is not an emit site, so its type counts only when
+    a route calls it, and the row then reports it as not emitted. A missing
+    constructor or an unresolved type is a FAIL naming it.
     """
-    return {"keyryx": go_producer_types(estate, "keyryx", calls=("t.find",))}
+    types = go_producer_types(estate, "keyryx", calls=("t.find",))
+    return {"keyryx": types | keyryx_custody_types(estate)}
+
+
+def keyryx_custody_types(estate: E.Estate) -> set[str]:
+    """The types keyryx custody announces, read from its constructors and callers."""
+    path = "internal/announce/announce.go"
+    text = estate.read_text("keyryx", path)
+    api = estate.read_text("keyryx", "internal/api/api.go")
+    consts = go_consts(text)
+    found: set[str] = set()
+    for ctor in ("Rotated", "Revoked"):
+        m = re.search(
+            rf"^func {ctor}\([^)]*\)\s*Announcement\s*\{{\s*return\s+Announcement\{{Type:\s*(\"[a-z0-9_]+\"|\w+)",
+            text,
+            re.M,
+        )
+        if not m:
+            raise E.Missing(f"keyryx {path}: no `func {ctor}(...) Announcement` returning `Announcement{{Type: ...}}`")
+        unresolved: set[str] = set()
+        v = _resolve(m.group(1), consts, unresolved)
+        _refuse_unresolved("keyryx", path, unresolved)
+        # A constructor no route calls announces nothing: its type is not
+        # counted, and the comparison then names it as registered and not
+        # emitted, which is the finding this case is.
+        if v is not None and re.search(rf"\bannounce\.{ctor}\(", api):
+            found.add(v)
+    return found
 
 
 

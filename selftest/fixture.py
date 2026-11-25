@@ -260,7 +260,7 @@ depth is 32 entries.
 | `scopyx` | `web_fetch` . `web_blocked` |
 | `typryx` | `typed_answer` |
 | `agent-conform` | `chain_broken` . `chain_unchained` . `chain_restarted` |
-| `keyryx` | `witness_stream_rewritten` . `witness_stream_truncated` . `witness_chain_restarted` . `witness_checkpoint_invalid` . `witness_checkpoint_unsigned` . `witness_root_missing` . `witness_root_equivocated` |
+| `keyryx` | `witness_stream_rewritten` . `witness_stream_truncated` . `witness_chain_restarted` . `witness_checkpoint_invalid` . `witness_checkpoint_unsigned` . `witness_root_missing` . `witness_root_equivocated` . `key_rotated` . `key_revoked` |
 | `costcrew` | `anomaly_triaged` |
 
 A row here is a CLAIM that the source writes those types into this envelope
@@ -797,6 +797,35 @@ func (t *tick) observe() {
 	t.find(RootEquivocated, false, nil)
 	w, _ := event.NewChainedWriter("keyryx.ndjson")
 	_ = w
+}
+"""
+
+KEYRYX_ANNOUNCE_GO = """package announce
+
+// Custody's announcements of a key change (fixture).
+
+const (
+	KeyRotated = "key_rotated"
+	KeyRevoked = "key_revoked"
+)
+
+func Rotated(name, kid, previous, alg string) Announcement {
+	return Announcement{Type: KeyRotated, Data: map[string]string{"name": name}}
+}
+
+func Revoked(name, kid, alg string) Announcement {
+	return Announcement{Type: KeyRevoked, Data: map[string]string{"name": name}}
+}
+"""
+
+KEYRYX_API_GO = """package api
+
+func (s *Server) rotate() {
+	_ = announce.Rotated("k", "b", "a", "ES256")
+}
+
+func (s *Server) revoke() {
+	_ = announce.Revoked("k", "a", "ES256")
 }
 """
 
@@ -1689,7 +1718,7 @@ TRAILRYX_AGENTEVENT = """//! The estate's shared agent-event envelope, mapped in
 //!
 //! Refused today, each because the record vocabulary has no honest home for it
 //! rather than because nobody got to it: `crypto_finding`, `eval_run`,
-//! `sim_run`, `console_command`, `anomaly_triaged`, `typed_answer`, `chain_broken`, `chain_unchained`, `chain_restarted`, `witness_stream_rewritten`, `witness_stream_truncated`, `witness_chain_restarted`, `witness_checkpoint_invalid`, `witness_checkpoint_unsigned`, `witness_root_missing` and `witness_root_equivocated`. Each is a finding or an observation about
+//! `sim_run`, `console_command`, `anomaly_triaged`, `typed_answer`, `chain_broken`, `chain_unchained`, `chain_restarted`, `witness_stream_rewritten`, `witness_stream_truncated`, `witness_chain_restarted`, `witness_checkpoint_invalid`, `witness_checkpoint_unsigned`, `witness_root_missing`, `witness_root_equivocated`, `key_rotated` and `key_revoked`. Each is a finding or an observation about
 //! infrastructure rather than a decision an agent took.
 //!
 //! # The two that got types of their own, and what that cost
@@ -2179,6 +2208,8 @@ func TestWireTypesIsExactlyWhatTheCallSitesProduce(t *testing.T) {}
     "keyryx": {
         "README.md": "# keyryx (fixture)\n",
         "internal/witness/witness.go": KEYRYX_WITNESS_GO,
+        "internal/announce/announce.go": KEYRYX_ANNOUNCE_GO,
+        "internal/api/api.go": KEYRYX_API_GO,
     },
     "bank-in-a-box": {"README.md": "# bank-in-a-box\n"},
 }
