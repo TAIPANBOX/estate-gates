@@ -60,6 +60,7 @@ import re
 import subprocess
 import sys
 import urllib.error
+import urllib.parse
 import urllib.request
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
@@ -88,8 +89,28 @@ def gh_json(path: str, jq: str | None = None) -> object | None:
         return out
 
 
+VERSION_TAG = re.compile(r"^v?(\d+)\.(\d+)\.(\d+)$")
+PLACEHOLDER = re.compile(r"replace|placeholder|example|<|>|your-", re.I)
+
+
+def highest_version(tags: list[str]) -> str | None:
+    """The highest semver tag, or None. A registry lists tags in its own order,
+    and the last entry of a page is not the latest release."""
+    vers = [(tuple(int(x) for x in m.groups()), t) for t in tags if (m := VERSION_TAG.match(t))]
+    return max(vers)[1] if vers else None
+
+
+def is_placeholder(tag: str) -> bool:
+    """A template's stand-in tag (replace-with-a-pinned-tag) pins nothing."""
+    return bool(PLACEHOLDER.search(tag))
+
+
 def ghcr_public(image: str) -> tuple[bool, str]:
-    """Anonymous pull check: exactly what a stranger's docker gets, no login."""
+    """Anonymous pull check: exactly what a stranger's docker gets, no login.
+
+    The registry pages its tag list (100 per page, a Link header to the next),
+    so every page is read; until 2026-11-27 only the first was, and the last
+    entry of it was reported as the latest."""
     tok_url = (
         f"https://ghcr.io/token?scope=repository:{GHCR_OWNER}/{image}:pull"
         f"&service=ghcr.io"
@@ -99,18 +120,44 @@ def ghcr_public(image: str) -> tuple[bool, str]:
             token = json.load(r).get("token", "")
     except Exception as exc:  # noqa: BLE001
         return False, f"token error: {type(exc).__name__}"
-    req = urllib.request.Request(
-        f"https://ghcr.io/v2/{GHCR_OWNER}/{image}/tags/list",
-        headers={"Authorization": f"Bearer {token}"},
-    )
+    url = f"https://ghcr.io/v2/{GHCR_OWNER}/{image}/tags/list?n=100"
+    tags: list[str] = []
     try:
-        with urllib.request.urlopen(req, timeout=20) as r:
-            tags = json.load(r).get("tags") or []
-        return True, f"{len(tags)} tag(s), latest {tags[-1] if tags else 'none'}"
+        for _ in range(50):
+            req = urllib.request.Request(url, headers={"Authorization": f"Bearer {token}"})
+            with urllib.request.urlopen(req, timeout=20) as r:
+                tags += json.load(r).get("tags") or []
+                link = r.headers.get("Link", "")
+            m = re.search(r"<([^>]+)>;\s*rel=\"?next", link)
+            if not m:
+                break
+            url = urllib.parse.urljoin("https://ghcr.io", m.group(1))
+        latest = highest_version(tags)
+        return True, f"{len(tags)} tag(s), latest version {latest or 'none (no vX.Y.Z tag)'}"
     except urllib.error.HTTPError as exc:
         return False, f"HTTP {exc.code}"
     except Exception as exc:  # noqa: BLE001
         return False, type(exc).__name__
+
+
+def scan_pinned(local: pathlib.Path, repo: str) -> dict[str, list[str]]:
+    """Images one checkout pins. Dot directories are skipped (a stray worktree
+    under .claude/ is not the repository), and so is a placeholder tag."""
+    found: dict[str, list[str]] = {}
+    for path in list(local.rglob("*.yaml")) + list(local.rglob("*.yml")):
+        if any(p.startswith(".") for p in path.relative_to(local).parts):
+            continue
+        try:
+            text = path.read_text(errors="ignore")
+        except OSError:
+            continue
+        for m in re.finditer(
+            rf"ghcr\.io/{GHCR_OWNER}/([a-z0-9._-]+):([A-Za-z0-9._-]+)", text
+        ):
+            if is_placeholder(m.group(2)):
+                continue
+            found.setdefault(m.group(1), []).append(f"{repo}:{path.name}")
+    return found
 
 
 def pinned_images(estate: dict) -> dict[str, list[str]]:
@@ -121,17 +168,8 @@ def pinned_images(estate: dict) -> dict[str, list[str]]:
         local = ROOT.parent / (entry.get("local") or repo)
         if not local.is_dir():
             continue
-        for path in list(local.rglob("*.yaml")) + list(local.rglob("*.yml")):
-            if ".git" in path.parts:
-                continue
-            try:
-                text = path.read_text(errors="ignore")
-            except OSError:
-                continue
-            for m in re.finditer(
-                rf"ghcr\.io/{GHCR_OWNER}/([a-z0-9._-]+):([A-Za-z0-9._-]+)", text
-            ):
-                found.setdefault(m.group(1), []).append(f"{repo}:{path.name}")
+        for image, where in scan_pinned(local, repo).items():
+            found.setdefault(image, []).extend(where)
     return found
 
 
