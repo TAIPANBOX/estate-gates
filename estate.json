@@ -326,6 +326,16 @@
       "local": "netryx",
       "role": "the home network console on the OpenWrt router: traffic by device, app and country, rules and time limits, quarantine for new devices, alerts. Public since 2026-11-22; runs on the router, in none of the three stacks.",
       "runs": []
+    },
+    "tokenfuse-mobile": {
+      "github": "TAIPANBOX/tokenfuse-mobile",
+      "local": "tokenfuse-mobile",
+      "role": "TokenFuse Pocket: the iPhone and Apple Watch app, the fleet's burn live and a kill signed by the Secure Enclave. In the stack, not wired into a running stack yet; it runs nothing the stack depends on.",
+      "runs": [],
+      "vuln_scan": {
+        "manifests": "none",
+        "why": "a SwiftUI app built from ios/project.yml with no third-party Swift packages: no Package.resolved, Podfile or remote package reference."
+      }
     }
   }
 }

@@ -186,10 +186,17 @@ def declared_bounds(text: str) -> list[tuple[str, object]]:
     def walk(node, path: str) -> None:
         if isinstance(node, dict):
             props = node.get("properties")
-            if isinstance(props, dict) and isinstance(props.get("on_behalf_of"), dict):
-                out.append(
-                    (f"{path}/properties/on_behalf_of", props["on_behalf_of"].get("maxItems"))
-                )
+            prop = props.get("on_behalf_of") if isinstance(props, dict) else None
+            # Only an ARRAY can carry maxItems. A record that keeps the raw
+            # X-Fuse-On-Behalf-Of header as one comma-separated string (the
+            # TokenFuse CallRecord does) is not a chain this schema could bound,
+            # and judging it found a fault that was not there (2026-11-27).
+            t = prop.get("type") if isinstance(prop, dict) else None
+            is_array = isinstance(prop, dict) and (
+                t == "array" or (isinstance(t, list) and "array" in t) or (t is None and "items" in prop)
+            )
+            if is_array:
+                out.append((f"{path}/properties/on_behalf_of", prop.get("maxItems")))
             for k, v in node.items():
                 walk(v, f"{path}/{k}")
         elif isinstance(node, list):

@@ -92,6 +92,12 @@ jobs:
       - name: Every check can go red
         run: ./selftest.py
 
+      # outside-view.py is the only answer about the estate from outside that
+      # may be quoted; its pure helpers are checked here (pagination of tags,
+      # placeholder tags, dot directories), red first on 2026-11-27.
+      - name: outside-view's helpers
+        run: python3 selftest/outside_view_test.py
+
       # Deliberately not a count. It said "six" while the suite ran eight,
       # which is the same stale-number failure this suite exists to find in
       # other repositories, sitting in its own CI label where every run

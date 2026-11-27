@@ -97,7 +97,9 @@ LITERAL = re.compile(
 )
 
 # Code files, whose string literals may carry Cyrillic.
-CODE = (".rs", ".ts", ".tsx", ".js", ".mjs", ".cjs", ".go", ".py")
+CODE = (".rs", ".ts", ".tsx", ".js", ".mjs", ".cjs", ".go", ".py", ".swift")
+# .swift since 2026-11-27, when the Swift app joined estate.json: a test
+# feeding a non-ASCII incident id to the path encoder was read as prose.
 # Lines that open as a comment, and so are prose whole.
 COMMENT_PREFIXES = {".py": ("#",)}
 DEFAULT_COMMENT = ("//", "*", "/*")
