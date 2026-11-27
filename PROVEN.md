@@ -847,6 +847,18 @@ GAPS G3.20, closed in stack-k8s (#241, merged `16cf0af`): the whole reaction cha
 | The gate against the shape before the change | 2026-11-12, 03:51 London | the build machine, `scripts/drills-can-start.sh` from the branch on the manifests of stack-k8s `0e80406` | TAIPANBOX/stack-k8s `evidence/drills-heraldyx/gate-red-on-0e80406.txt` | Exit 1, four problems in `drills`, which waits for heraldyx: it is not in heraldyx's group, watches no journal of heraldyx's, lives outside `45-heraldyx.yaml` and mounts no part of `heraldyx-state`. On the branch: OK, three drill CronJobs. |
 | Both scenario copies in the pinned mockryx | 2026-11-12, 03:51 London | forge, Docker 26.1.5, `ghcr.io/taipanbox/mockryx:v0.5.0@sha256:32e4e79c…`, `--network none`, no gateway | `evidence/drills-heraldyx/parse.sh`, `output-parse.txt` | The gateway drills' copy and the heraldyx copy, one step each, load and start with the watch list their CronJob sets; every step is a Finding because no gateway answers (exit 1). The heraldyx copy with no watch list is refused before a request (exit 2). |
 
+## stack-k8s on the current Ubuntu 26.04.1 image on AWS, 2026-11-27, proven
+
+The image the SSM parameter resolved that day, with no `ami_id` pin, after the installers learned the two kernel 7.0 host settings (stack-k8s invariant 98, GOTCHAS 169 and 170, PR #268). Earlier the same day the current image had broken the policy store and the bus owner (stack-k8s #267). London times (UTC).
+
+| What | When | On what | Artifact | Scope |
+|---|---|---|---|---|
+| The fix on every node, before k3s | 2026-11-27, about 07:16 | AWS eu-central-1a, 5 x c7i.2xlarge, `ami-0f4f39f350a940148` (Ubuntu 26.04.1, build 20261127), kernel `7.0.0-1018-aws`, k3s v1.36.2+k3s1 (containerd v2.3.2-k3s2), Longhorn v1.7.2; `cloud/aws/deploy-aws.sh` from branch `fix/aws-ubuntu-26041-apparmor-rwx` | TAIPANBOX/stack-k8s `cloud/aws/evidence/aws-run-2026-11-27-current-image/deploy.log`, `nodes-evidence.txt` | 5 of 5 nodes: containerd's profile as shipped denied the unprivileged probe signal, the profile with the stacked peer allowed it, `directory_delegations=N`. While the stack ran, 64 container processes were labelled `cri-containerd.apparmor.d//&unconfined` with 0 denials under the profile |
+| The workload on that image | 2026-11-27, 07:15:56 to 07:26:56 | the same cluster | `deploy.log`, `workload-evidence.txt` | deploy 11 min, images by digest; Postgres out of recovery (`pg_is_in_recovery` f); `bus-owner` succeeded on its first pod; `security-tests.sh` 28 passed, 0 failed; the deploy's own `verify.sh` 20 passed and 1 failed on a Terminating pod of the finished gateway rollout |
+| `verify.sh` and `verify.sh --freeze` | 2026-11-27, about 07:28 | the first server, `verify.sh` from the branch (waits for Terminating pods) | `verify.log`, `verify-freeze.log` | 21 passed, 0 failed, 1 noted; `--freeze` 21 passed, 0 failed, 2 noted |
+| The NLB | 2026-11-27, 07:29 to 07:33 | `cloud/aws/loadbalancer.sh`, Service annotated `aws-load-balancer-type: nlb` | `loadbalancer.log` | refused by the account: ELBv2 `CreateLoadBalancer` returns `OperationNotPermitted` (AWS Support only); nothing created, Service deleted |
+| Teardown | 2026-11-27, destroy complete 07:38:00 | `teardown.sh --yes`, then direct queries | `teardown.log` | 21 destroyed; eu-central-1: 0 instances, volumes, elastic IPs, ELBv2 and Classic load balancers, non-default VPCs, snapshots. The cluster lived 23 min 38 s at USD 2.1272/hour, about USD 0.84 |
+
 ## Nine services rebuilt on Go 1.27.4, 2026-11-12, proven
 
 | What | When | On what | Artifact | Scope |
