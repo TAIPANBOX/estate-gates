@@ -3352,6 +3352,24 @@ MUTATIONS: dict[str, list[tuple[str, callable]]] = {
             lambda r: drop(r, "stack-single/install.sh"),
         ),
     ],
+    # ---- C28
+    # The section a README kept to list what was not proven, planted into a
+    # public fixture repository's README. The fixture's lower-case protocol
+    # wording ("a chain that is not proven") is the non-fault and stays green.
+    "c28.gap-framing": [
+        (
+            "a public README grows a NOT PROVEN section",
+            lambda r: edit(r, "catalog/README.md", "# catalog\n", "# catalog\n\n## NOT PROVEN\n\n- a run on a real cluster\n"),
+        ),
+        (
+            "a public README says a run has not been run, in prose",
+            lambda r: edit(r, "catalog/README.md", "# catalog\n", "# catalog\n\nThe failover has not been run on a cluster.\n"),
+        ),
+    ],
+    "c28.no-subjects": [(
+        "no repository records a public GitHub remote",
+        lambda r: registry_no_public_remotes(r),
+    )],
     # ---- C18
     "c18.expectations-unreadable": [(
         "the pending list cannot be read, so nothing may be called pending",

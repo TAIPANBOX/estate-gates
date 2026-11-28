@@ -2206,7 +2206,8 @@ func TestWireTypesIsExactlyWhatTheCallSitesProduce(t *testing.T) {}
     },
     "catalog": {"README.md": "# catalog\n"},
     "keyryx": {
-        "README.md": "# keyryx (fixture)\n",
+        # C28's non-fault: protocol wording, lower case, is not the framing.
+        "README.md": "# keyryx (fixture)\n\nA delegation chain that is not proven is refused.\n",
         "internal/witness/witness.go": KEYRYX_WITNESS_GO,
         "internal/announce/announce.go": KEYRYX_ANNOUNCE_GO,
         "internal/api/api.go": KEYRYX_API_GO,
