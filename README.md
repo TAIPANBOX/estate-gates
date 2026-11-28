@@ -632,6 +632,16 @@ the file and invariant it names. Agreeing on no floor is red, and a file, a func
 marker that is gone reads as measured nothing. stack-up is not a subject: its block goes with
 `--typed-risk-signal`, and its own gate holds it.
 
+**C28, no public README frames the work as not proven** (`gates/c28-readmes-state-what-was-run.py`).
+Decided on 2026-11-27, paraphrased: what was built, modelled or run is stated as done. A README
+keeps a claim exactly as true as the run behind it, keeps a product limit as a fact (a Limits
+section), and reports a failed run as what happened; it keeps no section that lists what was not
+proven. Each public repository's README.md is read for a heading that names the framing, the
+section marker NOT PROVEN, and the phrases that only introduce a gap list ("not yet proven",
+"nobody has established", "stops short of", "has not been run"). Lower-case "not proven" in a
+sentence and `deny_if_chain_unproven` are protocol wording and pass. A repository with no README is
+noted; no public repository at all is measured nothing.
+
 ## Running it
 
 Locally, against the sibling checkouts in the parent directory:
